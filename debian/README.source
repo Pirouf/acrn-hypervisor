@@ -1,0 +1,9 @@
+acrn-hypervisor for Debian
+--------------------------
+
+Rebuild from source package can be controlled by the following environment
+variables:
+ * ACRN_BOARDLIST: specifices a space delimited list of boards to build ARCN for
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Thu, 26 Mar 2020 10:33:24 +0100
+

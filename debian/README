@@ -1,0 +1,8 @@
+The Debian Package acrn-hypervisor
+----------------------------
+
+ACRN is a flexible, lightweight reference hypervisor, built with real-time and
+safety-criticality in mind, optimized to streamline embedded development through
+an open source platform.
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Thu, 26 Mar 2020 10:33:24 +0100
