@@ -68,5 +68,5 @@ RUN useradd docker-build
 USER docker-build
 
 # build ACRN packages as user docker-build
-ENTRYPOINT gbp buildpackage -us -uc
+ENTRYPOINT ["gbp", "buildpackage", "-us", "-uc"]
 

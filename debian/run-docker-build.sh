@@ -24,6 +24,6 @@ fi
 
 set -e
 ${DOCKER} build -q -f debian/docker/Dockerfile -t acrn-hypervisor-build debian/docker
-${DOCKER} run --rm -u $(id -u):$(id -g) -v $(pwd):/acrn-hypervisor acrn-hypervisor-build
+${DOCKER} run --rm -u $(id -u):$(id -g) -v $(pwd):/acrn-hypervisor acrn-hypervisor-build $@
 
 popd >/dev/null
