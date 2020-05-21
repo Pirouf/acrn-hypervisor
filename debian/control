@@ -19,6 +19,7 @@ Build-Depends:
    pkg-config,
    libnuma-dev,
    acpica-tools (>= 20200326),
+   wget,
    python3-sphinx,
    python3-breathe,
    python3-sphinx-rtd-theme,
