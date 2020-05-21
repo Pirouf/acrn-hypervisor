@@ -2,6 +2,5 @@
 acrn-doc: privacy-breach-generic
 
 # upstream uses embedded libs
-acrn-doc: embedded-javascript-library usr/share/doc/acrn/html/_static/jquery.js
-acrn-doc: embedded-javascript-library usr/share/doc/acrn/html/_static/underscore.js
+acrn-doc: embedded-javascript-library
 
