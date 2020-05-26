@@ -19,12 +19,14 @@ ACRNBIN="/usr/lib/acrn/acrn.${BOARD}.${SCENARIO}.bin"
 
 case "$1" in
     configure)
-        if command -v update-grub > /dev/null && [ -d /boot/grub ] && [ -f ${ACRN} ]; then
+        if [ -f ${ACRNOUT} ] && [ -f ${ACRNCFG} ] && [ -f ${ACRNMAP} ] && [ -f ${ACRNBIN} ]; then
             cp ${ACRNOUT} /boot/acrn-@acrnversion@.out
             cp ${ACRNCFG} /boot/acrn-@acrnversion@.config
             cp ${ACRNMAP} /boot/acrn-@acrnversion@.map
             cp ${ACRNBIN} /boot/acrn-@acrnversion@.bin
-            update-grub || :
+            if command -v update-grub > /dev/null && [ -d /boot/grub ]; then
+                update-grub || :
+            fi
         fi
     ;;
 
