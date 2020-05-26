@@ -135,36 +135,20 @@ override_dh_auto_build-arch:
 		all-linux $(devnull)
 
 ### build-indep ##############################################################
-# get all required files in a list
-ACRN_KERNEL_DOCLIST := $(shell grep -R kernel-doc:: doc | awk  '{print $$3}' | sort -u)
-# extract kerneldoc_srctree
-$(eval $(shell grep kerneldoc_srctree doc/conf.py))
-ACRN_KERNEL_DIR = $(addprefix doc/,$(kerneldoc_srctree))
-# get files raw data from github
-ACRN_KERNEL_BASEURL := https://raw.githubusercontent.com/projectacrn/acrn-kernel
-# try to guess kernel branch: use release branch if there is no EXTRA_VERSION
 ifeq ($(EXTRA_VERSION),)
-ACRN_KERNEL_BRANCH := release_$(ACRNVERSION)
+ACRN_DOC_VERSION := $(DEB_VERSION_UPSTREAM)
 else
-ACRN_KERNEL_BRANCH := master
+ACRN_DOC_VERSION := latest
 endif
 
-# import kernel files needed for doc
-debian/import_acrn_kernel_doc:
-	@$(call echo-verbose)
-	$(Q)mkdir -p $(ACRN_KERNEL_DIR)
-	$(Q)set -e; cd $(ACRN_KERNEL_DIR);      	\
-		$(foreach f,$(ACRN_KERNEL_DOCLIST),	\
-		$(call echo-silent,Downloading $f);	\
-		wget -q -x -nH --cut-dirs=3 $(ACRN_KERNEL_BASEURL)/$(ACRN_KERNEL_BRANCH)/$f;\
-	)
-	$(Q)touch $@
-
-override_dh_auto_build-indep: O=build
-override_dh_auto_build-indep: debian/import_acrn_kernel_doc
+build/documentation/html/index.html: debian/acrn-doc-index-html.in
 	@$(call echo-verbose)
 	@$(call echo-silent,BUILD documentation)
-	$(Q)$(MAKE) O=$(O) doc $(devnull)
+	$(Q)mkdir -p $(@D)
+	$(Q)sed -e 's/@acrnversion@/$(ACRN_DOC_VERSION)/g' $< > $@
+
+override_dh_auto_build-indep: build/documentation/html/index.html
+	@:
 
 ### binary-arch ##############################################################
 override_dh_auto_install-arch: O=build
@@ -249,7 +233,7 @@ override_dh_auto_install-indep:
 	@$(call echo-verbose)
 	@$(call echo-silent,INSTALL documentation)
 	$(Q)mkdir -p ${DESTDIR}/usr/share/doc/acrn/
-	$(Q)cp -a $(O)/doc/html ${DESTDIR}/usr/share/doc/acrn/
+	$(Q)cp -a $(O)/documentation/html ${DESTDIR}/usr/share/doc/acrn/
 
 ### dh_missing ###############################################################
 # there is no libtelemetry used

@@ -1,6 +1,0 @@
-# upstream uses Google Tag Manager
-acrn-doc: privacy-breach-generic
-
-# upstream uses embedded libs
-acrn-doc: embedded-javascript-library
-
