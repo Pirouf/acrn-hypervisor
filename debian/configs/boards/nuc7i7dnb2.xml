@@ -1,0 +1,173 @@
+<acrn-config board="nuc7i7dnb2">
+	<BIOS_INFO>
+	BIOS Information
+	Vendor: Intel Corp.
+	BIOS Revision: 5.6
+	</BIOS_INFO>
+
+	<BASE_BOARD_INFO>
+	Base Board Information
+	Manufacturer: Intel Corporation
+	Product Name: NUC7i7DNB
+	</BASE_BOARD_INFO>
+
+	<PCI_DEVICE>
+	00:00.0 Host bridge: Intel Corporation Xeon E3-1200 v6/7th Gen Core Processor Host Bridge/DRAM Registers (rev 08)
+	00:02.0 VGA compatible controller: Intel Corporation UHD Graphics 620 (rev 07)
+	00:08.0 System peripheral: Intel Corporation Skylake Gaussian Mixture Model
+	00:14.0 USB controller: Intel Corporation Sunrise Point-LP USB 3.0 xHCI Controller (rev 21)
+	00:14.2 Signal processing controller: Intel Corporation Sunrise Point-LP Thermal subsystem (rev 21)
+	00:15.0 Signal processing controller: Intel Corporation Sunrise Point-LP Serial IO I2C Controller #0 (rev 21)
+	00:15.1 Signal processing controller: Intel Corporation Sunrise Point-LP Serial IO I2C Controller #1 (rev 21)
+	00:16.0 Communication controller: Intel Corporation Sunrise Point-LP CSME HECI #1 (rev 21)
+	00:16.3 Serial controller: Intel Corporation Sunrise Point-LP Active Management Technology - SOL (rev 21)
+	00:17.0 SATA controller: Intel Corporation Sunrise Point-LP SATA Controller [AHCI mode] (rev 21)
+	00:1c.0 PCI bridge: Intel Corporation Sunrise Point-LP PCI Express Root Port (rev f1)
+	00:1d.0 PCI bridge: Intel Corporation Sunrise Point-LP PCI Express Root Port #9 (rev f1)
+	00:1f.0 ISA bridge: Intel Corporation Sunrise Point LPC Controller/eSPI Controller (rev 21)
+	00:1f.2 Memory controller: Intel Corporation Sunrise Point-LP PMC (rev 21)
+	00:1f.3 Audio device: Intel Corporation Sunrise Point-LP HD Audio (rev 21)
+	00:1f.4 SMBus: Intel Corporation Sunrise Point-LP SMBus (rev 21)
+	00:1f.6 Ethernet controller: Intel Corporation Ethernet Connection I219-LM (rev 21)
+	01:00.0 Network controller: Intel Corporation Wireless 8265 / 8275 (rev 78)
+	</PCI_DEVICE>
+
+	<PCI_VID_PID>
+	00:00.0 0600: 8086:5914 (rev 08)
+	00:02.0 0300: 8086:5917 (rev 07)
+	00:08.0 0880: 8086:1911
+	00:14.0 0c03: 8086:9d2f (rev 21)
+	00:14.2 1180: 8086:9d31 (rev 21)
+	00:15.0 1180: 8086:9d60 (rev 21)
+	00:15.1 1180: 8086:9d61 (rev 21)
+	00:16.0 0780: 8086:9d3a (rev 21)
+	00:16.3 0700: 8086:9d3d (rev 21)
+	00:17.0 0106: 8086:9d03 (rev 21)
+	00:1c.0 0604: 8086:9d12 (rev f1)
+	00:1d.0 0604: 8086:9d18 (rev f1)
+	00:1f.0 0601: 8086:9d4e (rev 21)
+	00:1f.2 0580: 8086:9d21 (rev 21)
+	00:1f.3 0403: 8086:9d71 (rev 21)
+	00:1f.4 0c05: 8086:9d23 (rev 21)
+	00:1f.6 0200: 8086:156f (rev 21)
+	01:00.0 0280: 8086:24fd (rev 78)
+	</PCI_VID_PID>
+
+	<WAKE_VECTOR_INFO>
+	#define WAKE_VECTOR_32          0x00000000UL
+	#define WAKE_VECTOR_64          0x00000000UL
+	</WAKE_VECTOR_INFO>
+
+	<RESET_REGISTER_INFO>
+	#define RESET_REGISTER_ADDRESS  0xCF9UL
+	#define RESET_REGISTER_SPACE_ID SPACE_SYSTEM_IO
+	#define RESET_REGISTER_VALUE    0x6U
+	</RESET_REGISTER_INFO>
+
+	<PM_INFO>
+	#define PM1A_EVT_SPACE_ID       SPACE_SYSTEM_IO
+	#define PM1A_EVT_BIT_WIDTH      0x20U
+	#define PM1A_EVT_BIT_OFFSET     0x0U
+	#define PM1A_EVT_ADDRESS        0x1800UL
+	#define PM1A_EVT_ACCESS_SIZE    0x2U
+	#define PM1B_EVT_SPACE_ID       SPACE_SYSTEM_IO
+	#define PM1B_EVT_BIT_WIDTH      0x0U
+	#define PM1B_EVT_BIT_OFFSET     0x0U
+	#define PM1B_EVT_ADDRESS        0x0UL
+	#define PM1B_EVT_ACCESS_SIZE    0x2U
+	#define PM1A_CNT_SPACE_ID       SPACE_SYSTEM_IO
+	#define PM1A_CNT_BIT_WIDTH      0x10U
+	#define PM1A_CNT_BIT_OFFSET     0x0U
+	#define PM1A_CNT_ADDRESS        0x1804UL
+	#define PM1A_CNT_ACCESS_SIZE    0x2U
+	#define PM1B_CNT_SPACE_ID       SPACE_SYSTEM_IO
+	#define PM1B_CNT_BIT_WIDTH      0x0U
+	#define PM1B_CNT_BIT_OFFSET     0x0U
+	#define PM1B_CNT_ADDRESS        0x0UL
+	#define PM1B_CNT_ACCESS_SIZE    0x2U
+	</PM_INFO>
+
+	<S3_INFO>
+	#define S3_PKG_VAL_PM1A         0x5U
+	#define S3_PKG_VAL_PM1B         0U
+	#define S3_PKG_RESERVED         0x0U
+	</S3_INFO>
+
+	<S5_INFO>
+	#define S5_PKG_VAL_PM1A         0x7U
+	#define S5_PKG_VAL_PM1B         0U
+	#define S5_PKG_RESERVED         0x0U
+	</S5_INFO>
+
+	<DRHD_INFO>
+	#define DRHD_COUNT              2U
+
+	#define DRHD0_DEV_CNT           0x1U
+	#define DRHD0_SEGMENT           0x0U
+	#define DRHD0_FLAGS             0x0U
+	#define DRHD0_REG_BASE          0xFED90000UL
+	#define DRHD0_IGNORE            true
+	#define DRHD0_DEVSCOPE0_TYPE    0x1U
+	#define DRHD0_DEVSCOPE0_ID      0x0U
+	#define DRHD0_DEVSCOPE0_BUS     0x0U
+	#define DRHD0_DEVSCOPE0_PATH    0x10U
+
+	#define DRHD1_DEV_CNT           0x2U
+	#define DRHD1_SEGMENT           0x0U
+	#define DRHD1_FLAGS             0x1U
+	#define DRHD1_REG_BASE          0xFED91000UL
+	#define DRHD1_IGNORE            false
+	#define DRHD1_DEVSCOPE0_TYPE    0x3U
+	#define DRHD1_DEVSCOPE0_ID      0x2U
+	#define DRHD1_DEVSCOPE0_BUS     0xf0U
+	#define DRHD1_DEVSCOPE0_PATH    0xf8U
+	#define DRHD1_DEVSCOPE1_TYPE    0x4U
+	#define DRHD1_DEVSCOPE1_ID      0x0U
+	#define DRHD1_DEVSCOPE1_BUS     0x0U
+	#define DRHD1_DEVSCOPE1_PATH    0xf8U
+
+	</DRHD_INFO>
+
+	<CPU_BRAND>
+	"Intel(R) Core(TM) i7-8650U CPU @ 1.90GHz"
+	</CPU_BRAND>
+
+	<CX_INFO>
+	/* Cx data is not available */
+	</CX_INFO>
+
+	<PX_INFO>
+	/* Px data is not available */
+	</PX_INFO>
+
+	<MMCFG_BASE_INFO>
+	/* PCI mmcfg base of MCFG */
+	#define DEFAULT_PCI_MMCFG_BASE   0xe0000000UL
+	</MMCFG_BASE_INFO>
+
+	<CLOS_INFO>
+	</CLOS_INFO>
+
+	<IOMEM_INFO>
+	</IOMEM_INFO>
+
+	<BLOCK_DEVICE_INFO>
+	</BLOCK_DEVICE_INFO>
+
+	<TTYS_INFO>
+	seri:/dev/ttyS0 type:portio base:0x3F8 irq:4
+	seri:/dev/ttyS4 type:portio base:0xF0A0 irq:19
+	</TTYS_INFO>
+
+	<AVAILABLE_IRQ_INFO>
+	3, 5, 6, 7, 10, 11, 12, 13, 15
+	</AVAILABLE_IRQ_INFO>
+
+	<TOTAL_MEM_INFO>
+	</TOTAL_MEM_INFO>
+
+	<CPU_PROCESSOR_INFO>
+	0, 1, 2, 3
+	</CPU_PROCESSOR_INFO>
+
+</acrn-config>

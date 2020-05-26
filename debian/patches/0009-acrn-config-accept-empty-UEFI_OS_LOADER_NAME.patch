@@ -1,0 +1,52 @@
+From 35ae3d3d0c1a0e979b00dbfdb2c0b86a480669f8 Mon Sep 17 00:00:00 2001
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Sun, 26 Apr 2020 09:55:11 +0200
+Subject: [PATCH 09/18] acrn-config: accept empty UEFI_OS_LOADER_NAME
+
+Since direct boot mode does not require CONFIG_UEFI_OS_LOADER_NAME
+set there is no need to force this setting.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ misc/acrn-config/hv_config/hv_item.py  | 3 ++-
+ misc/acrn-config/library/hv_cfg_lib.py | 4 +---
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/misc/acrn-config/hv_config/hv_item.py b/misc/acrn-config/hv_config/hv_item.py
+index a15cd7ec..06b9c88b 100644
+--- a/misc/acrn-config/hv_config/hv_item.py
++++ b/misc/acrn-config/hv_config/hv_item.py
+@@ -91,12 +91,13 @@ class MisCfg:
+     def get_info(self):
+         self.gpu_sbdf =  common.get_hv_item_tag(self.hv_file, "MISC_CFG", "GPU_SBDF")
+         self.uefi_os_loader_name = common.get_hv_item_tag(self.hv_file, "MISC_CFG", "UEFI_OS_LOADER_NAME")
++        if not self.uefi_os_loader_name or self.uefi_os_loader_name == None:
++            common.print_yel(".config: UEFI_OS_LOADER_NAME empty, using default setting for CONFIG_UEFI_OS_LOADER_NAME", warn=True)
+ 
+     def check_item(self):
+         hv_cfg_lib.hv_size_check(self.gpu_sbdf, "MISC_CFG", "GPU_SBDF")
+         hv_cfg_lib.uefi_load_name_check(self.uefi_os_loader_name, "MISC_CFG", "UEFI_OS_LOADER_NAME")
+ 
+-
+ class Features:
+     def __init__(self, hv_file):
+         self.hv_file = hv_file
+diff --git a/misc/acrn-config/library/hv_cfg_lib.py b/misc/acrn-config/library/hv_cfg_lib.py
+index e5c718ea..48341097 100644
+--- a/misc/acrn-config/library/hv_cfg_lib.py
++++ b/misc/acrn-config/library/hv_cfg_lib.py
+@@ -93,10 +93,8 @@ def ir_entries_check(str_num, cap, cap_ir_entries):
+ 
+ 
+ def uefi_load_name_check(str_name, mis, mis_uefi_name):
+-    if empty_check(str_name, mis, mis_uefi_name):
+-        return
+     name_len = len(str_name)
+-    if name_len > 256 or name_len < 1:
++    if name_len > 256:
+         key = 'hv,{},{}'.format(mis, mis_uefi_name)
+         ERR_LIST[key] = "{} length should be in range[1, 256]".format(mis_uefi_name)
+ 
+-- 
+2.20.1
+

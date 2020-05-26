@@ -1,0 +1,27 @@
+From d92885e39d4027c477d91d88299336f9bbbeb35a Mon Sep 17 00:00:00 2001
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Sun, 26 Apr 2020 09:59:24 +0200
+Subject: [PATCH 11/18] acrn-config: Accept empty SOS_BOOTARGS_DIFF
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ misc/acrn-config/board_config/misc_cfg_h.py | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/misc/acrn-config/board_config/misc_cfg_h.py b/misc/acrn-config/board_config/misc_cfg_h.py
+index b06cb047..f9c12dea 100644
+--- a/misc/acrn-config/board_config/misc_cfg_h.py
++++ b/misc/acrn-config/board_config/misc_cfg_h.py
+@@ -43,7 +43,8 @@ def sos_bootarg_diff(sos_cmdlines, config):
+                     print('\t\t\t\t"{} "\t\\'.format(sos_cmdline), file=config)
+                 else:
+                     print('\t\t\t\t"{}"'.format(sos_cmdline), file=config)
+-
++    else:
++        print('#define SOS_BOOTARGS_DIFF\t""', file=config)
+ 
+ def parse_boot_info():
+ 
+-- 
+2.20.1
+

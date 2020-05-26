@@ -1,0 +1,640 @@
+From 480149254c688661db287caea2ed24314faf889f Mon Sep 17 00:00:00 2001
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Tue, 5 May 2020 15:57:54 +0200
+Subject: [PATCH 15/18] hv: multiboot: track memory ranges allocated by the
+ bootloader
+
+In preparation to choose the memory locations for SOS boot correctly
+we have to know which locations are already occupied by the booloader.
+Achieve this by scanning allocated memory ranges according to the
+multiboot(2) protocol and storing them to be able to apply these results
+when choosing the image locations.
+
+To be able to check what the bootloader (e.g. grub) provides as multiboot
+information data add a debug output that can easily be activated by
+setting the DBG_LEVEL_MULTIBOOT or DBG_LEVEL_MULTIBOOT2 respectively.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/boot/include/multiboot.h |  91 +++++++----
+ hypervisor/boot/multiboot.c         | 225 +++++++++++++++++++++++++++-
+ hypervisor/boot/multiboot2.c        | 133 +++++++++++++++-
+ 3 files changed, 417 insertions(+), 32 deletions(-)
+
+diff --git a/hypervisor/boot/include/multiboot.h b/hypervisor/boot/include/multiboot.h
+index 6dfe1140..51319bc0 100644
+--- a/hypervisor/boot/include/multiboot.h
++++ b/hypervisor/boot/include/multiboot.h
+@@ -14,64 +14,92 @@
+ #define	MULTIBOOT_HEADER_NEED_MEMINFO	0x00000002
+ 
+ /* MULTIBOOT INFO FLAGS */
++#define MULTIBOOT_INFO_HAS_MEMORY	0x00000001U
++#define MULTIBOOT_INFO_HAS_BOOT_DEVICE	0x00000002U
+ #define	MULTIBOOT_INFO_HAS_CMDLINE	0x00000004U
+ #define	MULTIBOOT_INFO_HAS_MODS		0x00000008U
++#define MULTIBOOT_INFO_HAS_AOUT_SYMS	0x00000010U
++#define MULTIBOOT_INFO_HAS_ELF_SYMS	0x00000020U
+ #define	MULTIBOOT_INFO_HAS_MMAP		0x00000040U
+ #define	MULTIBOOT_INFO_HAS_DRIVES	0x00000080U
++#define MULTIBOOT_INFO_HAS_CONFIG_TABLE	0x00000100U
+ #define	MULTIBOOT_INFO_HAS_LOADER_NAME	0x00000200U
++#define MULTIBOOT_INFO_HAS_APM_TABLE	0x00000400U
++#define MULTIBOOT_INFO_HAS_VBE		0x00000800U
++#define MULTIBOOT_INFO_HAS_FRAMEBUFFER	0x00001000U
+ 
+ #ifndef ASSEMBLER
+ 
+ struct multiboot_info {
+-	uint32_t               mi_flags;
++	uint32_t               mi_flags;		/* 0x00 */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_MEMORY. */
+-	uint32_t               mi_mem_lower;
+-	uint32_t               mi_mem_upper;
++	uint32_t               mi_mem_lower;		/* 0x04 */
++	uint32_t               mi_mem_upper;		/* 0x08 */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_BOOT_DEVICE. */
+-	uint8_t                 mi_boot_device_part3;
+-	uint8_t                 mi_boot_device_part2;
+-	uint8_t                 mi_boot_device_part1;
+-	uint8_t                 mi_boot_device_drive;
++	uint8_t                 mi_boot_device_part3;	/* 0x0C */
++	uint8_t                 mi_boot_device_part2;	/* 0x0D */
++	uint8_t                 mi_boot_device_part1;	/* 0x0E */
++	uint8_t                 mi_boot_device_drive;	/* 0x0F */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_CMDLINE. */
+-	uint32_t                mi_cmdline;
++	uint32_t                mi_cmdline;		/* 0x10 */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_MODS. */
+-	uint32_t               mi_mods_count;
+-	uint32_t               mi_mods_addr;
++	uint32_t               mi_mods_count;		/* 0x14 */
++	uint32_t               mi_mods_addr;		/* 0x18 */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_{AOUT,ELF}_SYMS. */
+-	uint32_t               mi_elfshdr_num;
+-	uint32_t               mi_elfshdr_size;
+-	uint32_t               mi_elfshdr_addr;
+-	uint32_t               mi_elfshdr_shndx;
++	union {
++	    struct {
++	        uint32_t mi_tabsize;			/* 0x1C */
++	        uint32_t mi_strsize;			/* 0x20 */
++	        uint32_t mi_addr;			/* 0x24 */
++	        uint32_t mi_reserved;			/* 0x28 */
++	    } mi_aout;
++	    struct mi_elfshdr {
++	        uint32_t mi_num;			/* 0x1C */
++	        uint32_t mi_size;			/* 0x20 */
++	        uint32_t mi_addr;			/* 0x24 */
++	        uint32_t mi_shndx;			/* 0x28 */
++	    } mi_elf;
++	} mi_syms;
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_MMAP. */
+-	uint32_t               mi_mmap_length;
+-	uint32_t               mi_mmap_addr;
++	uint32_t               mi_mmap_length;		/* 0x2C */
++	uint32_t               mi_mmap_addr;		/* 0x30 */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_DRIVES. */
+-	uint32_t               mi_drives_length;
+-	uint32_t               mi_drives_addr;
++	uint32_t               mi_drives_length;	/* 0x34 */
++	uint32_t               mi_drives_addr;		/* 0x38 */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_CONFIG_TABLE. */
+-	uint32_t               unused_mi_config_table;
++	uint32_t               mi_config_table;		/* 0x3C */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_LOADER_NAME. */
+-	uint32_t               mi_loader_name;
++	uint32_t               mi_loader_name;		/* 0x40 */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_APM. */
+-	uint32_t               unused_mi_apm_table;
++	uint32_t               mi_apm_table;		/* 0x44 */
+ 
+ 	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_VBE. */
+-	uint32_t               unused_mi_vbe_control_info;
+-	uint32_t               unused_mi_vbe_mode_info;
+-	uint32_t               unused_mi_vbe_interface_seg;
+-	uint32_t               unused_mi_vbe_interface_off;
+-	uint32_t               unused_mi_vbe_interface_len;
+-};
++	uint32_t               mi_vbe_control_info;	/* 0x48 */
++	uint32_t               mi_vbe_mode_info;	/* 0x4C */
++	uint16_t               mi_vbe_mode;		/* 0x50 */
++	uint16_t               mi_vbe_interface_seg;	/* 0x52 */
++	uint16_t               mi_vbe_interface_off;	/* 0x54 */
++	uint16_t               mi_vbe_interface_len;	/* 0x56 */
++
++	/* Valid if mi_flags sets MULTIBOOT_INFO_HAS_FRAMEBUFFER. */
++	uint64_t               mi_framebuffer_addr;	/* 0x58 */
++	uint32_t               mi_framebuffer_pitch;	/* 0x60 */
++	uint32_t               mi_framebuffer_width;	/* 0x64 */
++	uint32_t               mi_framebuffer_height;	/* 0x68 */
++	uint8_t                mi_framebuffer_bpp;	/* 0x6C */
++	uint8_t                mi_framebuffer_type;	/* 0x6D */
++	uint8_t                mi_color_info[6];	/* 0x6E */
++} __packed;
+ 
+ struct multiboot_mmap {
+ 	uint32_t size;
+@@ -87,6 +115,15 @@ struct multiboot_module {
+ 	uint32_t	mm_reserved;
+ };
+ 
++/* struct to hold memory range used by a multiboot parameter */
++struct multiboot_memory {
++	uint64_t addr;
++	uint64_t size;
++};
++
++void add_multiboot_used_memory(uint64_t addr, uint64_t size);
++struct multiboot_memory *get_multiboot_used_memory(uint32_t *num);
++
+ #endif	/* ASSEMBLER */
+ 
+ #endif	/* MULTIBOOT_H */
+diff --git a/hypervisor/boot/multiboot.c b/hypervisor/boot/multiboot.c
+index f2e3797d..c8d4dbec 100644
+--- a/hypervisor/boot/multiboot.c
++++ b/hypervisor/boot/multiboot.c
+@@ -11,16 +11,231 @@
+ #include <rtl.h>
+ #include <logmsg.h>
+ 
++#define DBG_LEVEL_MULTIBOOT	6U
++
+ static struct acrn_multiboot_info acrn_mbi = { 0U };
+ 
++static uint32_t multiboot_used_memory_idx = 0;
++static struct multiboot_memory multiboot_used_memory[32];
++
++void add_multiboot_used_memory(uint64_t addr, uint64_t size)
++{
++	if (multiboot_used_memory_idx >= ARRAY_SIZE(multiboot_used_memory))
++		return;
++
++	multiboot_used_memory[multiboot_used_memory_idx].addr = addr;
++	multiboot_used_memory[multiboot_used_memory_idx].size = size;
++	++multiboot_used_memory_idx;
++}
++
++struct multiboot_memory *get_multiboot_used_memory(uint32_t *num)
++{
++	*num = multiboot_used_memory_idx;
++	return multiboot_used_memory;
++}
++
++static void scan_multbootinfo1(struct multiboot_info *mbi)
++{
++	dev_dbg(DBG_LEVEL_MULTIBOOT, "MBI at 0x%016lx-0x%016lx", mbi, (mbi+1));
++	dev_dbg(DBG_LEVEL_MULTIBOOT, "MBI flags 0x%08x", mbi->mi_flags);
++
++	/* memory taken by mbi block */
++	add_multiboot_used_memory(hva2hpa(mbi), sizeof(*mbi));
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_MEMORY) {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "MEMORY lower mem 0x00000000 - 0x%08x",
++			mbi->mi_mem_lower << 10);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "MEMORY upper mem 0x00100000 - 0x%08x",
++			(mbi->mi_mem_upper << 10) + 0x00100000);
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "MEMORY: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_BOOT_DEVICE) {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "BOOT_DEVICE BIOS disk 0x%02x",
++			mbi->mi_boot_device_drive);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "BOOT_DEVICE partition1 0x%02x",
++			mbi->mi_boot_device_part1);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "BOOT_DEVICE partition2 0x%02x",
++			mbi->mi_boot_device_part2);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "BOOT_DEVICE partition3 0x%02x",
++			mbi->mi_boot_device_part3);
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "BOOT_DEVICE: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_CMDLINE) {
++		char *cmdline = hpa2hva(mbi->mi_cmdline);
++		uint32_t len = strnlen_s(cmdline, 1024) + 1;
++
++		/* memory taken by command line block */
++		add_multiboot_used_memory(mbi->mi_cmdline, len);
++
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "CMDLINE at 0x%08x-0x%08x",
++			mbi->mi_cmdline, mbi->mi_cmdline + len);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "CMDLINE %s", cmdline);
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "CMDLINE: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_MODS) {
++		uint32_t i;
++		struct multiboot_module *mods = hpa2hva(mbi->mi_mods_addr);
++
++		/* memory taken by module info block */
++		add_multiboot_used_memory(mbi->mi_mods_addr,
++			mbi->mi_mods_count * sizeof(*mods));
++
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "MODS info at 0x%08x-0x%08x", mods,
++			mods + mbi->mi_mods_count);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "MODS count 0x%08x",
++			mbi->mi_mods_count);
++		for (i = 0; i < mbi->mi_mods_count; ++i, ++mods) {
++			/* memory taken by module data */
++			add_multiboot_used_memory(mods->mm_mod_start,
++				mods->mm_mod_end - mods->mm_mod_start);
++
++			dev_dbg(DBG_LEVEL_MULTIBOOT, "  MODS[%u] data at 0x%08x-0x%08x",
++				i, mods->mm_mod_start, mods->mm_mod_end);
++			if (mods->mm_string) {
++				char *param = hpa2hva(mods->mm_string);
++				uint32_t len = strnlen_s(param, 1024) + 1;
++
++				/* memory taken by module command line */
++				add_multiboot_used_memory(mods->mm_string, len);
++
++				dev_dbg(DBG_LEVEL_MULTIBOOT, "  MODS[%u] parameter at 0x%08x-0x%08x",
++					i, param, param + len);
++				dev_dbg(DBG_LEVEL_MULTIBOOT,"  MODS[%u] parameter %s",
++					i, param);
++			} else {
++				dev_dbg(DBG_LEVEL_MULTIBOOT, "  MODS[%u] no parameters", i);
++			}
++
++		}
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "MODS: no info");
++	}
++
++	if ((mbi->mi_flags & MULTIBOOT_INFO_HAS_AOUT_SYMS) &&
++	    (mbi->mi_syms.mi_aout.mi_tabsize > 0)) {
++		uint32_t size;
++
++		size = mbi->mi_syms.mi_aout.mi_tabsize + 4;
++		size += mbi->mi_syms.mi_aout.mi_strsize + 4;
++
++		/* memory taken by aout symbols */
++		add_multiboot_used_memory(mbi->mi_syms.mi_aout.mi_addr, size);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "AOUT_SYMS 0x%08x-0x%08x",
++			mbi->mi_syms.mi_aout.mi_addr,
++			mbi->mi_syms.mi_aout.mi_addr + size);
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "AOUT_SYMS: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_ELF_SYMS) {
++		/* memory taken by elf symbols */
++		add_multiboot_used_memory(mbi->mi_syms.mi_elf.mi_addr,
++			mbi->mi_syms.mi_elf.mi_size *
++			mbi->mi_syms.mi_elf.mi_num);
++
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "ELF_SYMS 0x%08x-0x%08x",
++			mbi->mi_syms.mi_elf.mi_addr,
++			mbi->mi_syms.mi_elf.mi_addr +
++			mbi->mi_syms.mi_elf.mi_size *
++			mbi->mi_syms.mi_elf.mi_num);
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "ELF_SYMS: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_MMAP) {
++		uint32_t i;
++		struct multiboot_mmap *mmap;
++
++		/* memory taken by memory map */
++		add_multiboot_used_memory(mbi->mi_mmap_addr,
++			mbi->mi_mmap_length);
++
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "MMAP at 0x%08x-0x%08x", mbi->mi_mmap_addr,
++			mbi->mi_mmap_addr + mbi->mi_mmap_length);
++		for (i = 0, mmap = hpa2hva(mbi->mi_mmap_addr);
++		     hva2hpa(mmap) < mbi->mi_mmap_addr + mbi->mi_mmap_length;
++		     ++i) {
++			dev_dbg(DBG_LEVEL_MULTIBOOT, "  MMAP[%02u] 0x%016lx-0x%016lx, type=%u",
++				i, mmap->baseaddr, mmap->baseaddr + mmap->length,
++				mmap->type);
++			mmap = hpa2hva(hva2hpa(mmap) + mmap->size + 4);
++		}
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "MMAP: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_DRIVES) {
++		/* memory taken by drives info */
++		add_multiboot_used_memory(mbi->mi_drives_addr,
++			mbi->mi_drives_length);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "DRIVES info at 0x%08x-0x%08x",
++			mbi->mi_drives_addr,
++			mbi->mi_drives_addr + mbi->mi_drives_length);
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "DRIVES: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_CONFIG_TABLE) {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "CONFIG_TABLE ROM config 0x%08x",
++			mbi->mi_config_table);
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "CONFIG_TABLE: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_LOADER_NAME) {
++		char *name = hpa2hva(mbi->mi_loader_name);
++		uint32_t len = strnlen_s(name, 1024) + 1;
++
++		/* memory taken by loader name */
++		add_multiboot_used_memory(mbi->mi_loader_name, len);
++
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "LOADER_NAME at 0x%08x-0x%08x",
++			name, name + len);
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "LOADER_NAME %s", name);
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "LOADER_NAME: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_APM_TABLE) {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "APM_TABLE available");
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "APM_TABLE: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_VBE) {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "VBE available");
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "VBE: no info");
++	}
++
++	if (mbi->mi_flags & MULTIBOOT_INFO_HAS_FRAMEBUFFER) {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "FRAMEBUFFER available");
++	} else {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "FRAMEBUFFER: no info");
++	}
++
++
++}
++
+ int32_t sanitize_multiboot_info(void)
+ {
+ 	int32_t ret = 0;
++	uint32_t i;
+ 
++	dev_dbg(DBG_LEVEL_MULTIBOOT, "boot_regs[0]=0x%08x, boot_regs[1]=0x%08x",
++		boot_regs[0], boot_regs[1]);
+ 	if (boot_from_multiboot1()) {
+ 		struct multiboot_info *mbi = (struct multiboot_info *)(hpa2hva_early((uint64_t)boot_regs[1]));
+ 
+-		pr_info("Multiboot1 detected.");
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "Multiboot1 detected.");
++		scan_multbootinfo1(mbi);
++
+ 		acrn_mbi.mi_flags = mbi->mi_flags;
+ 		acrn_mbi.mi_drives_addr = mbi->mi_drives_addr;
+ 		acrn_mbi.mi_drives_length = mbi->mi_drives_length;
+@@ -63,6 +278,14 @@ int32_t sanitize_multiboot_info(void)
+ 		ret = -ENODEV;
+ 	}
+ 
++	dev_dbg(DBG_LEVEL_MULTIBOOT, "Memory blocked by multiboot data:");
++	for (i = 0; i < multiboot_used_memory_idx; ++i) {
++		dev_dbg(DBG_LEVEL_MULTIBOOT, "  [%u] 0x%016lx-0x%016lx", i,
++			multiboot_used_memory[i].addr,
++			multiboot_used_memory[i].addr +
++			multiboot_used_memory[i].size);
++	}
++
+ 	if ((acrn_mbi.mi_flags & MULTIBOOT_INFO_HAS_MMAP) == 0U) {
+ 		pr_err("no multiboot memory map info found!");
+ 		ret = -EINVAL;
+diff --git a/hypervisor/boot/multiboot2.c b/hypervisor/boot/multiboot2.c
+index 004e8d44..2bb7ea5c 100644
+--- a/hypervisor/boot/multiboot2.c
++++ b/hypervisor/boot/multiboot2.c
+@@ -11,6 +11,33 @@
+ #include <util.h>
+ #include <logmsg.h>
+ 
++#define DBG_LEVEL_MULTIBOOT2	6U
++
++/* names according to grub bootloader */
++static const char *e820_mem_type[] = {
++	[0] = "UNKNOWN",
++	[1] = "AVAILABLE",
++	[2] = "RESERVED",
++	[3] = "ACPI",
++	[4] = "NVS",
++	[5] = "BADRAM",
++	[6] = "UNKNOWN",
++	[7] = "PERSISTENT",
++	[8] = "UNKNOWN",
++	[9] = "UNKNOWN",
++	[10] = "UNKNOWN",
++	[11] = "UNKNOWN",
++	[12] = "PERSISTENT_LEGACY",
++	[13] = "UNKNOWN",
++	[14] = "UNKNOWN",
++	[15] = "UNKNOWN",
++	[16] = "COREBOOT_TABLES",
++	[17] = "UNKNOWN",
++	[18] = "UNKNOWN",
++	[19] = "UNKNOWN",
++	[20] = "CODE"
++};
++
+ /**
+  * @pre mbi != NULL && mb2_tag_mmap != NULL
+  */
+@@ -20,14 +47,22 @@ static void mb2_mmap_to_mbi(struct acrn_multiboot_info *mbi, struct multiboot2_t
+ 
+ 	/* multiboot2 mmap tag header occupied 16 bytes */
+ 	mbi->mi_mmap_entries = (mb2_tag_mmap->size - 16U) / sizeof(struct multiboot2_mmap_entry);
++	dev_dbg(DBG_LEVEL_MULTIBOOT2, "MMAP: entries: %u",
++		mbi->mi_mmap_entries);
+ 	if (mbi->mi_mmap_entries > E820_MAX_ENTRIES) {
+ 		pr_err("Too many E820 entries %d\n", mbi->mi_mmap_entries);
+ 		mbi->mi_mmap_entries = E820_MAX_ENTRIES;
+ 	}
+ 	for (i = 0U; i < mbi->mi_mmap_entries; i++) {
+-		mbi->mi_mmap_entry[i].baseaddr = mb2_tag_mmap->entries[i].addr;
+-		mbi->mi_mmap_entry[i].length = mb2_tag_mmap->entries[i].len;
+-		mbi->mi_mmap_entry[i].type = mb2_tag_mmap->entries[i].type;
++		struct multiboot2_mmap_entry *mmap = &mb2_tag_mmap->entries[i];
++
++		dev_dbg(DBG_LEVEL_MULTIBOOT2, "  MMAP[%u]: 0x%016lx-0x%016lx, %s(%u)",
++			i, mmap->addr, mmap->addr + mmap->len,
++			mmap->type < ARRAY_SIZE(e820_mem_type) ? e820_mem_type[mmap->type] : "UNKNOWN",
++			mmap->type);
++		mbi->mi_mmap_entry[i].baseaddr = mmap->addr;
++		mbi->mi_mmap_entry[i].length = mmap->len;
++		mbi->mi_mmap_entry[i].type = mmap->type;
+ 	}
+ 	mbi->mi_flags |= MULTIBOOT_INFO_HAS_MMAP;
+ }
+@@ -41,6 +76,15 @@ static void mb2_mods_to_mbi(struct acrn_multiboot_info *mbi,
+ 	if (mbi_mod_idx >= MAX_MODULE_COUNT) {
+ 		pr_err("unhandled multiboot2 module: 0x%x", mb2_tag_mods->mod_start);
+ 	} else {
++		/* memory taken by module data */
++		add_multiboot_used_memory(mb2_tag_mods->mod_start,
++			mb2_tag_mods->mod_end - mb2_tag_mods->mod_start);
++		dev_dbg(DBG_LEVEL_MULTIBOOT2, "MODULE[%u]: 0x%08x-0x%08x",
++			mbi_mod_idx, mb2_tag_mods->mod_start,
++			mb2_tag_mods->mod_end);
++		if (mb2_tag_mods->cmdline)
++			dev_dbg(DBG_LEVEL_MULTIBOOT2, "MODULE[%u]: cmdline: %s",
++				mbi_mod_idx, mb2_tag_mods->cmdline);
+ 		mbi->mi_mods[mbi_mod_idx].mm_mod_start = mb2_tag_mods->mod_start;
+ 		mbi->mi_mods[mbi_mod_idx].mm_mod_end = mb2_tag_mods->mod_end;
+ 		mbi->mi_mods[mbi_mod_idx].mm_string = (uint32_t)(uint64_t)mb2_tag_mods->cmdline;
+@@ -54,18 +98,59 @@ static void mb2_mods_to_mbi(struct acrn_multiboot_info *mbi,
+  */
+ static void mb2_efi64_to_mbi(struct acrn_multiboot_info *mbi, struct multiboot2_tag_efi64 *mb2_tag_efi64)
+ {
++	dev_dbg(DBG_LEVEL_MULTIBOOT2, "EFI64: 0x%016lx", mb2_tag_efi64->pointer);
++
+ 	mbi->mi_efi_info.efi_systab = (uint32_t)(uint64_t)mb2_tag_efi64->pointer;
+ 	mbi->mi_efi_info.efi_loader_signature = (uint32_t)(uint64_t)efiloader_sig;
+ 	mbi->mi_flags |= MULTIBOOT_INFO_HAS_EFI64;
+ }
+ 
++struct efi_mem_desc {
++	uint32_t Type;
++	uint64_t PhysicalStart;
++	uint64_t VirtualStart;
++	uint64_t NumberOfPages;
++	uint64_t Attribute;
++};
++
++static const char *efi_mem_type[] = {
++	"ReservedMemoryType",
++	"LoaderCode",
++	"LoaderData",
++	"BootServicesCode",
++	"BootServicesData",
++	"RuntimeServicesCode",
++	"RuntimeServicesData",
++	"ConventionalMemory",
++	"UnusableMemory",
++	"ACPIReclaimMemory",
++	"ACPIMemoryNVS",
++	"MemoryMappedIO",
++	"MemoryMappedIOPortSpace",
++	"PalCode",
++	"PersistentMemory"
++};
++
+ /**
+  * @pre mbi != NULL && mb2_tag_efimmap != 0
+  */
+ static int32_t mb2_efimmap_to_mbi(struct acrn_multiboot_info *mbi, struct multiboot2_tag_efi_mmap *mb2_tag_efimmap)
+ {
+ 	int32_t ret = 0;
++	uint32_t entries, i;
++	struct efi_mem_desc *efi_mem;
++
++	entries = (mb2_tag_efimmap->size - 16) / mb2_tag_efimmap->descr_size;
++	dev_dbg(DBG_LEVEL_MULTIBOOT2, "EFI_MMAP: entries: %u", entries);
++	for (i = 0; i < entries; ++i) {
++		efi_mem = (struct efi_mem_desc *)&mb2_tag_efimmap->efi_mmap[i * mb2_tag_efimmap->descr_size];
+ 
++		dev_dbg(DBG_LEVEL_MULTIBOOT2, "  MMAP[%u] 0x%016lx-0x%016lx, %s(%u)",
++			i, efi_mem->PhysicalStart, efi_mem->PhysicalStart +
++			efi_mem->NumberOfPages * PAGE_SIZE,
++			efi_mem->Type < ARRAY_SIZE(efi_mem_type) ? efi_mem_type[efi_mem->Type] : "Unknown",
++			efi_mem->Type);
++	}
+ 	mbi->mi_efi_info.efi_memdesc_size = mb2_tag_efimmap->descr_size;
+ 	mbi->mi_efi_info.efi_memdesc_version = mb2_tag_efimmap->descr_vers;
+ 	mbi->mi_efi_info.efi_memmap = (uint32_t)(uint64_t)mb2_tag_efimmap->efi_mmap;
+@@ -80,6 +165,30 @@ static int32_t mb2_efimmap_to_mbi(struct acrn_multiboot_info *mbi, struct multib
+ 	return ret;
+ }
+ 
++static const char *mb2_tag_name[] = {
++	[MULTIBOOT2_TAG_TYPE_END]              = "END",
++	[MULTIBOOT2_TAG_TYPE_CMDLINE]          = "CMDLINE",
++	[MULTIBOOT2_TAG_TYPE_BOOT_LOADER_NAME] = "BOOT_LOADER_NAME",
++	[MULTIBOOT2_TAG_TYPE_MODULE]           = "MODULE",
++	[MULTIBOOT2_TAG_TYPE_BASIC_MEMINFO]    = "BASIC_MEMINFO",
++	[MULTIBOOT2_TAG_TYPE_BOOTDEV]          = "BOOTDEV",
++	[MULTIBOOT2_TAG_TYPE_MMAP]             = "MMAP",
++	[MULTIBOOT2_TAG_TYPE_VBE]               = "VBE",
++	[MULTIBOOT2_TAG_TYPE_FRAMEBUFFER]      = "FRAMEBUFFER",
++	[MULTIBOOT2_TAG_TYPE_ELF_SECTIONS]     = "ELF_SECTIONS",
++	[MULTIBOOT2_TAG_TYPE_APM]              = "APM",
++	[MULTIBOOT2_TAG_TYPE_EFI32]            = "EFI32",
++	[MULTIBOOT2_TAG_TYPE_EFI64]            = "EFI64",
++	[MULTIBOOT2_TAG_TYPE_SMBIOS]           = "SMBIOS",
++	[MULTIBOOT2_TAG_TYPE_ACPI_OLD]         = "ACPI_OLD",
++	[MULTIBOOT2_TAG_TYPE_ACPI_NEW]         = "ACPI_NEW",
++	[MULTIBOOT2_TAG_TYPE_NETWORK]          = "NETWORK",
++	[MULTIBOOT2_TAG_TYPE_EFI_MMAP]         = "EFI_MMAP",
++	[MULTIBOOT2_TAG_TYPE_EFI_BS]           = "EFI_BS",
++	[MULTIBOOT2_TAG_TYPE_EFI32_IH]         = "EFI32_IH",
++	[MULTIBOOT2_TAG_TYPE_EFI64_IH]         = "EFI64_IH",
++	[MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR]   = "LOAD_BASE_ADDR"
++};
+ /**
+  * @pre mbi != NULL && mb2_info != NULL
+  */
+@@ -90,6 +199,11 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+ 	uint32_t mb2_info_size = *(uint32_t *)mb2_info;
+ 	uint32_t mod_idx = 0U;
+ 
++	/* memory taken by mbi block */
++	add_multiboot_used_memory(hva2hpa(mb2_info), mb2_info_size);
++	dev_dbg(DBG_LEVEL_MULTIBOOT2, "MBI at 0x%016lx-0x%016lx", mb2_info,
++		mb2_info + mb2_info_size);
++
+ 	/* The start part of multiboot2 info: total mbi size (4 bytes), reserved (4 bytes) */
+ 	mb2_tag = (struct multiboot2_tag *)((uint8_t *)mb2_info + 8U);
+ 	mb2_tag_end = (struct multiboot2_tag *)((uint8_t *)mb2_info + mb2_info_size);
+@@ -101,8 +215,15 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+ 			break;
+ 		}
+ 
++		dev_dbg(DBG_LEVEL_MULTIBOOT2, "Found multiboot2 tag %u: %s",
++			mb2_tag->type,
++			mb2_tag->type <= MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR ?
++				mb2_tag_name[mb2_tag->type] : "UNKNOWN");
++
+ 		switch (mb2_tag->type) {
+ 		case MULTIBOOT2_TAG_TYPE_CMDLINE:
++			dev_dbg(DBG_LEVEL_MULTIBOOT2, "CMDLINE: %s",
++				((struct multiboot2_tag_string *)mb2_tag)->string);
+ 			mbi->mi_cmdline = ((struct multiboot2_tag_string *)mb2_tag)->string;
+ 			mbi->mi_flags |= MULTIBOOT_INFO_HAS_CMDLINE;
+ 			break;
+@@ -114,9 +235,12 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+ 			mod_idx++;
+ 			break;
+ 		case MULTIBOOT2_TAG_TYPE_BOOT_LOADER_NAME:
++			dev_dbg(DBG_LEVEL_MULTIBOOT2, "BOOT_LOADER_NAME: %s",
++				((struct multiboot2_tag_string *)mb2_tag)->string);
+ 			mbi->mi_loader_name = ((struct multiboot2_tag_string *)mb2_tag)->string;
+ 			break;
+ 		case MULTIBOOT2_TAG_TYPE_ACPI_NEW:
++			dev_dbg(DBG_LEVEL_MULTIBOOT2, "ACPI_NEW");
+ 			mbi->mi_acpi_rsdp = ((struct multiboot2_tag_new_acpi *)mb2_tag)->rsdp;
+ 			break;
+ 		case MULTIBOOT2_TAG_TYPE_EFI64:
+@@ -127,7 +251,8 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+ 			break;
+ 		default:
+ 			if (mb2_tag->type <= MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR) {
+-				pr_warn("unhandled multiboot2 tag type: %d", mb2_tag->type);
++				do_logmsg(min(LOG_WARNING, DBG_LEVEL_MULTIBOOT2),
++					"unhandled multiboot2 tag type: %d", mb2_tag->type);
+ 			} else {
+ 				pr_err("unknown multiboot2 tag type: %d", mb2_tag->type);
+ 				ret = -EINVAL;
+-- 
+2.20.1
+

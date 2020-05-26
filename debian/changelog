@@ -1,0 +1,17 @@
+acrn-hypervisor (1.6.1-2) unstable; urgency=medium
+
+  * debian: add lifemngr-split-linux-and-windows-build patch
+  * debian/rules: only build linux part for life-mngr
+  * debian: acrn-doc: refer to ACRN web page only
+  * debian/control: remove acrn-doc related build dependencies
+  * debian: Dockerfile: remove acrn-doc related build dependencies
+  * debian: fix acrn-hypervisor.postinst
+  * debian: add missing postinst/postrm for grub-acrn
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 26 May 2020 18:52:09 +0200
+
+acrn-hypervisor (1.6.1-1) unstable; urgency=medium
+
+  * Initial release.
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 18 May 2020 16:52:59 +0200

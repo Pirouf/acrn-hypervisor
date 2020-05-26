@@ -1,0 +1,2 @@
+# *.out files are not shared libraries
+acrn-hypervisor: shared-lib-without-dependency-information usr/lib/acrn/*.out
