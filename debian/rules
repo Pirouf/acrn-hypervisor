@@ -132,7 +132,7 @@ override_dh_auto_build-arch:
 	$(Q)mkdir -p $(O)/common/misc/life_mngr
 	$(Q)$(MAKE) -C misc/life_mngr					\
 		OUT_DIR=$(abspath $(O)/common/misc/life_mngr)		\
-		all $(devnull)
+		all-linux $(devnull)
 
 ### build-indep ##############################################################
 # get all required files in a list
