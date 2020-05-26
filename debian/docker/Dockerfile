@@ -21,7 +21,6 @@ RUN apt-get install -y --no-install-recommends \
 	git-buildpackage \
 	devscripts \
 	debhelper \
-	wget \
 	python3 \
 	dh-python \
 	python3-setuptools \
@@ -31,7 +30,6 @@ RUN apt-get install -y --no-install-recommends \
 
 # ACRN build needs kconfiglib, not available as Debian package
 RUN pip3 install kconfiglib
-
 
 # install additional build dependencies for ACRN
 RUN apt-get install -y --no-install-recommends \
@@ -47,16 +45,8 @@ RUN apt-get install -y --no-install-recommends \
 	libblkid-dev \
 	e2fslibs-dev \
 	pkg-config \
-	libnuma-dev \
-	python3-sphinx \
-	python3-breathe \
-	python3-sphinx-rtd-theme \
-	rsync \
-	doxygen \
-	graphviz
+	libnuma-dev
 
-# documentation build needs sphinx-tabs not available as Debian package
-RUN pip3 install sphinx-tabs
 
 RUN apt-get install --no-install-recommends -y -t unstable acpica-tools
 
@@ -69,4 +59,3 @@ USER docker-build
 
 # build ACRN packages as user docker-build
 ENTRYPOINT ["gbp", "buildpackage", "-us", "-uc"]
-
