@@ -16,3 +16,4 @@
 0016-hv-vm-add-memory-allocation-strategies-for-boot.patch
 0017-hv-vm-choose-boot-memory-locations-properly.patch
 0018-hv-ept-fix-debug-format.patch
+0019-misc-lifemngr-split-linux-and-windows-build.patch
