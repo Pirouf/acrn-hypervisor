@@ -1,7 +1,6 @@
-From a95dd94c53fc50024a2cef7c479d77838b155ccd Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Mon, 27 Apr 2020 12:51:27 +0200
-Subject: [PATCH 12/18] makefile: honor BUILD_VERSION and BUILD_TAG
+Subject: makefile: honor BUILD_VERSION and BUILD_TAG
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
@@ -11,10 +10,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  3 files changed, 23 insertions(+), 10 deletions(-)
 
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index 89961ebd..6f8259f2 100644
+index cdf7a44..8c2a741 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -504,10 +504,15 @@ $(VERSION):
+@@ -503,10 +503,15 @@ $(VERSION):
  		echo "Found SCENARIO configurations under $(SCENARIO_CFG_DIR)"; \
  	fi;
  	touch $(VERSION)
@@ -35,7 +34,7 @@ index 89961ebd..6f8259f2 100644
  	USER="$${USER:-$$(id -u -n)}"; \
  	if [ x$(CONFIG_RELEASE) = "xy" ];then BUILD_TYPE="REL";else BUILD_TYPE="DBG";fi;\
 diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
-index 17e7afca..97a7d965 100644
+index 7b69293..1b119f5 100644
 --- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
 +++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
 @@ -62,9 +62,13 @@ $(VERSION_H):
@@ -56,7 +55,7 @@ index 17e7afca..97a7d965 100644
  	USER="$${USER:-$$(id -u -n)}"; \
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
 diff --git a/misc/tools/acrn-crashlog/usercrash/Makefile b/misc/tools/acrn-crashlog/usercrash/Makefile
-index 9484d992..746aff81 100644
+index a7e5471..d21d4a9 100644
 --- a/misc/tools/acrn-crashlog/usercrash/Makefile
 +++ b/misc/tools/acrn-crashlog/usercrash/Makefile
 @@ -42,9 +42,13 @@ $(VERSION_H):
@@ -76,6 +75,3 @@ index 9484d992..746aff81 100644
  	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
  	USER="$${USER:-$$(id -u -n)}"; \
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
--- 
-2.20.1
-

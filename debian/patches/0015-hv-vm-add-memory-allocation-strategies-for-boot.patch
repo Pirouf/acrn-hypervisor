@@ -1,7 +1,6 @@
-From f3b2cc50148a2f66499ee949c60eac5d0e96aa17 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 5 May 2020 20:33:39 +0200
-Subject: [PATCH 16/18] hv: vm: add memory allocation strategies for boot
+Subject: hv: vm: add memory allocation strategies for boot
 
 In preparation to support the Linux kernel boot protocol regarding
 memory usage to avoid crashes when trying to place images to already
@@ -11,15 +10,15 @@ top of memory (needed to place initramfs as required).
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/arch/x86/guest/vm.c         | 153 +++++++++++++++++++++++++
+ hypervisor/arch/x86/guest/vm.c         | 153 +++++++++++++++++++++++++++++++++
  hypervisor/include/arch/x86/guest/vm.h |   4 +
  2 files changed, 157 insertions(+)
 
 diff --git a/hypervisor/arch/x86/guest/vm.c b/hypervisor/arch/x86/guest/vm.c
-index b4cb66a4..7ae31c8a 100644
+index 8b3bfc5..5acec6a 100644
 --- a/hypervisor/arch/x86/guest/vm.c
 +++ b/hypervisor/arch/x86/guest/vm.c
-@@ -388,6 +388,156 @@ static uint64_t lapic_pt_enabled_pcpu_bitmap(struct acrn_vm *vm)
+@@ -393,6 +393,156 @@ static uint64_t lapic_pt_enabled_pcpu_bitmap(struct acrn_vm *vm)
  	return bitmap;
  }
  
@@ -176,7 +175,7 @@ index b4cb66a4..7ae31c8a 100644
  /**
   * @pre vm_id < CONFIG_MAX_VM_NUM && vm_config != NULL && rtn_vm != NULL
   * @pre vm->state == VM_POWERED_OFF
-@@ -404,6 +554,9 @@ int32_t create_vm(uint16_t vm_id, struct acrn_vm_config *vm_config, struct acrn_
+@@ -409,6 +559,9 @@ int32_t create_vm(uint16_t vm_id, uint64_t pcpu_bitmap, struct acrn_vm_config *v
  	vm->vm_id = vm_id;
  	vm->hw.created_vcpus = 0U;
  
@@ -187,10 +186,10 @@ index b4cb66a4..7ae31c8a 100644
  	vm->arch_vm.nworld_eptp = vm->arch_vm.ept_mem_ops.get_pml4_page(vm->arch_vm.ept_mem_ops.info);
  	sanitize_pte((uint64_t *)vm->arch_vm.nworld_eptp, &vm->arch_vm.ept_mem_ops);
 diff --git a/hypervisor/include/arch/x86/guest/vm.h b/hypervisor/include/arch/x86/guest/vm.h
-index 07c2edb3..f24a1259 100644
+index 6f80fbb..616ef65 100644
 --- a/hypervisor/include/arch/x86/guest/vm.h
 +++ b/hypervisor/include/arch/x86/guest/vm.h
-@@ -155,6 +155,7 @@ struct acrn_vm {
+@@ -156,6 +156,7 @@ struct acrn_vm {
  	uint8_t vrtc_offset;
  
  	uint64_t intr_inject_delay_delta; /* delay of intr injection */
@@ -198,7 +197,7 @@ index 07c2edb3..f24a1259 100644
  } __aligned(PAGE_SIZE);
  
  /*
-@@ -250,6 +251,9 @@ bool is_prelaunched_vm(const struct acrn_vm *vm);
+@@ -239,6 +240,9 @@ bool is_prelaunched_vm(const struct acrn_vm *vm);
  uint16_t get_vmid_by_uuid(const uint8_t *uuid);
  struct acrn_vm *get_vm_from_vmid(uint16_t vm_id);
  struct acrn_vm *get_sos_vm(void);
@@ -208,6 +207,3 @@ index 07c2edb3..f24a1259 100644
  
  void create_sos_vm_e820(struct acrn_vm *vm);
  void create_prelaunched_vm_e820(struct acrn_vm *vm);
--- 
-2.20.1
-

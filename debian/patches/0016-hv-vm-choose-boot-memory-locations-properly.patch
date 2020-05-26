@@ -1,7 +1,6 @@
-From 1b9d34f7adc331e4521916f2a227699a5b8183db Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 5 May 2020 20:34:59 +0200
-Subject: [PATCH 17/18] hv: vm: choose boot memory locations properly
+Subject: hv: vm: choose boot memory locations properly
 
 In order to place the images for SOS booting at correct locations
 to avoid random crahes (depending on images loaded, bootloaders, boot
@@ -78,13 +77,13 @@ This will vary also on the chosen boot protocol: multiboot vs multiboot2.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/arch/x86/guest/vm.c     | 109 +++++++++++++++++++++++++++--
- hypervisor/boot/guest/vboot_info.c | 102 +++++++++++++++++++++++++--
- hypervisor/common/vm_load.c        |  48 ++++++++-----
+ hypervisor/arch/x86/guest/vm.c     | 109 +++++++++++++++++++++++++++++++++++--
+ hypervisor/boot/guest/vboot_info.c | 102 +++++++++++++++++++++++++++++++---
+ hypervisor/common/vm_load.c        |  48 +++++++++-------
  3 files changed, 227 insertions(+), 32 deletions(-)
 
 diff --git a/hypervisor/arch/x86/guest/vm.c b/hypervisor/arch/x86/guest/vm.c
-index 7ae31c8a..0dda9e8b 100644
+index 5acec6a..943dba1 100644
 --- a/hypervisor/arch/x86/guest/vm.c
 +++ b/hypervisor/arch/x86/guest/vm.c
 @@ -33,6 +33,9 @@
@@ -97,7 +96,7 @@ index 7ae31c8a..0dda9e8b 100644
  vm_sw_loader_t vm_sw_loader;
  
  /* Local variables */
-@@ -388,6 +391,99 @@ static uint64_t lapic_pt_enabled_pcpu_bitmap(struct acrn_vm *vm)
+@@ -393,6 +396,99 @@ static uint64_t lapic_pt_enabled_pcpu_bitmap(struct acrn_vm *vm)
  	return bitmap;
  }
  
@@ -197,7 +196,7 @@ index 7ae31c8a..0dda9e8b 100644
  /*
   * Allocate E820 ram for VM
   *
-@@ -410,8 +506,8 @@ void *vm_allocate(struct acrn_vm *vm, uint32_t size, uint64_t pa_addr,
+@@ -415,8 +511,8 @@ void *vm_allocate(struct acrn_vm *vm, uint32_t size, uint64_t pa_addr,
  
  	/* try to find the required section */
  	if (pa_addr != 0) {
@@ -208,7 +207,7 @@ index 7ae31c8a..0dda9e8b 100644
  
  			/* no RAM section */
  			if (e820->type != E820_TYPE_RAM)
-@@ -437,8 +533,8 @@ void *vm_allocate(struct acrn_vm *vm, uint32_t size, uint64_t pa_addr,
+@@ -442,8 +538,8 @@ void *vm_allocate(struct acrn_vm *vm, uint32_t size, uint64_t pa_addr,
  	if (!relocatable)
  		return NULL;
  
@@ -219,7 +218,7 @@ index 7ae31c8a..0dda9e8b 100644
  
  		/* no RAM section */
  		if (e820->type != E820_TYPE_RAM)
-@@ -491,8 +587,8 @@ void *vm_allocate_top(struct acrn_vm *vm, uint32_t size, uint64_t max_end)
+@@ -496,8 +592,8 @@ void *vm_allocate_top(struct acrn_vm *vm, uint32_t size, uint64_t max_end)
  	if (max_start < vm->boot_allocator_top)
  		goto out;
  
@@ -230,7 +229,7 @@ index 7ae31c8a..0dda9e8b 100644
  		uint64_t entry_end = e820->baseaddr + e820->length;
  
  		/* no RAM section */
-@@ -568,6 +664,7 @@ int32_t create_vm(uint16_t vm_id, struct acrn_vm_config *vm_config, struct acrn_
+@@ -573,6 +669,7 @@ int32_t create_vm(uint16_t vm_id, uint64_t pcpu_bitmap, struct acrn_vm_config *v
  		/* Only for SOS_VM */
  		create_sos_vm_e820(vm);
  		prepare_sos_vm_memmap(vm);
@@ -239,7 +238,7 @@ index 7ae31c8a..0dda9e8b 100644
  		status = init_vm_boot_info(vm);
  	} else {
 diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
-index 67c80961..dc9a4797 100644
+index 67c8096..dc9a479 100644
 --- a/hypervisor/boot/guest/vboot_info.c
 +++ b/hypervisor/boot/guest/vboot_info.c
 @@ -22,21 +22,66 @@
@@ -389,7 +388,7 @@ index 67c80961..dc9a4797 100644
  		vm->sw.bootargs_info.load_addr = vm->sw.kernel_info.kernel_load_addr - (MEM_1K * 8U);
  	} else {
 diff --git a/hypervisor/common/vm_load.c b/hypervisor/common/vm_load.c
-index 29258d3e..ad117283 100644
+index de9b580..9bae9da 100644
 --- a/hypervisor/common/vm_load.c
 +++ b/hypervisor/common/vm_load.c
 @@ -14,24 +14,18 @@
@@ -426,7 +425,7 @@ index 29258d3e..ad117283 100644
  }
  
  /**
-@@ -199,21 +193,37 @@ int32_t direct_boot_sw_loader(struct acrn_vm *vm)
+@@ -200,21 +194,37 @@ int32_t direct_boot_sw_loader(struct acrn_vm *vm)
  	init_vcpu_protect_mode_regs(vcpu, get_guest_gdt_base_gpa(vcpu->vm));
  
  	/* Copy the guest kernel image to its run-time location */
@@ -468,6 +467,3 @@ index 29258d3e..ad117283 100644
  	}
  	switch (vm->sw.kernel_type) {
  	case KERNEL_BZIMAGE:
--- 
-2.20.1
-

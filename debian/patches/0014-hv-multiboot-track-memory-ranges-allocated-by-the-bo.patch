@@ -1,8 +1,6 @@
-From 480149254c688661db287caea2ed24314faf889f Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 5 May 2020 15:57:54 +0200
-Subject: [PATCH 15/18] hv: multiboot: track memory ranges allocated by the
- bootloader
+Subject: hv: multiboot: track memory ranges allocated by the bootloader
 
 In preparation to choose the memory locations for SOS boot correctly
 we have to know which locations are already occupied by the booloader.
@@ -16,13 +14,13 @@ setting the DBG_LEVEL_MULTIBOOT or DBG_LEVEL_MULTIBOOT2 respectively.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/boot/include/multiboot.h |  91 +++++++----
- hypervisor/boot/multiboot.c         | 225 +++++++++++++++++++++++++++-
- hypervisor/boot/multiboot2.c        | 133 +++++++++++++++-
+ hypervisor/boot/include/multiboot.h |  91 ++++++++++-----
+ hypervisor/boot/multiboot.c         | 225 +++++++++++++++++++++++++++++++++++-
+ hypervisor/boot/multiboot2.c        | 133 ++++++++++++++++++++-
  3 files changed, 417 insertions(+), 32 deletions(-)
 
 diff --git a/hypervisor/boot/include/multiboot.h b/hypervisor/boot/include/multiboot.h
-index 6dfe1140..51319bc0 100644
+index 6dfe114..51319bc 100644
 --- a/hypervisor/boot/include/multiboot.h
 +++ b/hypervisor/boot/include/multiboot.h
 @@ -14,64 +14,92 @@
@@ -162,7 +160,7 @@ index 6dfe1140..51319bc0 100644
  
  #endif	/* MULTIBOOT_H */
 diff --git a/hypervisor/boot/multiboot.c b/hypervisor/boot/multiboot.c
-index f2e3797d..c8d4dbec 100644
+index f03c5b5..289ffe6 100644
 --- a/hypervisor/boot/multiboot.c
 +++ b/hypervisor/boot/multiboot.c
 @@ -11,16 +11,231 @@
@@ -414,7 +412,7 @@ index f2e3797d..c8d4dbec 100644
  		pr_err("no multiboot memory map info found!");
  		ret = -EINVAL;
 diff --git a/hypervisor/boot/multiboot2.c b/hypervisor/boot/multiboot2.c
-index 004e8d44..2bb7ea5c 100644
+index 5b00ebf..0e454f0 100644
 --- a/hypervisor/boot/multiboot2.c
 +++ b/hypervisor/boot/multiboot2.c
 @@ -11,6 +11,33 @@
@@ -451,7 +449,7 @@ index 004e8d44..2bb7ea5c 100644
  /**
   * @pre mbi != NULL && mb2_tag_mmap != NULL
   */
-@@ -20,14 +47,22 @@ static void mb2_mmap_to_mbi(struct acrn_multiboot_info *mbi, struct multiboot2_t
+@@ -20,14 +47,22 @@ static void mb2_mmap_to_mbi(struct acrn_multiboot_info *mbi, const struct multib
  
  	/* multiboot2 mmap tag header occupied 16 bytes */
  	mbi->mi_mmap_entries = (mb2_tag_mmap->size - 16U) / sizeof(struct multiboot2_mmap_entry);
@@ -465,7 +463,7 @@ index 004e8d44..2bb7ea5c 100644
 -		mbi->mi_mmap_entry[i].baseaddr = mb2_tag_mmap->entries[i].addr;
 -		mbi->mi_mmap_entry[i].length = mb2_tag_mmap->entries[i].len;
 -		mbi->mi_mmap_entry[i].type = mb2_tag_mmap->entries[i].type;
-+		struct multiboot2_mmap_entry *mmap = &mb2_tag_mmap->entries[i];
++		const struct multiboot2_mmap_entry *mmap = &mb2_tag_mmap->entries[i];
 +
 +		dev_dbg(DBG_LEVEL_MULTIBOOT2, "  MMAP[%u]: 0x%016lx-0x%016lx, %s(%u)",
 +			i, mmap->addr, mmap->addr + mmap->len,
@@ -493,9 +491,9 @@ index 004e8d44..2bb7ea5c 100644
  		mbi->mi_mods[mbi_mod_idx].mm_mod_start = mb2_tag_mods->mod_start;
  		mbi->mi_mods[mbi_mod_idx].mm_mod_end = mb2_tag_mods->mod_end;
  		mbi->mi_mods[mbi_mod_idx].mm_string = (uint32_t)(uint64_t)mb2_tag_mods->cmdline;
-@@ -54,18 +98,59 @@ static void mb2_mods_to_mbi(struct acrn_multiboot_info *mbi,
+@@ -54,11 +98,39 @@ static void mb2_mods_to_mbi(struct acrn_multiboot_info *mbi,
   */
- static void mb2_efi64_to_mbi(struct acrn_multiboot_info *mbi, struct multiboot2_tag_efi64 *mb2_tag_efi64)
+ static void mb2_efi64_to_mbi(struct acrn_multiboot_info *mbi, const struct multiboot2_tag_efi64 *mb2_tag_efi64)
  {
 +	dev_dbg(DBG_LEVEL_MULTIBOOT2, "EFI64: 0x%016lx", mb2_tag_efi64->pointer);
 +
@@ -533,7 +531,8 @@ index 004e8d44..2bb7ea5c 100644
  /**
   * @pre mbi != NULL && mb2_tag_efimmap != 0
   */
- static int32_t mb2_efimmap_to_mbi(struct acrn_multiboot_info *mbi, struct multiboot2_tag_efi_mmap *mb2_tag_efimmap)
+@@ -66,7 +138,20 @@ static int32_t mb2_efimmap_to_mbi(struct acrn_multiboot_info *mbi,
+ 			const struct multiboot2_tag_efi_mmap *mb2_tag_efimmap)
  {
  	int32_t ret = 0;
 +	uint32_t entries, i;
@@ -553,7 +552,7 @@ index 004e8d44..2bb7ea5c 100644
  	mbi->mi_efi_info.efi_memdesc_size = mb2_tag_efimmap->descr_size;
  	mbi->mi_efi_info.efi_memdesc_version = mb2_tag_efimmap->descr_vers;
  	mbi->mi_efi_info.efi_memmap = (uint32_t)(uint64_t)mb2_tag_efimmap->efi_mmap;
-@@ -80,6 +165,30 @@ static int32_t mb2_efimmap_to_mbi(struct acrn_multiboot_info *mbi, struct multib
+@@ -81,6 +166,30 @@ static int32_t mb2_efimmap_to_mbi(struct acrn_multiboot_info *mbi,
  	return ret;
  }
  
@@ -582,9 +581,9 @@ index 004e8d44..2bb7ea5c 100644
 +	[MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR]   = "LOAD_BASE_ADDR"
 +};
  /**
-  * @pre mbi != NULL && mb2_info != NULL
+  * @pre mbi != NULL
   */
-@@ -90,6 +199,11 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+@@ -91,13 +200,25 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
  	uint32_t mb2_info_size = *(uint32_t *)mb2_info;
  	uint32_t mod_idx = 0U;
  
@@ -596,10 +595,8 @@ index 004e8d44..2bb7ea5c 100644
  	/* The start part of multiboot2 info: total mbi size (4 bytes), reserved (4 bytes) */
  	mb2_tag = (struct multiboot2_tag *)((uint8_t *)mb2_info + 8U);
  	mb2_tag_end = (struct multiboot2_tag *)((uint8_t *)mb2_info + mb2_info_size);
-@@ -101,8 +215,15 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
- 			break;
- 		}
  
+ 	while ((mb2_tag->type != MULTIBOOT2_TAG_TYPE_END) && (mb2_tag < mb2_tag_end)) {
 +		dev_dbg(DBG_LEVEL_MULTIBOOT2, "Found multiboot2 tag %u: %s",
 +			mb2_tag->type,
 +			mb2_tag->type <= MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR ?
@@ -612,7 +609,7 @@ index 004e8d44..2bb7ea5c 100644
  			mbi->mi_cmdline = ((struct multiboot2_tag_string *)mb2_tag)->string;
  			mbi->mi_flags |= MULTIBOOT_INFO_HAS_CMDLINE;
  			break;
-@@ -114,9 +235,12 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+@@ -109,9 +230,12 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
  			mod_idx++;
  			break;
  		case MULTIBOOT2_TAG_TYPE_BOOT_LOADER_NAME:
@@ -625,7 +622,7 @@ index 004e8d44..2bb7ea5c 100644
  			mbi->mi_acpi_rsdp = ((struct multiboot2_tag_new_acpi *)mb2_tag)->rsdp;
  			break;
  		case MULTIBOOT2_TAG_TYPE_EFI64:
-@@ -127,7 +251,8 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+@@ -122,7 +246,8 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
  			break;
  		default:
  			if (mb2_tag->type <= MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR) {
@@ -635,6 +632,3 @@ index 004e8d44..2bb7ea5c 100644
  			} else {
  				pr_err("unknown multiboot2 tag type: %d", mb2_tag->type);
  				ret = -EINVAL;
--- 
-2.20.1
-

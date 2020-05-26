@@ -1,7 +1,6 @@
-From be89cb92880e61398f93f9c30f5174ad11123f88 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:45:58 +0200
-Subject: [PATCH 08/18] acrn-config: accept empty SOS_ROOTFS
+Subject: acrn-config: accept empty SOS_ROOTFS
 
 Since most distributions generate the rottfs kernel parameter at
 generation of its bootloader config, do not force the setting of
@@ -13,16 +12,16 @@ is overwritten by the VM configuration.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- misc/acrn-config/board_config/misc_cfg_h.py      |  6 +++++-
- misc/acrn-config/library/scenario_cfg_lib.py     | 16 ----------------
- .../acrn-config/scenario_config/scenario_item.py |  1 -
+ misc/acrn-config/board_config/misc_cfg_h.py       |  6 +++++-
+ misc/acrn-config/library/scenario_cfg_lib.py      | 16 ----------------
+ misc/acrn-config/scenario_config/scenario_item.py |  1 -
  3 files changed, 5 insertions(+), 18 deletions(-)
 
 diff --git a/misc/acrn-config/board_config/misc_cfg_h.py b/misc/acrn-config/board_config/misc_cfg_h.py
-index d2ac8a4a..b06cb047 100644
+index 3049f70..69c40d1 100644
 --- a/misc/acrn-config/board_config/misc_cfg_h.py
 +++ b/misc/acrn-config/board_config/misc_cfg_h.py
-@@ -168,7 +168,11 @@ def generate_file(config):
+@@ -246,7 +246,11 @@ def generate_file(config):
      # sos rootfs and console
      print("", file=config)
      if "SOS_VM" in common.VM_TYPES.values():
@@ -36,10 +35,10 @@ index d2ac8a4a..b06cb047 100644
              print('#define SOS_CONSOLE\t\t"console={} "'.format(ttys_n), file=config)
          else:
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index 6b6321e6..cbb27b8d 100644
+index eaf3651..ebf909f 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
-@@ -90,22 +90,6 @@ def get_pci_num(pci_devs):
+@@ -91,22 +91,6 @@ def get_pci_num(pci_devs):
      return pci_devs_num
  
  
@@ -63,10 +62,10 @@ index 6b6321e6..cbb27b8d 100644
      """
      Check vm name
 diff --git a/misc/acrn-config/scenario_config/scenario_item.py b/misc/acrn-config/scenario_config/scenario_item.py
-index bf0b8308..3b858529 100644
+index 35642a2..02b042d 100644
 --- a/misc/acrn-config/scenario_config/scenario_item.py
 +++ b/misc/acrn-config/scenario_config/scenario_item.py
-@@ -148,7 +148,6 @@ class VuartInfo:
+@@ -137,7 +137,6 @@ class VuartInfo:
          Check all items in this class
          :return: None
          """
@@ -74,6 +73,3 @@ index bf0b8308..3b858529 100644
          scenario_cfg_lib.check_vuart(self.v0_vuart, self.v1_vuart)
  
  class MemInfo:
--- 
-2.20.1
-

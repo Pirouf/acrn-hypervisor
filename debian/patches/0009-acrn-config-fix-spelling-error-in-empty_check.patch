@@ -1,7 +1,6 @@
-From 79a265c6cd066234f3475f395e34e16d02b8fbeb Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:57:32 +0200
-Subject: [PATCH 10/18] acrn-config: fix spelling error in empty_check()
+Subject: acrn-config: fix spelling error in empty_check()
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
@@ -9,10 +8,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/misc/acrn-config/library/hv_cfg_lib.py b/misc/acrn-config/library/hv_cfg_lib.py
-index 48341097..acfb7c34 100644
+index 146b50d..e853e5d 100644
 --- a/misc/acrn-config/library/hv_cfg_lib.py
 +++ b/misc/acrn-config/library/hv_cfg_lib.py
-@@ -29,7 +29,7 @@ RANGE_DB = {
+@@ -28,7 +28,7 @@ RANGE_DB = {
  def empty_check(val, prime_item, item):
      if not val or val == None:
          key = 'hv,{},{}'.format(prime_item, item)
@@ -21,6 +20,3 @@ index 48341097..acfb7c34 100644
          return True
  
      return False
--- 
-2.20.1
-
