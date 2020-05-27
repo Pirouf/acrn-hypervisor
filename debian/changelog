@@ -1,12 +1,26 @@
-acrn-hypervisor (2.0-unstable-1~1.gbp81aaa0) UNRELEASED; urgency=medium
+acrn-hypervisor (2.0-unstable-1~2.gbpbeeb50) UNRELEASED; urgency=medium
 
-  ** SNAPSHOT build @81aaa01bb64e78f970efebf9422fadd4aec74cc1 **
+  ** SNAPSHOT build @beeb506f13f0e365feff7b0cc62a15924b3bb487 **
 
+  [ Helmut Buchsbaum ]
   * debian: cherry-picked debian directory from debian/1.6
   * update/rebase patches
   * debian/gbp.conf: change for debian/master
+  * debian/changelog: update to 2.0-unstable-1~1.gbp81aaa0
 
- -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 26 May 2020 19:58:24 +0200
+  [ Binbin Wu ]
+  * hv: vtd: init DMAR/IR table address when register
+  * hv: vtd: cleanup snoop control related code
+  * hv: vtd: add a function to check valid of dmar unit
+  * hv: vtd: remove some unnecessary check
+
+  [ Minggui Cao ]
+  * HV: fix bug to clear guest flags after it not used
+
+  [ Vijay Dhanraj ]
+  * HV: Fix MP Init sequence hang by adding a delay
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Wed, 27 May 2020 14:52:48 +0200
 
 acrn-hypervisor (1.6.1-2) unstable; urgency=medium
 
