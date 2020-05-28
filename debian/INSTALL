@@ -1,0 +1,206 @@
+Installing ACRN on Debian Buster
+================================
+
+All commands executed on the target machine are executed as root user.
+
+Prerequisites
+-------------
+
+Apart from building ACRN (preferably using the debian/run-docker-build.sh
+helper script) there are several conditions to met.
+
+* A vanilla Debian buster install on a target machine supported by ACRN.
+  See https://www.debian.org/releases/stable/amd64/
+
+* ACRN SOS kernel image:
+  You will need a proper Debian package for the SOS kernel to be able to use
+  ACRN. Right now there is no support for ACRN in Debian kernels, so you have
+  to build your own kernel. Beware that you might end up with a different
+  kernel version than your original Debian kernel, which can cause numerous
+  side effects on your system. If you want to stay on the save side, use the
+  release_1.6 branch of ACRN kernel (this still is on v4.19 like Debian
+  Buster). You can also try to use this v4.19 kernel with ACRN hypervisor
+  master branch, but there might be some ACRN specific driver compatiblity
+  issue, so be warned!
+
+  You do not need to build the kernel on your target machine, but make sure
+  your development host is a 64bit Intel-PC preferably with Debian Buster
+  installed or use a respective VM or Docker image.
+
+  * create a shallow clone of the ACRN enabled kernel at
+    https://github.com/projectacrn/acrn-kernel using the respective branch,
+    e.g. use master for ACRN bleeding edge builds, use release_1.6 for
+    ACRN-1.6.x builds. Shallow cloning saves a lot of time and disk space
+    and is sufficient to build the kernel!
+
+    user@host~$ git clone --depth 1 --branch master https://github.com/projectacrn/acrn-kernel.git
+
+  * choose kernel_config_uefi_sos as the configuration to start with:
+
+    user@host~$ cd acrn-kernel
+    user@host~/acrn-kernel$ cp kernel_config_uefi_sos .config
+
+  * Adapt the kernel configuration in .config:
+
+    Change CONFIG_LOCALVERSION since the "-PKT-YYMMDDThhmmssZ" string is not
+    usable for building a Debian package (for Debian, this is an illegal
+    version string):
+    CONFIG_LOCALVERSION="-acrn-sos"
+
+    To make libvirt happy, change/set the following:
+    CONFIG_DEVMEM=y
+    CONFIG_STRICT_DEVMEM=y
+    CONFIG_IO_STRICT_DEVMEM=y
+
+  * To eventually adapt to new config options, update your config with their default values
+    user@host~/acrn-kernel$ make olddefconfig
+
+  * Now you are ready to build a Debian kernel package, be patinet this takes a while!
+    user@host~/acrn-kernel$ make bindeb-pkg
+
+  * This generates the Debian package in the base directory:
+    user@host~/acrn-kernel$ cd ..
+    user@host~$ ls -al linux*.deb
+
+    linux-headers-<version>_amd64.deb
+    linux-image-<version>_amd64.deb
+    linux-image-<version>-dbg_<version>_amd64.deb
+    linux-libc-dev_<version>_amd64.deb
+
+  * Usually you just need linux-image-<version>_amd64.deb to install on your
+    target machine.
+
+    user@host~$ scp linux-image-<version>_amd64.deb root@<target machine>:/tmp
+    root@target:~# apt install /tmp/linux-image-<version>_amd64.deb
+
+    This installs the new kernel and generates the respective initramfs.
+
+* acpica-tools
+  Since the acpica-tools version provided by Debian Buster is too oldi for
+  ACRN, we simply use the one provided by unstable.
+
+  * On your target machine add unstable to your repostitory list
+    root@target:~# echo "deb http://deb.debian.org/debian unstable main" >/etc/apt/sources.list.d/unstable.list
+
+  * Enable pinning to avoid updating to unstable:
+    root@target:~# (\
+     echo "Package: *"; \
+     echo "Pin: release a=stable"; \
+     echo "Pin-Priority: 700"; \
+     echo ""; \
+     echo "Package: *"; \
+     echo "Pin: release a=unstable"; \
+     echo "Pin-Priority: 600") >> /etc/apt/preferences
+
+  * now update package management
+    root@target:~# apt update
+
+  * check availabilty of the correct acpica-tools package
+    root@target:~# apt policy acpica-tools
+    acpica-tools:
+    Installed: (none)
+    Candidate: 20181213-1
+    Version table:
+         20200326-1 600
+            600 http://deb.debian.org/debian unstable/main amd64 Packages
+         20181213-1 700
+            700 http://deb.debian.org/debian buster/main amd64 Packages
+
+  * install the unstable version
+    root@target:~# apt-get install -y -t unstable acpica-tools
+
+
+Installation of ACRN
+--------------------
+
+Assuming you have already built the ACRN Debian packages, you just have to
+transfer them to the target machine to install them there. The minimum
+packages to be installed are the following:
+
+user@host~/acrn-hypervisor/build/debs$ scp *.deb root@<target machine>:/tmp
+root@target:~# apt install /tmp/acrn-devicemodel_*.deb \
+    /tmp/acrnd_*.deb /tmp/acrn-hypervisor_*.deb /tmp/grub-acrn_*.deb
+
+ATTENTION: Choose your target machine correctly at hypervisor install,
+           otherwise ACRN likely will crash!
+
+Now reboot your target machine, it should automatically start ACRN and the SOS:
+
+root@target:~# dmesg | grep "Hypervisor detected"
+[    0.000000] Hypervisor detected: ACRN
+
+
+Using ACRN
+----------
+
+This section shows how to set up networking with ACRN and start a Debian
+Live image as a standard UOS using serial console only just to verify
+ACRN is up and running.
+
+* Create acrn-br0 as virtual bridge to connect your VM to
+  * install bridge-utils
+    root@target:~# apt install bridge-utils
+  * find out the network device name & mac address
+    root@target:~# ip -f link a
+    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+        link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    2: sit0@NONE: <NOARP> mtu 1480 qdisc noop state DOWN group default qlen 1000
+        link/sit 0.0.0.0 brd 0.0.0.0
+    3: enp0s3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master acrn-br0 state UP group default qlen 1000
+        link/ether 11:22:33:44:55:66 brd ff:ff:ff:ff:ff:ff
+
+    Here we have NETDEV="enp0s3" with MAC="11:22:33:44:55:66".
+
+  * create acrn-br0 configuration file using the network device name and
+    its mac address from above
+    root@target:~# NETDEV="enp0s3"; \
+                   MAC="11:22:33:44:55:66"; \
+                   cat >/etc/network/interfaces.d/acrn-br0 <<EOF
+# avoid ${NETDEV} to be configured by network-manager
+iface ${NETDEV} inet manual
+
+# add tap interface
+auto tap0
+iface tap0 inet manual
+    pre-up ip tuntap add tap0 mode tap user root
+    up ip link set dev tap0 up
+    post-down ip link del dev tap0
+
+# Bridge setup, inherit ${NETDEV}'s mac address
+auto acrn-br0
+iface acrn-br0 inet dhcp
+    bridge_ports ${NETDEV} tap0
+    bridge_hw ${MAC}
+EOF
+
+  * now reboot the target machine to make sure network is set up correctly
+  * after reboot, double check the setup
+    root@target:~# ip -f link a
+    1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000
+        link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00
+    2: sit0@NONE: <NOARP> mtu 1480 qdisc noop state DOWN group default qlen 1000
+        link/sit 0.0.0.0 brd 0.0.0.0
+    3: enp0s3: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc pfifo_fast master acrn-br0 state UP group default qlen 1000
+        link/ether 11:22:33:44:55:66 brd ff:ff:ff:ff:ff:ff
+    4: tap0: <NO-CARRIER,BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast master acrn-br0 state DOWN group default qlen 1000
+        link/ether ca:ba:8f:73:a1:9a brd ff:ff:ff:ff:ff:ff
+    5: acrn-br0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc noqueue state UP group default qlen 1000
+        link/ether 11:22:33:44:55:66 brd ff:ff:ff:ff:ff:ff
+
+  * Download e.g. Debian Live
+    root@target:~# wget https://cdimage.debian.org/debian-cd/current-live/amd64/iso-hybrid/debian-live-10.4.0-amd64-standard.iso
+
+  * start this image headless, using a (virtual) serial console:
+    root@target:~# acrn-dm -A -m 2048M -s 0:0,hostbridge -s 1:0,lpc \
+      --lpc com1,stdio -s 2,virtio-net,tap0 -s 3,virtio-rnd \
+      -s 4,virtio-blk,debian-live-10.4.0-amd64-standard.iso \
+      --ovmf /usr/share/acrn/bios/OVMF.fd debianvm
+
+  * At grub menu edit the first entry by pressing 'e' and add
+    'console=ttyS0' to the linux comandline:
+      linux  /live/vmlinuz-4.19.0-9-amd64 console=ttyS0 boot=live components splash quiet "${loopback}"
+    and press Ctrl-x to boot
+
+  * After a few seconds the login prompt appears. Login with user/live here.
+  * Congratulations, you're running your first VM on this ACRN installation!
+
