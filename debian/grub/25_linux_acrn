@@ -125,9 +125,9 @@ linux_entry ()
   lmessage="$(gettext_printf "Loading Linux %s ..." ${version})"
   sed "s/^/$submenu_indentation/" << EOF
 	echo	'$(echo "$xmessage" | grub_quote)'
-	${acrn_loader}	${rel_acrn_dirname}/${acrn_basename} ${acrn_args} root=${linux_root_device_thisversion} ro ${args}
+	${acrn_loader}	${rel_acrn_dirname}/${acrn_basename} ${acrn_args}
 	echo	'$(echo "$lmessage" | grub_quote)'
-	${module_loader}	${rel_dirname}/${basename} Linux_bzImage
+	${module_loader}	${rel_dirname}/${basename} Linux_bzImage root=${linux_root_device_thisversion} ro ${args}
 EOF
   if test -n "${initrd}" ; then
     # TRANSLATORS: ramdisk isn't identifier. Should be translated.
