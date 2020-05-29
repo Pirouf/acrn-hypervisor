@@ -1,12 +1,18 @@
-acrn-hypervisor (2.0-unstable-1~2.gbpbeeb50) UNRELEASED; urgency=medium
+acrn-hypervisor (2.0-unstable-1~3.gbpad7c2e) UNRELEASED; urgency=medium
 
-  ** SNAPSHOT build @beeb506f13f0e365feff7b0cc62a15924b3bb487 **
+  ** SNAPSHOT build @ad7c2e1d5307325c9bbe8df445416ee1e321c340 **
 
   [ Helmut Buchsbaum ]
   * debian: cherry-picked debian directory from debian/1.6
   * update/rebase patches
   * debian/gbp.conf: change for debian/master
   * debian/changelog: update to 2.0-unstable-1~1.gbp81aaa0
+  * debian/changelog: update snapshot to 2.0-unstable-1~2.gbpbeeb50
+  * dm: bzimage: dynamically adapt to ramdisk size
+  * debian: remove upstreamed patch
+  * debian/README.source: fix typo
+  * debian: add INSTALL file
+  * Revert "dm: acpi: add PSDS table in ACPI table"
 
   [ Binbin Wu ]
   * hv: vtd: init DMAR/IR table address when register
@@ -20,7 +26,24 @@ acrn-hypervisor (2.0-unstable-1~2.gbpbeeb50) UNRELEASED; urgency=medium
   [ Vijay Dhanraj ]
   * HV: Fix MP Init sequence hang by adding a delay
 
- -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Wed, 27 May 2020 14:52:48 +0200
+  [ Li Fei1 ]
+  * hv: vpci: add vmsi capability registers rw permission control
+  * hv: vpci: add vmsix capability registers rw permission control
+
+  [ Xie, nanlin ]
+  * CODEOWNERS: Update the maintainer of misc folder
+
+  [ Yuan Liu ]
+  * Introduce ACRN Inter-VM Virtualization
+  * Implement creation and removal of inter-vm shared memory
+
+  [ wenlingz ]
+  * Modify Makefile to add acrn.bin after install Tracked-On: #4842 Signed-off-by: wenlingz <wenling.zhang@intel.com>
+
+  [ Zide Chen ]
+  * acrn-dm: fix corner cases in acrn_parse_cpu_affinity()
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Fri, 29 May 2020 08:30:07 +0200
 
 acrn-hypervisor (1.6.1-2) unstable; urgency=medium
 
