@@ -1,3 +1,12 @@
+acrn-hypervisor (1.6.1-3) unstable; urgency=medium
+
+  * debian/README.source: fix typo
+  * debian: fix typo in debian/acrn-hypervisor.postrm.in
+  * debian: add INSTALL file
+  * debian: add acrn-hypervisor.prerm.in
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 02 Jun 2020 14:26:10 +0200
+
 acrn-hypervisor (1.6.1-2) unstable; urgency=medium
 
   * debian: add lifemngr-split-linux-and-windows-build patch
