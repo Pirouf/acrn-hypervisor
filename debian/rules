@@ -101,7 +101,12 @@ debian/acrn-hypervisor.postrm: debian/acrn-hypervisor.postrm.in
 	@$(call echo-silent,CREATE $@)
 	$(Q)sed -e 's/@acrnversion@/$(ACRNVERSION)/g' $< > $@
 
-override_dh_installdeb: debian/acrn-hypervisor.postinst debian/acrn-hypervisor.postrm
+debian/acrn-hypervisor.prerm: debian/acrn-hypervisor.prerm.in
+	@$(call echo-verbose)
+	@$(call echo-silent,CREATE $@)
+	$(Q)sed -e 's/@acrnversion@/$(ACRNVERSION)/g' $< > $@
+
+override_dh_installdeb: debian/acrn-hypervisor.postinst debian/acrn-hypervisor.postrm debian/acrn-hypervisor.prerm
 	$(Q)dh_installdeb
 
 ### dh_installdebconf-arch ###################################################
@@ -257,8 +262,8 @@ override_dh_auto_clean:
 	@echo "The scenarios used are:"
 	@$(foreach b,$(boardlist),echo "  $b: $(bold)$(call commasep,$(scenariolist_$b))$(sgr0)";)
 	$(Q)rm -rf build
+	$(Q)rm -f debian/acrn-hypervisor.postinst debian/acrn-hypervisor.postrm debian/acrn-hypervisor.prerm
 	$(Q)rm -rf $$(find . -type d -name __pycache__)
-	$(Q)rm -rf $(ACRN_KERNEL_DIR)
 
 ### others ###################################################################
 %:
