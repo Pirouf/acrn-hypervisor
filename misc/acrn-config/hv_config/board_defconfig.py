@@ -97,26 +97,18 @@ def get_serial_type():
         if ttyn in line:
             # line format:
             # seri:/dev/ttyS0 type:portio base:0x3F8 irq:4
-            # seri:/dev/ttyS0 type:mmio base:0xB3640000 irq:4 bdf:"0:x.y"
+            # seri:/dev/ttyS0 type:mmio base:0xB3640000 irq:4 [bdf:"0:x.y"]
             ttys_type = line.split()[1].split(':')[1]
             if ttys_type == "portio":
                 ttys_value = line.split()[2].split(':')[1]
             elif ttys_type == "mmio":
-                ttys_value = line.split()[-1].split('"')[1:-1][0]
+                if 'bdf' in line:
+                    ttys_value = line.split()[-1].split('"')[1:-1][0]
+                else:
+                    common.print_yel("You have chosen a MMIO PCI serial that BDF does not existed for HV console.", warn=True)
             break
 
     return (ttys_type, ttys_value)
-
-
-def is_rdt_supported():
-    """
-    Returns True if platform supports RDT else False
-    """
-    (rdt_resources, rdt_res_clos_max, _) = board_cfg_lib.clos_info_parser(common.BOARD_INFO_FILE)
-    if len(rdt_resources) == 0 or len(rdt_res_clos_max) == 0:
-        return False
-    else:
-        return True
 
 
 def get_memory(hv_info, config):
@@ -167,7 +159,8 @@ def get_serial_console(config):
         print("CONFIG_SERIAL_PIO_BASE={}".format(serial_value), file=config)
     if serial_type == "mmio":
         print("CONFIG_SERIAL_PCI=y", file=config)
-        print('CONFIG_SERIAL_PCI_BDF="{}"'.format(serial_value), file=config)
+        if serial_value:
+            print('CONFIG_SERIAL_PCI_BDF="{}"'.format(serial_value), file=config)
 
 
 def get_miscfg(hv_info, config):
@@ -181,6 +174,11 @@ def get_features(hv_info, config):
     print("CONFIG_{}=y".format(hv_info.features.scheduler), file=config)
     print("CONFIG_RELOC={}".format(hv_info.features.reloc), file=config)
     print("CONFIG_MULTIBOOT2={}".format(hv_info.features.multiboot2), file=config)
+    print("CONFIG_RDT_ENABLED={}".format(hv_info.features.rdt_enabled), file=config)
+    if hv_info.features.rdt_enabled == 'y':
+        print("CONFIG_CDP_ENABLED={}".format(hv_info.features.cdp_enabled), file=config)
+    else:
+        print("CONFIG_CDP_ENABLED=n", file=config)
     print("CONFIG_HYPERV_ENABLED={}".format(hv_info.features.hyperv_enabled), file=config)
     print("CONFIG_IOMMU_ENFORCE_SNP={}".format(hv_info.features.iommu_enforce_snp), file=config)
     print("CONFIG_ACPI_PARSE_ENABLED={}".format(hv_info.features.acpi_parse_enabled), file=config)
@@ -230,11 +228,6 @@ def generate_file(hv_info, config):
     get_capacities(hv_info, config)
     get_serial_console(config)
     get_log_opt(hv_info, config)
-
-    if is_rdt_supported():
-        print("CONFIG_RDT_ENABLED=y", file=config)
-    else:
-        print("CONFIG_RDT_ENABLED=n", file=config)
 
     print("CONFIG_ENFORCE_VALIDATED_ACPI_INFO=y", file=config)
 
