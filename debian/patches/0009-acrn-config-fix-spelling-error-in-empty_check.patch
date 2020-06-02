@@ -4,19 +4,23 @@ Subject: acrn-config: fix spelling error in empty_check()
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- misc/acrn-config/library/hv_cfg_lib.py | 2 +-
- 1 file changed, 1 insertion(+), 1 deletion(-)
+ misc/acrn-config/library/hv_cfg_lib.py | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/misc/acrn-config/library/hv_cfg_lib.py b/misc/acrn-config/library/hv_cfg_lib.py
-index 146b50d..e853e5d 100644
+index 76c95ea..526d492 100644
 --- a/misc/acrn-config/library/hv_cfg_lib.py
 +++ b/misc/acrn-config/library/hv_cfg_lib.py
-@@ -28,7 +28,7 @@ RANGE_DB = {
- def empty_check(val, prime_item, item):
+@@ -30,10 +30,10 @@ def empty_check(val, prime_item, item, sub_item=''):
      if not val or val == None:
-         key = 'hv,{},{}'.format(prime_item, item)
--        ERR_LIST[key] = "{} should not empty".format(item)
-+        ERR_LIST[key] = "{} should not be empty".format(item)
+         if sub_item:
+             key = 'hv,{},{},{}'.format(prime_item, item, sub_item)
+-            ERR_LIST[key] = "{} should not empty".format(sub_item)
++            ERR_LIST[key] = "{} should not be empty".format(sub_item)
+         else:
+             key = 'hv,{},{}'.format(prime_item, item)
+-            ERR_LIST[key] = "{} should not empty".format(item)
++            ERR_LIST[key] = "{} should not be empty".format(item)
          return True
  
      return False

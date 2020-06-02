@@ -18,7 +18,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  3 files changed, 5 insertions(+), 18 deletions(-)
 
 diff --git a/misc/acrn-config/board_config/misc_cfg_h.py b/misc/acrn-config/board_config/misc_cfg_h.py
-index 3049f70..69c40d1 100644
+index 81fda9f..d96c4f2 100644
 --- a/misc/acrn-config/board_config/misc_cfg_h.py
 +++ b/misc/acrn-config/board_config/misc_cfg_h.py
 @@ -246,7 +246,11 @@ def generate_file(config):
@@ -35,7 +35,7 @@ index 3049f70..69c40d1 100644
              print('#define SOS_CONSOLE\t\t"console={} "'.format(ttys_n), file=config)
          else:
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index eaf3651..ebf909f 100644
+index bf410f9..3739890 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
 @@ -91,22 +91,6 @@ def get_pci_num(pci_devs):
@@ -62,10 +62,10 @@ index eaf3651..ebf909f 100644
      """
      Check vm name
 diff --git a/misc/acrn-config/scenario_config/scenario_item.py b/misc/acrn-config/scenario_config/scenario_item.py
-index 35642a2..02b042d 100644
+index b8b11ae..ec8a253 100644
 --- a/misc/acrn-config/scenario_config/scenario_item.py
 +++ b/misc/acrn-config/scenario_config/scenario_item.py
-@@ -137,7 +137,6 @@ class VuartInfo:
+@@ -139,7 +139,6 @@ class VuartInfo:
          Check all items in this class
          :return: None
          """

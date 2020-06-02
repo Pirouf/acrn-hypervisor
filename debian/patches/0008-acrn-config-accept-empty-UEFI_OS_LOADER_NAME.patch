@@ -12,7 +12,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  2 files changed, 3 insertions(+), 4 deletions(-)
 
 diff --git a/misc/acrn-config/hv_config/hv_item.py b/misc/acrn-config/hv_config/hv_item.py
-index a15cd7e..06b9c88 100644
+index c849b67..d7a1c54 100644
 --- a/misc/acrn-config/hv_config/hv_item.py
 +++ b/misc/acrn-config/hv_config/hv_item.py
 @@ -91,12 +91,13 @@ class MisCfg:
@@ -31,10 +31,10 @@ index a15cd7e..06b9c88 100644
      def __init__(self, hv_file):
          self.hv_file = hv_file
 diff --git a/misc/acrn-config/library/hv_cfg_lib.py b/misc/acrn-config/library/hv_cfg_lib.py
-index 920a235..146b50d 100644
+index a9eb86d..76c95ea 100644
 --- a/misc/acrn-config/library/hv_cfg_lib.py
 +++ b/misc/acrn-config/library/hv_cfg_lib.py
-@@ -92,10 +92,8 @@ def ir_entries_check(str_num, cap, cap_ir_entries):
+@@ -97,10 +97,8 @@ def ir_entries_check(str_num, cap, cap_ir_entries):
  
  
  def uefi_load_name_check(str_name, mis, mis_uefi_name):

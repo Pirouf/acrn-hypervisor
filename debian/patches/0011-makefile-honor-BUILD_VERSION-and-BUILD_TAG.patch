@@ -10,10 +10,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  3 files changed, 23 insertions(+), 10 deletions(-)
 
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index cdf7a44..8c2a741 100644
+index 3f9c76f..324de9e 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -503,10 +503,15 @@ $(VERSION):
+@@ -504,10 +504,15 @@ $(VERSION):
  		echo "Found SCENARIO configurations under $(SCENARIO_CFG_DIR)"; \
  	fi;
  	touch $(VERSION)

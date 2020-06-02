@@ -59,7 +59,7 @@ index 4927e09..89c66cd 100644
  #define KATA_VM_UUID1		{0xa7U, 0xadU, 0xa5U, 0x06U, 0x1aU, 0xb0U, 0x4bU, 0x6bU, \
  				 0xa0U, 0xdaU, 0xe5U, 0x13U, 0xcaU, 0x9bU, 0x8cU, 0x2fU}
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index 30a39c8..eaf3651 100644
+index 9ba6ca2..bf410f9 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
 @@ -44,7 +44,8 @@ UUID_DB = {
@@ -82,7 +82,7 @@ index 30a39c8..eaf3651 100644
  
      KATA_VM_COUNT = len(kata_vm_ids)
 diff --git a/misc/acrn-config/scenario_config/vm_configurations_c.py b/misc/acrn-config/scenario_config/vm_configurations_c.py
-index cde6ef3..1bb0812 100644
+index 3c8204e..24992af 100644
 --- a/misc/acrn-config/scenario_config/vm_configurations_c.py
 +++ b/misc/acrn-config/scenario_config/vm_configurations_c.py
 @@ -25,21 +25,12 @@ def get_pre_vm_type(vm_type, vm_i):

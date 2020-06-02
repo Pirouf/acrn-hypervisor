@@ -83,7 +83,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  3 files changed, 227 insertions(+), 32 deletions(-)
 
 diff --git a/hypervisor/arch/x86/guest/vm.c b/hypervisor/arch/x86/guest/vm.c
-index 5acec6a..943dba1 100644
+index 180284f..c138ef1 100644
 --- a/hypervisor/arch/x86/guest/vm.c
 +++ b/hypervisor/arch/x86/guest/vm.c
 @@ -33,6 +33,9 @@

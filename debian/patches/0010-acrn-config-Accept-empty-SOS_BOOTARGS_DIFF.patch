@@ -8,7 +8,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 2 insertions(+), 1 deletion(-)
 
 diff --git a/misc/acrn-config/board_config/misc_cfg_h.py b/misc/acrn-config/board_config/misc_cfg_h.py
-index 69c40d1..b1c86b4 100644
+index d96c4f2..b74db17 100644
 --- a/misc/acrn-config/board_config/misc_cfg_h.py
 +++ b/misc/acrn-config/board_config/misc_cfg_h.py
 @@ -121,7 +121,8 @@ def sos_bootarg_diff(sos_cmdlines, config):

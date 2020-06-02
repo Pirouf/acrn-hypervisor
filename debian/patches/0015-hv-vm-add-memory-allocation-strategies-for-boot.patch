@@ -15,7 +15,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  2 files changed, 157 insertions(+)
 
 diff --git a/hypervisor/arch/x86/guest/vm.c b/hypervisor/arch/x86/guest/vm.c
-index 8b3bfc5..5acec6a 100644
+index bb50e8c..180284f 100644
 --- a/hypervisor/arch/x86/guest/vm.c
 +++ b/hypervisor/arch/x86/guest/vm.c
 @@ -393,6 +393,156 @@ static uint64_t lapic_pt_enabled_pcpu_bitmap(struct acrn_vm *vm)
