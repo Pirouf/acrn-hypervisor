@@ -1,0 +1,86 @@
+acrn-hypervisor (2.0-unstable-1~4.gbp6f68ba) UNRELEASED; urgency=medium
+
+  ** SNAPSHOT build @6f68ba54181518b8a076e3e00cc5bee517ca1694 **
+
+  [ Helmut Buchsbaum ]
+  * debian: cherry-picked debian directory from debian/1.6
+  * debian/gbp.conf: change for debian/master
+  * dm: bzimage: dynamically adapt to ramdisk size
+  * debian/README.source: fix typo
+  * debian: add INSTALL file
+  * Revert "dm: acpi: add PSDS table in ACPI table"
+  * debian/configs: update scenarios
+  * debian: add acrn-hypervisor.prerm.in
+
+  [ Binbin Wu ]
+  * hv: vtd: init DMAR/IR table address when register
+  * hv: vtd: cleanup snoop control related code
+  * hv: vtd: add a function to check valid of dmar unit
+  * hv: vtd: remove some unnecessary check
+
+  [ Minggui Cao ]
+  * HV: fix bug to clear guest flags after it not used
+
+  [ Vijay Dhanraj ]
+  * HV: Fix MP Init sequence hang by adding a delay
+
+  [ Li Fei1 ]
+  * hv: vpci: add vmsi capability registers rw permission control
+  * hv: vpci: add vmsix capability registers rw permission control
+
+  [ Xie, nanlin ]
+  * CODEOWNERS: Update the maintainer of misc folder
+
+  [ Yuan Liu ]
+  * Introduce ACRN Inter-VM Virtualization
+  * Implement creation and removal of inter-vm shared memory
+
+  [ wenlingz ]
+  * Modify Makefile to add acrn.bin after install Tracked-On: #4842 Signed-off-by: wenlingz <wenling.zhang@intel.com>
+
+  [ Zide Chen ]
+  * acrn-dm: fix corner cases in acrn_parse_cpu_affinity()
+
+  [ Geoffroy Van Cutsem ]
+  * doc: remove zlib from the build dependency
+  * doc: update note about min version of gcc and binutils
+
+  [ Vijay Dhanraj ]
+  * doc: Enabling ACRN on top of QEMU/KVM
+  * Update doc/tutorials/acrn_on_qemu.rst
+  * Update doc/tutorials/acrn_on_qemu.rst
+  * Update doc/tutorials/acrn_on_qemu.rst
+
+  [ Wei Liu ]
+  * acrn-config: add configurable RDT feature in scenario xmls
+  * acrn-config: support to parse RDT information
+
+  [ Shuang Zheng ]
+  * acrn-config: add RDT support in scenario config of config app
+
+  [ Peter Fang ]
+  * OVMF release v2.0
+
+  [ Wei Liu ]
+  * acrn-config: re-generate TTYS_INFO in native board
+  * acrn-config: update native board information
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 02 Jun 2020 13:57:21 +0200
+
+acrn-hypervisor (1.6.1-2) unstable; urgency=medium
+
+  * debian: add lifemngr-split-linux-and-windows-build patch
+  * debian/rules: only build linux part for life-mngr
+  * debian: acrn-doc: refer to ACRN web page only
+  * debian/control: remove acrn-doc related build dependencies
+  * debian: Dockerfile: remove acrn-doc related build dependencies
+  * debian: fix acrn-hypervisor.postinst
+  * debian: add missing postinst/postrm for grub-acrn
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 26 May 2020 18:52:09 +0200
+
+acrn-hypervisor (1.6.1-1) unstable; urgency=medium
+
+  * Initial release.
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 18 May 2020 16:52:59 +0200

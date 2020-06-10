@@ -1,0 +1,2 @@
+usr/bin/life_mngr
+lib/systemd/system/life_mngr.service

@@ -1,0 +1,172 @@
+<acrn-config board="kontron-COMe-mAL10">
+	<BASE_BOARD_INFO>
+	Base Board Information
+	Manufacturer: Kontron Europe GmbH
+	Product Name: COMe-mAL10 E2
+	</BASE_BOARD_INFO>
+
+	<PCI_DEVICE>
+	00:00.0 Host bridge: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series Host Bridge (rev 0b)
+	00:02.0 VGA compatible controller: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series Integrated Graphics Controller (rev 0b)
+	00:0e.0 Audio device: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series Audio Cluster (rev 0b)
+	00:0f.0 Communication controller: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series Trusted Execution Engine (rev 0b)
+	00:12.0 SATA controller: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series SATA AHCI Controller (rev 0b)
+	00:13.0 PCI bridge: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series PCI Express Port A #1 (rev fb)
+	00:13.1 PCI bridge: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series PCI Express Port A #2 (rev fb)
+	00:13.2 PCI bridge: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series PCI Express Port A #3 (rev fb)
+	00:13.3 PCI bridge: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series PCI Express Port A #4 (rev fb)
+	00:14.0 PCI bridge: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series PCI Express Port B #1 (rev fb)
+	00:14.1 PCI bridge: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series PCI Express Port B #2 (rev fb)
+	00:15.0 USB controller: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series USB xHCI (rev 0b)
+	00:1b.0 SD Host controller: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series SDXC/MMC Host Controller (rev 0b)
+	00:1c.0 SD Host controller: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series eMMC Controller (rev 0b)
+	00:1f.0 ISA bridge: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series Low Pin Count Interface (rev 0b)
+	00:1f.1 SMBus: Intel Corporation Atom/Celeron/Pentium Processor N4200/N3350/E3900 Series SMBus Controller (rev 0b)
+	01:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
+	05:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)
+	</PCI_DEVICE>
+
+	<PCI_VID_PID>
+	00:00.0 0600: 8086:5af0 (rev 0b)
+	00:02.0 0300: 8086:5a85 (rev 0b)
+	00:0e.0 0403: 8086:5a98 (rev 0b)
+	00:0f.0 0780: 8086:5a9a (rev 0b)
+	00:12.0 0106: 8086:5ae3 (rev 0b)
+	00:13.0 0604: 8086:5ad8 (rev fb)
+	00:13.1 0604: 8086:5ad9 (rev fb)
+	00:13.2 0604: 8086:5ada (rev fb)
+	00:13.3 0604: 8086:5adb (rev fb)
+	00:14.0 0604: 8086:5ad6 (rev fb)
+	00:14.1 0604: 8086:5ad7 (rev fb)
+	00:15.0 0c03: 8086:5aa8 (rev 0b)
+	00:1b.0 0805: 8086:5aca (rev 0b)
+	00:1c.0 0805: 8086:5acc (rev 0b)
+	00:1f.0 0601: 8086:5ae8 (rev 0b)
+	00:1f.1 0c05: 8086:5ad4 (rev 0b)
+	01:00.0 0200: 8086:1533 (rev 03)
+	03:00.0 0000: 1c7e:de01 (rev 01)
+	05:00.0 0200: 8086:157b (rev 03)
+	</PCI_VID_PID>
+
+	<WAKE_VECTOR_INFO>
+	#define WAKE_VECTOR_32          0x00000000UL
+	#define WAKE_VECTOR_64          0x00000000UL
+	</WAKE_VECTOR_INFO>
+
+	<RESET_REGISTER_INFO>
+	#define RESET_REGISTER_ADDRESS  0xCF9UL
+	#define RESET_REGISTER_SPACE_ID SPACE_SYSTEM_IO
+	#define RESET_REGISTER_VALUE    0x6U
+	</RESET_REGISTER_INFO>
+
+	<PM_INFO>
+	#define PM1A_EVT_SPACE_ID       SPACE_SYSTEM_IO
+	#define PM1A_EVT_BIT_WIDTH      0x20U
+	#define PM1A_EVT_BIT_OFFSET     0x0U
+	#define PM1A_EVT_ADDRESS        0x400UL
+	#define PM1A_EVT_ACCESS_SIZE    0x2U
+	#define PM1B_EVT_SPACE_ID       SPACE_SYSTEM_IO
+	#define PM1B_EVT_BIT_WIDTH      0x0U
+	#define PM1B_EVT_BIT_OFFSET     0x0U
+	#define PM1B_EVT_ADDRESS        0x0UL
+	#define PM1B_EVT_ACCESS_SIZE    0x2U
+	#define PM1A_CNT_SPACE_ID       SPACE_SYSTEM_IO
+	#define PM1A_CNT_BIT_WIDTH      0x10U
+	#define PM1A_CNT_BIT_OFFSET     0x0U
+	#define PM1A_CNT_ADDRESS        0x404UL
+	#define PM1A_CNT_ACCESS_SIZE    0x2U
+	#define PM1B_CNT_SPACE_ID       SPACE_SYSTEM_IO
+	#define PM1B_CNT_BIT_WIDTH      0x0U
+	#define PM1B_CNT_BIT_OFFSET     0x0U
+	#define PM1B_CNT_ADDRESS        0x0UL
+	#define PM1B_CNT_ACCESS_SIZE    0x2U
+	</PM_INFO>
+
+	<S3_INFO>
+	#define S3_PKG_VAL_PM1A         0x5U
+	#define S3_PKG_VAL_PM1B         0U
+	#define S3_PKG_RESERVED         0x0U
+	</S3_INFO>
+
+	<S5_INFO>
+	#define S5_PKG_VAL_PM1A         0x7U
+	#define S5_PKG_VAL_PM1B         0U
+	#define S5_PKG_RESERVED         0x0U
+	</S5_INFO>
+
+	<DRHD_INFO>
+	#define DRHD_COUNT              2U
+
+	#define DRHD0_DEV_CNT           0x1U
+	#define DRHD0_SEGMENT           0x0U
+	#define DRHD0_FLAGS             0x0U
+	#define DRHD0_REG_BASE          0xFED64000UL
+	#define DRHD0_IGNORE            true
+	#define DRHD0_DEVSCOPE0_TYPE    0x1U
+	#define DRHD0_DEVSCOPE0_ID      0x0U
+	#define DRHD0_DEVSCOPE0_BUS     0x0U
+	#define DRHD0_DEVSCOPE0_PATH    0x10U
+
+	#define DRHD1_DEV_CNT           0x2U
+	#define DRHD1_SEGMENT           0x0U
+	#define DRHD1_FLAGS             0x1U
+	#define DRHD1_REG_BASE          0xFED65000UL
+	#define DRHD1_IGNORE            false
+	#define DRHD1_DEVSCOPE0_TYPE    0x3U
+	#define DRHD1_DEVSCOPE0_ID      0x1U
+	#define DRHD1_DEVSCOPE0_BUS     0xfaU
+	#define DRHD1_DEVSCOPE0_PATH    0xf8U
+	#define DRHD1_DEVSCOPE1_TYPE    0x4U
+	#define DRHD1_DEVSCOPE1_ID      0x0U
+	#define DRHD1_DEVSCOPE1_BUS     0x0U
+	#define DRHD1_DEVSCOPE1_PATH    0xffU
+
+	</DRHD_INFO>
+
+	<CPU_BRAND>
+	"Intel(R) Atom(TM) Processor E3940/E3950 @ 1.60GHz"
+	</CPU_BRAND>
+
+	<CX_INFO>
+	/* Cx data is not available */
+	</CX_INFO>
+
+	<PX_INFO>
+	/* Px data is not available */
+	</PX_INFO>
+
+	<MMCFG_BASE_INFO>
+	/* PCI mmcfg base of MCFG */
+	#define DEFAULT_PCI_MMCFG_BASE   0xe0000000UL
+	</MMCFG_BASE_INFO>
+
+	<CLOS_INFO>
+	rdt resources supported: L2
+	rdt resource clos max: 4
+	rdt resource mask max: '0xff'
+	</CLOS_INFO>
+
+	<IOMEM_INFO>
+	</IOMEM_INFO>
+
+	<BLOCK_DEVICE_INFO>
+	/dev/sda2: TYPE="ext4"
+	</BLOCK_DEVICE_INFO>
+
+	<TTYS_INFO>
+	seri:/dev/ttyS0 type:portio base:0x3F8 irq:4
+	seri:/dev/ttyS1 type:portio base:0x2F8 irq:3
+	</TTYS_INFO>
+
+	<AVAILABLE_IRQ_INFO>
+	5, 6, 7, 10, 11, 12, 13, 15
+	</AVAILABLE_IRQ_INFO>
+
+	<TOTAL_MEM_INFO>
+	</TOTAL_MEM_INFO>
+
+	<CPU_PROCESSOR_INFO>
+	0, 1, 2, 3
+	</CPU_PROCESSOR_INFO>
+
+</acrn-config>
