@@ -1,4 +1,4 @@
-<acrn-config board="kontron-COMe-mAL10" scenario="industry">
+<acrn-config board="kontron-COMe-mAL10" scenario="industry2">
   <hv>
     <DEBUG_OPTIONS desc="Debug options for ACRN hypervisor, only valid on debug version">
         <RELEASE desc="Release build. 'y' for Release, 'n' for Debug.">n</RELEASE>
