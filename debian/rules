@@ -66,6 +66,16 @@ export FIRMWARE = uefi
 # for now build the debug versions
 export RELEASE ?= 0
 
+# set paths (see also paths.make)
+export prefix = /usr
+export bindir = $(prefix)/bin
+export libdir = $(prefix)/lib/$(DEB_HOST_MULTIARCH)
+export nonarchlibdir = $(prefix)/lib
+export datadir = $(prefix)/share
+export includedir = $(prefix)/include
+export systemd_unitdir = /lib/systemd
+export docdir = $(datadir)/doc
+
 export BUILD_VERSION = "$(DEB_VERSION_UPSTREAM)"
 export BUILD_TAG = "$(DEB_VENDOR)/$(DEB_VERSION)"
 
@@ -169,17 +179,14 @@ override_dh_auto_install-arch:
 			DESTDIR=$(DESTDIR)				\
 			hypervisor-install $(devnull);			\
 			cp $(O)/$b/$s/hypervisor/.config		\
-				$(DESTDIR)/usr/lib/acrn/acrn.$b.$s.config; \
+				$(DESTDIR)$(libdir)/acrn/acrn.$b.$(FIRMWARE).$s.config;\
 			cp $(O)/$b/$s/hypervisor/acrn.map		\
-				$(DESTDIR)/usr/lib/acrn/acrn.$b.$s.map;	\
-			cp $(O)/$b/$s/hypervisor/acrn.bin		\
-				$(DESTDIR)/usr/lib/acrn/acrn.$b.$s.bin;	\
+				$(DESTDIR)$(libdir)/acrn/acrn.$b.$(FIRMWARE).$s.map;\
 	))
 	@:
 	@# cleanup hypervisor binaries
-	$(Q)rm -f $(DESTDIR)/usr/lib/acrn/*.efi
-	$(Q)chmod 644 $(DESTDIR)/usr/lib/acrn/*.out
-	$(Q)chmod 644 $(DESTDIR)/usr/lib/acrn/*.bin
+	$(Q)chmod 644 $(DESTDIR)$(libdir)/acrn/*.out
+	$(Q)chmod 644 $(DESTDIR)$(libdir)/acrn/*.bin
 	@:
 	@# install devicemodel & tools
 	@$(call echo-silent,INSTALL devicemodel & tools)
@@ -188,48 +195,34 @@ override_dh_auto_install-arch:
 	@:
 	@# install life_mngr
 	@$(call echo-silent,INSTALL devicemodel & tools)
-	$(Q)install -d $(DESTDIR)/usr/bin
-	$(Q)install -m 0755 $(O)/common/misc/life_mngr/life_mngr $(DESTDIR)/usr/bin
-	$(Q)install -d $(DESTDIR)/lib/systemd/system
+	$(Q)install -d $(DESTDIR)$(bindir)
+	$(Q)install -m 0755 $(O)/common/misc/life_mngr/life_mngr $(DESTDIR)$(bindir)
+	$(Q)install -d $(DESTDIR)$(systemd_unitdir)/system
 	$(Q)install -m 0644 $(O)/common/misc/life_mngr/life_mngr.service	\
-		$(DESTDIR)/lib/systemd/system
+		$(DESTDIR)$(systemd_unitdir)/system
 	@:
-	@# move/adapt network configs as exapmples only
-	$(Q)mkdir -p $(DESTDIR)/usr/share/doc/acrnd/examples
-	$(Q)cp $(DESTDIR)/usr/lib/systemd/network/*				\
-		$(DESTDIR)/usr/share/doc/acrnd/examples
+	@# move/adapt network configs as examples only
+	$(Q)mkdir -p $(DESTDIR)$(docdir)/acrnd/examples
+	$(Q)cp $(DESTDIR)$(systemd_unitdir)/network/*				\
+		$(DESTDIR)$(docdir)/acrnd/examples
 	$(Q)sed -i 's/acrn_tap\* //g'						\
-		$(DESTDIR)/usr/share/doc/acrnd/examples/50-acrn.network
-	$(Q)rm -rf $(DESTDIR)/usr/lib/systemd/network
+		$(DESTDIR)$(docdir)/acrnd/examples/50-acrn.network
 	@:
-	@# move/adapt systemd services to usual systemd service path
-	$(Q)mkdir -p $(DESTDIR)/lib/systemd/system
-	$(Q)mv $(DESTDIR)/usr/lib/systemd/system/acrnd.service			\
-		$(DESTDIR)/lib/systemd/system/acrnd.service
-	$(Q)sed -i '/weston.service/d' $(DESTDIR)/lib/systemd/system/acrnd.service
+	@# adapt systemd services
+	$(Q)sed -i '/weston.service/d' $(DESTDIR)$(systemd_unitdir)/system/acrnd.service
 	@:
-	@# move libacrn-mngr.a to correct location
-	$(Q)install -D $(DESTDIR)/usr/lib64/libacrn-mngr.a			\
-		$(DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/libacrn-mngr.a
-	$(Q)rm -rf $(DESTDIR)/usr/lib64
+	@# move devicemodel samples
+	$(Q)mkdir -p $(DESTDIR)$(docdir)/acrn-devicemodel
+	$(Q)mv $(DESTDIR)$(datadir)/acrn/samples				\
+		$(DESTDIR)$(docdir)/acrn-devicemodel
 	@:
-	@# move deviemodel samples
-	$(Q)mkdir -p $(DESTDIR)/usr/share/doc/acrn-devicemodel
-	$(Q)mv $(DESTDIR)/usr/share/acrn/samples				\
-		$(DESTDIR)/usr/share/doc/acrn-devicemodel
-	@:
-	@# move/adapt systemd services for tools (available in DEBUG build only)
-	$(if $(call strequ,${RELEASE},0),						\
-		$(Q)install -D -m 0644 $(DESTDIR)/usr/lib/systemd/system/acrnlog.service\
-			$(DESTDIR)/lib/systemd/system/acrnlog.service;			\
-		sed -e '/telemd.socket/d' -e '/prepare.service/d'			\
-			$(DESTDIR)/usr/lib/systemd/system/acrnprobe.service		\
-			>$(DESTDIR)/lib/systemd/system/acrnprobe.service; 		\
-		sed '/telemd/d'								\
-			$(DESTDIR)/usr/lib/systemd/system/usercrash.service		\
-			>$(DESTDIR)/lib/systemd/system/usercrash.service;		\
+	@# adapt systemd services for tools (available in DEBUG build only)
+	$(if $(call strequ,${RELEASE},0),					\
+		$(Q)sed -i -e '/telemd.socket/d' -e '/prepare.service/d'	\
+			$(DESTDIR)$(systemd_unitdir)/system/acrnprobe.service;	\
+		sed -i '/telemd/d'						\
+			$(DESTDIR)$(systemd_unitdir)/system/usercrash.service;	\
 	)
-	$(Q)rm -rf $(DESTDIR)/usr/lib/systemd
 
 ### binary-indep #############################################################
 override_dh_auto_install-indep: O=build
@@ -237,8 +230,8 @@ override_dh_auto_install-indep: DESTDIR=$(abspath debian/tmp)
 override_dh_auto_install-indep:
 	@$(call echo-verbose)
 	@$(call echo-silent,INSTALL documentation)
-	$(Q)mkdir -p ${DESTDIR}/usr/share/doc/acrn/
-	$(Q)cp -a $(O)/documentation/html ${DESTDIR}/usr/share/doc/acrn/
+	$(Q)mkdir -p ${DESTDIR}$(docdir)/acrn/
+	$(Q)cp -a $(O)/documentation/html ${DESTDIR}$(docdir)/acrn/
 
 ### dh_missing ###############################################################
 # there is no libtelemetry used
@@ -254,7 +247,7 @@ override_dh_strip-arch:
 		--remove-section=.comment					\
 		--remove-section=.note						\
 		--enable-deterministic-archiv					\
-		$(DESTDIR)/usr/lib/$(DEB_HOST_MULTIARCH)/libacrn-mngr.a;
+		$(DESTDIR)$(libdir)/libacrn-mngr.a;
 
 ### clean ####################################################################
 override_dh_auto_clean:

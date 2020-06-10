@@ -12,10 +12,10 @@ BOARD=${RET}
 db_get acrn-hypervisor/scenario
 SCENARIO=${RET}
 
-ACRNOUT="/usr/lib/acrn/acrn.${BOARD}.uefi.${SCENARIO}.32.out"
-ACRNCFG="/usr/lib/acrn/acrn.${BOARD}.${SCENARIO}.config"
-ACRNMAP="/usr/lib/acrn/acrn.${BOARD}.${SCENARIO}.map"
-ACRNBIN="/usr/lib/acrn/acrn.${BOARD}.${SCENARIO}.bin"
+ACRNOUT="/usr/lib/x86_64-linux-gnu/acrn/acrn.${BOARD}.uefi.${SCENARIO}.32.out"
+ACRNCFG="/usr/lib/x86_64-linux-gnu/acrn/acrn.${BOARD}.uefi.${SCENARIO}.config"
+ACRNMAP="/usr/lib/x86_64-linux-gnu/acrn/acrn.${BOARD}.uefi.${SCENARIO}.map"
+ACRNBIN="/usr/lib/x86_64-linux-gnu/acrn/acrn.${BOARD}.uefi.${SCENARIO}.bin"
 
 case "$1" in
     configure)
