@@ -1,4 +1,4 @@
-From eefb8b03b7e4fe6b86b822121d56136051dea1ac Mon Sep 17 00:00:00 2001
+From 94a29bc035aa77ef3d0bb4fc90cba9fae735764a Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 21 Apr 2020 12:50:59 +0200
 Subject: vm_configurations: provide max three RT VMs instead of only one

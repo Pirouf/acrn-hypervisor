@@ -1,4 +1,4 @@
-From 83447608286977ae558f3afc705f6f08637f01b2 Mon Sep 17 00:00:00 2001
+From 213f3b0d3a5eaddacb6502754ddac1f5e9ebc831 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:59:24 +0200
 Subject: acrn-config: Accept empty SOS_BOOTARGS_DIFF

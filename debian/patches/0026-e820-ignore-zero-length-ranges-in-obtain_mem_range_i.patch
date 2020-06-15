@@ -1,4 +1,4 @@
-From 8ee53aeef23d98e2c5827e85776ff463d8f91d8d Mon Sep 17 00:00:00 2001
+From 68bd3ec4e8c87cf268e0dba61bda7ff591c7d0eb Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Mon, 15 Jun 2020 11:18:57 +0200
 Subject: e820: ignore zero length ranges in obtain_mem_range_info

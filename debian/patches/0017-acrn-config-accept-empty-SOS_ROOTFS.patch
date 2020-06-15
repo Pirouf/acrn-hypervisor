@@ -1,4 +1,4 @@
-From 1e676b5f290abdb16746db31ff6a43c46dbb71b2 Mon Sep 17 00:00:00 2001
+From 97aa1844d2fe439c69d12428d28d351e9e6b8b22 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:45:58 +0200
 Subject: acrn-config: accept empty SOS_ROOTFS

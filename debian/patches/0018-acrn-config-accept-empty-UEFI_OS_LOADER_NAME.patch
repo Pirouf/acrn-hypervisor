@@ -1,4 +1,4 @@
-From a293630a50dfc15761d28bf527262f1c6ed23efe Mon Sep 17 00:00:00 2001
+From e9041e187c7b57eb953217222df6c1c6b4c83054 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:55:11 +0200
 Subject: acrn-config: accept empty UEFI_OS_LOADER_NAME

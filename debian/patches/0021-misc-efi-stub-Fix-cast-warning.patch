@@ -1,4 +1,4 @@
-From b42f4a8ed1bedbc78b34f97d6d21b819b0e279c0 Mon Sep 17 00:00:00 2001
+From 75bacd3835eb83ba1e7c8e585cfe15cd67321109 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Thu, 2 Apr 2020 17:49:11 +0200
 Subject: misc/efi-stub: Fix cast warning
