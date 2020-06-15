@@ -1,7 +1,7 @@
-From 70c70421a024d9c6c675ba30f4c90c67f5c24b36 Mon Sep 17 00:00:00 2001
+From 2ab43be5ac86208d7a28c7bba1b375064a40a5b7 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 19 May 2020 22:19:30 +0200
-Subject: [PATCH 18/18] hv: ept: fix debug format
+Subject: hv: ept: fix debug format
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---

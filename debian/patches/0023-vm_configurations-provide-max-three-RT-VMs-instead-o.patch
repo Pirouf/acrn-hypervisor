@@ -1,8 +1,7 @@
-From 88cc64aed022934941af1a86ab3b178da0a3af8d Mon Sep 17 00:00:00 2001
+From eefb8b03b7e4fe6b86b822121d56136051dea1ac Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 21 Apr 2020 12:50:59 +0200
-Subject: [PATCH 07/18] vm_configurations: provide max three RT VMs instead of
- only one
+Subject: vm_configurations: provide max three RT VMs instead of only one
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
@@ -61,7 +60,7 @@ index 4927e09a..89c66cd9 100644
  #define KATA_VM_UUID1		{0xa7U, 0xadU, 0xa5U, 0x06U, 0x1aU, 0xb0U, 0x4bU, 0x6bU, \
  				 0xa0U, 0xdaU, 0xe5U, 0x13U, 0xcaU, 0x9bU, 0x8cU, 0x2fU}
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index 31c03457..6b6321e6 100644
+index c2c9d711..cbb27b8d 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
 @@ -43,7 +43,8 @@ UUID_DB = {
@@ -74,7 +73,7 @@ index 31c03457..6b6321e6 100644
      'KATA_VM':['a7ada506-1ab0-4b6b-a0da-e513ca9b8c2f'],
  }
  
-@@ -154,7 +155,7 @@ def load_vm_check(load_vms, item):
+@@ -138,7 +139,7 @@ def load_vm_check(load_vms, item):
          if "KATA_VM" == load_str:
              kata_vm_ids.append(order_i)
  

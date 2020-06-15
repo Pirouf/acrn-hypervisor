@@ -1,7 +1,7 @@
-From 4d5f546cfd90106cf5d0e23b3669a3cead531750 Mon Sep 17 00:00:00 2001
+From b42f4a8ed1bedbc78b34f97d6d21b819b0e279c0 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Thu, 2 Apr 2020 17:49:11 +0200
-Subject: [PATCH 05/18] misc/efi-stub: Fix cast warning
+Subject: misc/efi-stub: Fix cast warning
 MIME-Version: 1.0
 Content-Type: text/plain; charset=UTF-8
 Content-Transfer-Encoding: 8bit

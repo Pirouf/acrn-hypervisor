@@ -1,0 +1,218 @@
+From 160c3bc2e21529b6bdf5ef11dedacd97c72632de Mon Sep 17 00:00:00 2001
+From: Victor Sun <victor.sun@intel.com>
+Date: Thu, 28 May 2020 23:18:47 +0800
+Subject: HV: replace merge_cmdline api with strncat_s
+
+Add a standard string api strncat_s() to replace merge_cmdline() to make code
+more readable.
+
+Another change is that the multiboot cmdline will be appended to the end of
+configured SOS bootargs instead of the beginning, this would enable a feature
+that some kernel cmdline paramter items could be overriden by multiboot cmdline
+since the later one would win if same parameters configured in kernel cmdline.
+
+Tracked-On: #4885
+
+Signed-off-by: Victor Sun <victor.sun@intel.com>
+Reviewed-by: Yonghua Huang <yonghua.huang@intel.com>
+Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
+Acked-by: Eddie Dong <eddie.dong@intel.com>
+---
+ hypervisor/boot/guest/vboot_info.c | 90 +++++++++---------------------
+ hypervisor/include/arch/x86/seed.h |  1 +
+ hypervisor/include/lib/rtl.h       |  4 +-
+ hypervisor/lib/string.c            | 41 ++++++++++++++
+ 4 files changed, 70 insertions(+), 66 deletions(-)
+
+diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
+index 67c80961..b426c02e 100644
+--- a/hypervisor/boot/guest/vboot_info.c
++++ b/hypervisor/boot/guest/vboot_info.c
+@@ -40,55 +40,6 @@ static void init_vm_ramdisk_info(struct acrn_vm *vm, const struct multiboot_modu
+ 	}
+ }
+ 
+-/* There are two sources for sos_vm kernel cmdline:
+- * - cmdline from direct boot mbi->cmdline
+- * - cmdline from acrn stitching tool. mod[0].mm_string
+- * We need to merge them together
+- */
+-static char kernel_cmdline[MAX_BOOTARGS_SIZE + 1U];
+-
+-/**
+- * @pre vm != NULL && cmdline != NULL && cmdstr != NULL
+- */
+-static void merge_cmdline(const struct acrn_vm *vm, const char *cmdline, const char *cmdstr)
+-{
+-	char *cmd_dst = kernel_cmdline;
+-	uint32_t cmdline_len, cmdstr_len;
+-	uint32_t dst_avail; /* available room for cmd_dst[] */
+-	uint32_t dst_len; /* the actual number of characters that are copied */
+-
+-	/*
+-	 * Append seed argument for SOS
+-	 * seed_arg string ends with a white space and '\0', so no aditional delimiter is needed
+-	 */
+-	append_seed_arg(cmd_dst, is_sos_vm(vm));
+-	dst_len = strnlen_s(cmd_dst, MAX_BOOTARGS_SIZE);
+-	dst_avail = MAX_BOOTARGS_SIZE + 1U - dst_len;
+-	cmd_dst += dst_len;
+-
+-	cmdline_len = strnlen_s(cmdline, MAX_BOOTARGS_SIZE);
+-	cmdstr_len = strnlen_s(cmdstr, MAX_BOOTARGS_SIZE);
+-
+-	/* reserve one character for the delimiter between 2 strings (one white space) */
+-	if ((cmdline_len + cmdstr_len + 1U) >= dst_avail) {
+-		panic("Multiboot bootarg string too long");
+-	} else {
+-		/* copy mbi->mi_cmdline */
+-		(void)strncpy_s(cmd_dst, dst_avail, cmdline, cmdline_len);
+-		dst_len = strnlen_s(cmd_dst, dst_avail);
+-		dst_avail -= dst_len;
+-		cmd_dst += dst_len;
+-
+-		/* overwrite '\0' with a white space */
+-		(void)strncpy_s(cmd_dst, dst_avail, " ", 1U);
+-		dst_avail -= 1U;
+-		cmd_dst += 1U;
+-
+-		/* copy vm_config->os_config.bootargs */
+-		(void)strncpy_s(cmd_dst, dst_avail, cmdstr, cmdstr_len);
+-	}
+-}
+-
+ /**
+  * @pre vm != NULL
+  */
+@@ -156,27 +107,38 @@ static void init_vm_bootargs_info(struct acrn_vm *vm, const struct acrn_multiboo
+ 	struct acrn_vm_config *vm_config = get_vm_config(vm->vm_id);
+ 	char *bootargs = vm_config->os_config.bootargs;
+ 
+-	if (vm_config->load_order == PRE_LAUNCHED_VM) {
++	if ((vm_config->load_order == PRE_LAUNCHED_VM) || (vm_config->load_order == SOS_VM)) {
+ 		vm->sw.bootargs_info.src_addr = bootargs;
+-		vm->sw.bootargs_info.size = strnlen_s(bootargs, MAX_BOOTARGS_SIZE);
+-	} else {
+-		/* vm_config->load_order == SOS_VM */
+-		if (((mbi->mi_flags & MULTIBOOT_INFO_HAS_CMDLINE) != 0U)
+-				&& (*(mbi->mi_cmdline) != '\0')) {
+-			/*
+-			 * If there is cmdline from mbi->mi_cmdline, merge it with
+-			 * vm_config->os_config.bootargs
+-			 */
+-			merge_cmdline(vm, mbi->mi_cmdline, bootargs);
++	}
+ 
+-			vm->sw.bootargs_info.src_addr = kernel_cmdline;
+-			vm->sw.bootargs_info.size = strnlen_s(kernel_cmdline, MAX_BOOTARGS_SIZE);
++	if (vm_config->load_order == SOS_VM) {
++		if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE, " ", 1U) == 0) {
++			char seed_args[MAX_SEED_ARG_SIZE];
++
++			append_seed_arg(seed_args, true);
++			/* Append seed argument for SOS
++			 * seed_args string ends with a white space and '\0', so no aditional delimiter is needed
++			 */
++			if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE,
++					seed_args, (MAX_BOOTARGS_SIZE - 1U)) != 0) {
++				pr_err("failed to apend seed arg to SOS bootargs!");
++			}
++
++			/* If there is cmdline from mbi->mi_cmdline, merge it with configured SOS bootargs. */
++			if (((mbi->mi_flags & MULTIBOOT_INFO_HAS_CMDLINE) != 0U) && (*(mbi->mi_cmdline) != '\0')) {
++				if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE,
++						mbi->mi_cmdline, (MAX_BOOTARGS_SIZE - 1U)) != 0) {
++					pr_err("failed to merge mbi cmdline to SOS bootargs!");
++				}
++			}
+ 		} else {
+-			vm->sw.bootargs_info.src_addr = bootargs;
+-			vm->sw.bootargs_info.size = strnlen_s(bootargs, MAX_BOOTARGS_SIZE);
++			pr_err("no space to append SOS bootargs!");
+ 		}
++
+ 	}
+ 
++	vm->sw.bootargs_info.size = strnlen_s((const char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE);
++
+ 	/* Kernel bootarg and zero page are right before the kernel image */
+ 	if (vm->sw.bootargs_info.size > 0U) {
+ 		vm->sw.bootargs_info.load_addr = vm->sw.kernel_info.kernel_load_addr - (MEM_1K * 8U);
+diff --git a/hypervisor/include/arch/x86/seed.h b/hypervisor/include/arch/x86/seed.h
+index c841b2d2..a4787d24 100644
+--- a/hypervisor/include/arch/x86/seed.h
++++ b/hypervisor/include/arch/x86/seed.h
+@@ -9,6 +9,7 @@
+ 
+ #define BOOTLOADER_SEED_MAX_ENTRIES     10U
+ #define BUP_MKHI_BOOTLOADER_SEED_LEN    64U
++#define MAX_SEED_ARG_SIZE		1024U
+ 
+ /* Structure of seed info */
+ struct seed_info {
+diff --git a/hypervisor/include/lib/rtl.h b/hypervisor/include/lib/rtl.h
+index 220758bf..63922419 100644
+--- a/hypervisor/include/lib/rtl.h
++++ b/hypervisor/include/lib/rtl.h
+@@ -39,7 +39,7 @@ void *memset(void *base, uint8_t v, size_t n);
+ int32_t memcpy_s(void *d, size_t dmax, const void *s, size_t slen);
+ int64_t strtol_deci(const char *nptr);
+ uint64_t strtoul_hex(const char *nptr);
+-char *strstr_s(const char *str1, size_t maxlen1,
+-			const char *str2, size_t maxlen2);
++char *strstr_s(const char *str1, size_t maxlen1, const char *str2, size_t maxlen2);
++int32_t strncat_s(char *dest, size_t dmax, const char *src, size_t slen);
+ 
+ #endif /* RTL_H */
+diff --git a/hypervisor/lib/string.c b/hypervisor/lib/string.c
+index 9f332b2f..2caf1782 100644
+--- a/hypervisor/lib/string.c
++++ b/hypervisor/lib/string.c
+@@ -262,3 +262,44 @@ char *strstr_s(const char *str1, size_t maxlen1, const char *str2, size_t maxlen
+ 
+ 	return (char *)pret;
+ }
++
++/*
++ * strncat_s
++ *
++ * description:
++ *    append src string to the end of dest string
++ *
++ * input:
++ *    dest      pointer to the string to be appended.
++ *
++ *    dmax      maximum length of dest buffer including the NULL char.
++ *
++ *    src       pointer to the string that to be concatenated to string dest.
++ *
++ *    slen      maximum characters to append.
++ *
++ * return value:
++ *     0 for success, -1 for failure.
++ */
++int32_t strncat_s(char *dest, size_t dmax, const char *src, size_t slen)
++{
++	int32_t ret = -1;
++	size_t len_d, len_s;
++	char *d = dest, *start;
++
++	len_d = strnlen_s(dest, dmax);
++	len_s = strnlen_s(src, slen);
++	start = dest + len_d;
++
++	if ((dest != NULL) && (src != NULL) && (dmax > (len_d + len_s))
++			&& ((dest > (src + len_s)) || (src > (dest + len_d)))) {
++		(void)memcpy_s(start, (dmax - len_d), src, len_s);
++		*(start + len_s) = '\0';
++		ret = 0;
++	} else {
++		if (dest != NULL) {
++			*d = '\0';	/* set dest[0] to NULL char on runtime-constraint violation */
++		}
++	}
++	return ret;
++}
+-- 
+2.20.1
+

@@ -1,20 +1,21 @@
-From 14d19f806494d69edc625298f19c88fbb1997860 Mon Sep 17 00:00:00 2001
+From fb1a6fd75cef06cd03df8746e748773c09bd32a7 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 21 Jan 2020 13:57:33 +0100
-Subject: [PATCH 02/18] dm: sw_load_bzimage: dynamically adapt to ramdisk size
+Subject: dm: bzimage: dynamically adapt to ramdisk size
 
-To remove the limit of 4MB ramdisk size simply adjust layout dynamically
-according to ramdisk size rounde up to a 4K boundary. This enables
-ramdisk based virtual machines which tend to have large remadisk memory
-requirements (128MB and above).
+To remove the limit of 4MB ramdisk size simply adjust layout
+dynamically according to ramdisk size rounded up to a 4K boundary.
+This enables ramdisk based virtual machines which tend to have
+large ramdisk memory requirements (128MB and above).
 
+Tracked-On: #4840
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- devicemodel/core/sw_load_bzimage.c | 18 ++++++------------
- 1 file changed, 6 insertions(+), 12 deletions(-)
+ devicemodel/core/sw_load_bzimage.c | 18 +++++++++++-------
+ 1 file changed, 11 insertions(+), 7 deletions(-)
 
 diff --git a/devicemodel/core/sw_load_bzimage.c b/devicemodel/core/sw_load_bzimage.c
-index 7045d2c5..69438c24 100644
+index 7045d2c5..13264e07 100644
 --- a/devicemodel/core/sw_load_bzimage.c
 +++ b/devicemodel/core/sw_load_bzimage.c
 @@ -50,9 +50,9 @@
@@ -37,26 +38,27 @@ index 7045d2c5..69438c24 100644
 -#define RAMDISK_LOAD_OFF(ctx)	(ctx->lowmem - 4*MB)
 +/* use ramdisk size for ramdisk load offset, leave 8KB room for bootargs */
 +#define RAMDISK_LOAD_SIZE	roundup2(ramdisk_size + 8*KB, 4*KB)
-+#define GDT_LOAD_OFF(ctx)	(ctx->lowmem - RAMDISK_LOAD_SIZE - 2* KB)
++#define GDT_LOAD_OFF(ctx)	(ctx->lowmem - RAMDISK_LOAD_SIZE - 2*KB)
 +#define RAMDISK_LOAD_OFF(ctx)	(ctx->lowmem - RAMDISK_LOAD_SIZE)
  #define BOOTARGS_LOAD_OFF(ctx)	(ctx->lowmem - 8*KB)
  #define KERNEL_ENTRY_OFF(ctx)	(ctx->lowmem - 6*KB)
  #define ZEROPAGE_LOAD_OFF(ctx)	(ctx->lowmem - 4*KB)
-@@ -183,14 +185,6 @@ acrn_prepare_ramdisk(struct vmctx *ctx)
+@@ -183,10 +185,12 @@ acrn_prepare_ramdisk(struct vmctx *ctx)
  		return -1;
  	}
  
 -	if (len > (BOOTARGS_LOAD_OFF(ctx) - RAMDISK_LOAD_OFF(ctx))) {
--		pr_err("SW_LOAD ERR: the size of ramdisk file is too big"
++	/* make sure there is enough room for the theoretical maximum ramdisk
++	 * size (kernel size is not yet available)
++	 */
++	if (ctx->lowmem <= (RAMDISK_LOAD_SIZE + 2*KB + KERNEL_LOAD_OFF(ctx))) {
+ 		pr_err("SW_LOAD ERR: the size of ramdisk file is too big"
 -				" file len=0x%lx, limit is 0x%lx\n", len,
 -				BOOTARGS_LOAD_OFF(ctx) - RAMDISK_LOAD_OFF(ctx));
--		fclose(fp);
--		return -1;
--	}
--
- 	fseek(fp, 0, SEEK_SET);
- 	read = fread(ctx->baseaddr + RAMDISK_LOAD_OFF(ctx),
- 			sizeof(char), len, fp);
++			" file len=0x%lx\n", len);
+ 		fclose(fp);
+ 		return -1;
+ 	}
 -- 
 2.20.1
 

@@ -1,0 +1,121 @@
+From 751a2b195835af25b93314dcf6faa37db6bea2f1 Mon Sep 17 00:00:00 2001
+From: Victor Sun <victor.sun@intel.com>
+Date: Wed, 11 Mar 2020 13:51:48 +0800
+Subject: hv: a few fixes for multiboot2 boot
+
+- need to specify the load_addr in the multiboot2 address tag. GRUB needs
+  it to correctly calculate the ACRN binary's load size if load_end_addr is
+  a non-zero value.
+
+- multiboot2 can be enabled if hypervisor relocation is disabled.
+
+- print the name of the boot loader. This might be helpful if the boot
+  loader, e.g. GRUB, inludes its version in the name string.
+
+Tracked-On: #4441
+Signed-off-by: Victor Sun <victor.sun@intel.com>
+Signed-off-by: Zide Chen <zide.chen@intel.com>
+Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
+---
+ hypervisor/Makefile                    | 4 ++++
+ hypervisor/arch/x86/Kconfig            | 3 +--
+ hypervisor/arch/x86/boot/cpu_primary.S | 6 ++++--
+ hypervisor/boot/guest/vboot_wrapper.c  | 1 +
+ hypervisor/boot/multiboot.c            | 4 ++++
+ 5 files changed, 14 insertions(+), 4 deletions(-)
+
+diff --git a/hypervisor/Makefile b/hypervisor/Makefile
+index 902f224e..99ffcdda 100644
+--- a/hypervisor/Makefile
++++ b/hypervisor/Makefile
+@@ -112,6 +112,10 @@ ifeq (y, $(CONFIG_MULTIBOOT2))
+ ASFLAGS += -DCONFIG_MULTIBOOT2
+ endif
+ 
++ifeq (y, $(CONFIG_RELOC))
++ASFLAGS += -DCONFIG_RELOC
++endif
++
+ LDFLAGS += -Wl,--gc-sections -nostartfiles -nostdlib
+ LDFLAGS += -Wl,-n,-z,max-page-size=0x1000
+ LDFLAGS += -Wl,--no-dynamic-linker
+diff --git a/hypervisor/arch/x86/Kconfig b/hypervisor/arch/x86/Kconfig
+index e1c5b8fa..4f811326 100644
+--- a/hypervisor/arch/x86/Kconfig
++++ b/hypervisor/arch/x86/Kconfig
+@@ -15,8 +15,7 @@ config SCENARIO
+ 
+ config MULTIBOOT2
+ 	bool "Multiboot2 support"
+-	depends on RELOC
+-	default n
++	default y
+ 	help
+ 	  Support boot ACRN from multiboot2 protocol. Multiboot2 support is needed for
+ 	  some EFI platforms to get correct ACPI RSDP, it also could provide host efi
+diff --git a/hypervisor/arch/x86/boot/cpu_primary.S b/hypervisor/arch/x86/boot/cpu_primary.S
+index a53d008c..f76deb0c 100644
+--- a/hypervisor/arch/x86/boot/cpu_primary.S
++++ b/hypervisor/arch/x86/boot/cpu_primary.S
+@@ -71,13 +71,14 @@ info_req_tag_start:
+     .long   MULTIBOOT2_TAG_TYPE_EFI_MMAP    /* EFI memory map, to be passed to guest Linux */
+ info_req_tag_end:
+ 
++#ifdef CONFIG_RELOC
+     .align  MULTIBOOT2_TAG_ALIGN
+ address_tag_start:
+     .short  MULTIBOOT2_HEADER_TAG_ADDRESS
+     .short  0
+     .long   address_tag_end - address_tag_start
+     .long   mb2_header_start  /* address corresponding to the beginning of the Multiboot2 header */
+-    .long   -1  /* load_addr: the file to be loaded from its beginning */
++    .long   _ld_ram_start     /* load_addr: load from the binary's beginning */
+     /*
+      * load_end_addr: this includes .bss so that boot loader could reserve the
+      * memory that .bss occupies to avoid placing boot modules or other data in that area.
+@@ -107,13 +108,14 @@ relocatable_tag_start:
+     .long   0x200000     /* image alignment */
+     .long   1            /* preference: lowest possible address */
+ relocatable_tag_end:
++#endif	/* CONFIG_RELOC */
+ 
+     .align     MULTIBOOT2_TAG_ALIGN
+     .short  MULTIBOOT2_HEADER_TAG_END
+     .short  0
+     .long   8
+ mb2_header_end:
+-#endif
++#endif	/* CONFIG_MULTIBOOT2 */
+ 
+     /*
+      * The page tables are aligned to 4KB, which implicitly aligns this section at
+diff --git a/hypervisor/boot/guest/vboot_wrapper.c b/hypervisor/boot/guest/vboot_wrapper.c
+index 3519794a..072eeda9 100644
+--- a/hypervisor/boot/guest/vboot_wrapper.c
++++ b/hypervisor/boot/guest/vboot_wrapper.c
+@@ -42,6 +42,7 @@ void init_vboot(void)
+ 		{"PXELINUX", DIRECT_BOOT_MODE},
+ 	};
+ 
++	printf("Detect bootloader: %s\n", mbi->mi_loader_name);
+ 	for (i = 0U; i < BOOTLOADER_NUM; i++) {
+ 		if (strncmp(mbi->mi_loader_name, vboot_bootloader_maps[i].bootloader_name,
+ 			strnlen_s(vboot_bootloader_maps[i].bootloader_name, BOOTLOADER_NAME_SIZE)) == 0) {
+diff --git a/hypervisor/boot/multiboot.c b/hypervisor/boot/multiboot.c
+index f2e3797d..f03c5b5a 100644
+--- a/hypervisor/boot/multiboot.c
++++ b/hypervisor/boot/multiboot.c
+@@ -68,6 +68,10 @@ int32_t sanitize_multiboot_info(void)
+ 		ret = -EINVAL;
+ 	}
+ 
++	if (acrn_mbi.mi_loader_name[0] == '\0') {
++		pr_err("no bootloader name found!");
++		ret = -EINVAL;
++	}
+ 	return ret;
+ }
+ 
+-- 
+2.20.1
+

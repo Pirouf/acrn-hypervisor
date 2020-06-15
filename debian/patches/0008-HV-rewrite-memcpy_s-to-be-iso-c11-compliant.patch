@@ -1,0 +1,119 @@
+From 029022daad3e6efb74fd81ae7fe02de1b29914e5 Mon Sep 17 00:00:00 2001
+From: Victor Sun <victor.sun@intel.com>
+Date: Thu, 28 May 2020 15:46:08 +0800
+Subject: HV: rewrite memcpy_s to be iso c11 compliant
+
+Per C11 standard (ISO/IEC 9899:2011): K.3.7.1.1
+
+1. Copying shall not take place between objects that overlap;
+2. If there is a runtime-constraint violation, the memcpy_s function stores
+   zeros in the first s1max characters of the object;
+3. The memcpy_s function returns zero if there was no runtime-constraint
+   violation. Otherwise, a nonzero value is returned.
+
+Tracked-On: #4885
+
+Signed-off-by: Victor Sun <victor.sun@intel.com>
+Reviewed-by: Yonghua Huang <yonghua.huang@intel.com>
+Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
+Acked-by: Eddie Dong <eddie.dong@intel.com>
+---
+ hypervisor/arch/x86/lib/memory.c | 57 +++++++++++++++++---------------
+ hypervisor/include/lib/rtl.h     |  2 +-
+ 2 files changed, 31 insertions(+), 28 deletions(-)
+
+diff --git a/hypervisor/arch/x86/lib/memory.c b/hypervisor/arch/x86/lib/memory.c
+index 84e5068c..5e31c207 100644
+--- a/hypervisor/arch/x86/lib/memory.c
++++ b/hypervisor/arch/x86/lib/memory.c
+@@ -4,6 +4,26 @@
+  */
+ #include <types.h>
+ 
++static inline void memset_erms(void *base, uint8_t v, size_t n)
++{
++	asm volatile("rep ; stosb"
++			: "+D"(base)
++			: "a" (v), "c"(n));
++}
++
++void *memset(void *base, uint8_t v, size_t n)
++{
++	/*
++	 * Some CPUs support enhanced REP MOVSB/STOSB feature. It is recommended
++	 * to use it when possible.
++	 */
++	if ((base != NULL) && (n != 0U)) {
++		memset_erms(base, v, n);
++        }
++
++	return base;
++}
++
+ static inline void memcpy_erms(void *d, const void *s, size_t slen)
+ {
+ 	asm volatile ("rep; movsb"
+@@ -22,37 +42,20 @@ static inline void memcpy_erms(void *d, const void *s, size_t slen)
+  * @param[in] s        pointer to Source address
+  * @param[in] slen     maximum number of bytes of src to copy
+  *
+- * @return pointer to destination address.
+- *
+- * @pre d and s will not overlap.
++ * @return 0 for success and -1 for runtime-constraint violation.
+  */
+-void *memcpy_s(void *d, size_t dmax, const void *s, size_t slen)
++int32_t memcpy_s(void *d, size_t dmax, const void *s, size_t slen)
+ {
+-	if ((slen != 0U) && (dmax != 0U) && (dmax >= slen)) {
+-		/* same memory block, no need to copy */
+-		if (d != s) {
++	int32_t ret = -1;
++
++	if ((d != NULL) && (s != NULL) && (dmax >= slen) && ((d > (s + slen)) || (s > (d + dmax)))) {
++		if (slen != 0U) {
+ 			memcpy_erms(d, s, slen);
+ 		}
++		ret = 0;
++	} else {
++		(void)memset(d, 0U, dmax);
+ 	}
+-	return d;
+-}
+-
+-static inline void memset_erms(void *base, uint8_t v, size_t n)
+-{
+-	asm volatile("rep ; stosb"
+-			: "+D"(base)
+-			: "a" (v), "c"(n));
+-}
+-
+-void *memset(void *base, uint8_t v, size_t n)
+-{
+-	/*
+-	 * Some CPUs support enhanced REP MOVSB/STOSB feature. It is recommended
+-	 * to use it when possible.
+-	 */
+-	if ((base != NULL) && (n != 0U)) {
+-		memset_erms(base, v, n);
+-        }
+ 
+-	return base;
++	return ret;
+ }
+diff --git a/hypervisor/include/lib/rtl.h b/hypervisor/include/lib/rtl.h
+index 475a6f93..fe923b94 100644
+--- a/hypervisor/include/lib/rtl.h
++++ b/hypervisor/include/lib/rtl.h
+@@ -36,7 +36,7 @@ char *strncpy_s(char *d_arg, size_t dmax, const char *s_arg, size_t slen_arg);
+ char *strchr(char *s_arg, char ch);
+ size_t strnlen_s(const char *str_arg, size_t maxlen_arg);
+ void *memset(void *base, uint8_t v, size_t n);
+-void *memcpy_s(void *d, size_t dmax, const void *s, size_t slen);
++int32_t memcpy_s(void *d, size_t dmax, const void *s, size_t slen);
+ int64_t strtol_deci(const char *nptr);
+ uint64_t strtoul_hex(const char *nptr);
+ char *strstr_s(const char *str1, size_t maxlen1,
+-- 
+2.20.1
+

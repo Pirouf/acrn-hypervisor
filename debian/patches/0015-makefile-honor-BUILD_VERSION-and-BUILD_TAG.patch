@@ -1,7 +1,7 @@
-From a95dd94c53fc50024a2cef7c479d77838b155ccd Mon Sep 17 00:00:00 2001
+From f26de1df72c30b70882a315ace6764e4c7b50986 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Mon, 27 Apr 2020 12:51:27 +0200
-Subject: [PATCH 12/18] makefile: honor BUILD_VERSION and BUILD_TAG
+Subject: makefile: honor BUILD_VERSION and BUILD_TAG
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
@@ -11,10 +11,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  3 files changed, 23 insertions(+), 10 deletions(-)
 
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index 89961ebd..6f8259f2 100644
+index dfb89c41..19f659cf 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -504,10 +504,15 @@ $(VERSION):
+@@ -508,10 +508,15 @@ $(VERSION):
  		echo "Found SCENARIO configurations under $(SCENARIO_CFG_DIR)"; \
  	fi;
  	touch $(VERSION)

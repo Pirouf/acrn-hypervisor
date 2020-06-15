@@ -1,7 +1,7 @@
-From a495a45ea6e3d862e497e1020695a77bb52f1d90 Mon Sep 17 00:00:00 2001
+From fa548c4c64d1aadb074a89a4fb6ef6d3930ea53d Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 24 Mar 2020 15:17:04 +0100
-Subject: [PATCH 04/18] dm: virtio-net: allow arbitrary names for tap devices
+Subject: dm: virtio-net: allow arbitrary names for tap devices
 
 Remove the hardcoded device names for tap devices in virtio_net_init(),
 instead check if the network device in question is a tap device. This

@@ -1,7 +1,7 @@
-From be89cb92880e61398f93f9c30f5174ad11123f88 Mon Sep 17 00:00:00 2001
+From 1e676b5f290abdb16746db31ff6a43c46dbb71b2 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:45:58 +0200
-Subject: [PATCH 08/18] acrn-config: accept empty SOS_ROOTFS
+Subject: acrn-config: accept empty SOS_ROOTFS
 
 Since most distributions generate the rottfs kernel parameter at
 generation of its bootloader config, do not force the setting of
@@ -36,10 +36,10 @@ index d2ac8a4a..b06cb047 100644
              print('#define SOS_CONSOLE\t\t"console={} "'.format(ttys_n), file=config)
          else:
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index 6b6321e6..cbb27b8d 100644
+index 31c03457..c2c9d711 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
-@@ -90,22 +90,6 @@ def get_pci_num(pci_devs):
+@@ -89,22 +89,6 @@ def get_pci_num(pci_devs):
      return pci_devs_num
  
  

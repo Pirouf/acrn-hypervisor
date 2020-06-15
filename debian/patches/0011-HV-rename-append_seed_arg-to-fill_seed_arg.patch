@@ -1,0 +1,135 @@
+From 4e04d2543ed1a7da7d8bb1e1fadf5f37637ef572 Mon Sep 17 00:00:00 2001
+From: Victor Sun <victor.sun@intel.com>
+Date: Wed, 3 Jun 2020 12:41:03 +0800
+Subject: HV: rename append_seed_arg to fill_seed_arg
+
+Previously append_seed_arg() just do fill in seed arg to dest cmd buffer,
+so rename the api name to fill_seed_arg().
+
+Since fill_seed_arg() will be called in SOS VM path only, the param of
+bool vm_is_sos is not needed and will be replaced by dest buffer size.
+
+The seed_args[] which used by fill_seed_arg() is pre-defined as all-zero,
+so memset() is not needed in fill_seed_arg(), buffer pointer check
+and strncpy_s() are not needed also.
+
+Tracked-On: #4885
+
+Signed-off-by: Victor Sun <victor.sun@intel.com>
+Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
+Acked-by: Eddie Dong <eddie.dong@intel.com>
+---
+ hypervisor/arch/x86/seed/seed.c    | 40 ++++++++++++++----------------
+ hypervisor/boot/guest/vboot_info.c |  8 +++---
+ hypervisor/include/arch/x86/seed.h |  2 +-
+ 3 files changed, 23 insertions(+), 27 deletions(-)
+
+diff --git a/hypervisor/arch/x86/seed/seed.c b/hypervisor/arch/x86/seed/seed.c
+index b4b4d6be..d5b192ee 100644
+--- a/hypervisor/arch/x86/seed/seed.c
++++ b/hypervisor/arch/x86/seed/seed.c
+@@ -76,46 +76,42 @@ static uint32_t parse_seed_arg(void)
+ }
+ 
+ /*
+- * append_seed_arg
++ * fill_seed_arg
+  *
+  * description:
+- *     append seed argument to Guest's cmdline
++ *     fill seed argument to cmdline buffer which has MAX size of MAX_SEED_ARG_SIZE
+  *
+  * input:
+- *    vm        pointer to target VM
++ *    cmd_dst   pointer to cmdline buffer
++ *    cmd_sz    size of cmd_dst buffer
+  *
+  * output:
+- *    cmd_dst   pointer to cmdline for Guest
++ *    cmd_dst   pointer to cmdline buffer
+  *
+  * return value:
+  *    none
++ *
++ * @pre cmd_dst != NULL
+  */
+-void append_seed_arg(char *cmd_dst, bool vm_is_sos)
++void fill_seed_arg(char *cmd_dst, size_t cmd_sz)
+ {
+ 	uint32_t i;
+-	char buf[MEM_1K];
+-
+-	if ((cmd_dst != NULL) && vm_is_sos) {
+-		for (i = 0U; seed_arg[i].str != NULL; i++) {
+-			if (seed_arg[i].addr != 0UL) {
+-				(void)memset(buf, 0U, sizeof(buf));
+ 
+-				snprintf(buf, sizeof(buf), "%s0x%X ", seed_arg[i].str,
+-						sos_vm_hpa2gpa(seed_arg[i].addr));
++	for (i = 0U; seed_arg[i].str != NULL; i++) {
++		if (seed_arg[i].addr != 0UL) {
+ 
+-				if (seed_arg[i].bootloader_id == BOOTLOADER_SBL) {
+-					struct image_boot_params *boot_params =
+-						(struct image_boot_params *)hpa2hva(seed_arg[i].addr);
++			snprintf(cmd_dst, cmd_sz, "%s0x%X ", seed_arg[i].str, sos_vm_hpa2gpa(seed_arg[i].addr));
+ 
+-					boot_params->p_seed_list = sos_vm_hpa2gpa(boot_params->p_seed_list);
++			if (seed_arg[i].bootloader_id == BOOTLOADER_SBL) {
++				struct image_boot_params *boot_params =
++					(struct image_boot_params *)hpa2hva(seed_arg[i].addr);
+ 
+-					boot_params->p_platform_info = sos_vm_hpa2gpa(boot_params->p_platform_info);
+-				}
++				boot_params->p_seed_list = sos_vm_hpa2gpa(boot_params->p_seed_list);
+ 
+-				(void)strncpy_s(cmd_dst, MAX_BOOTARGS_SIZE, buf, strnlen_s(buf, MEM_1K));
+-
+-				break;
++				boot_params->p_platform_info = sos_vm_hpa2gpa(boot_params->p_platform_info);
+ 			}
++
++			break;
+ 		}
+ 	}
+ }
+diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
+index b426c02e..5987af2e 100644
+--- a/hypervisor/boot/guest/vboot_info.c
++++ b/hypervisor/boot/guest/vboot_info.c
+@@ -113,15 +113,15 @@ static void init_vm_bootargs_info(struct acrn_vm *vm, const struct acrn_multiboo
+ 
+ 	if (vm_config->load_order == SOS_VM) {
+ 		if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE, " ", 1U) == 0) {
+-			char seed_args[MAX_SEED_ARG_SIZE];
++			char seed_args[MAX_SEED_ARG_SIZE] = "";
+ 
+-			append_seed_arg(seed_args, true);
+-			/* Append seed argument for SOS
++			fill_seed_arg(seed_args, true);
++			/* Fill seed argument for SOS
+ 			 * seed_args string ends with a white space and '\0', so no aditional delimiter is needed
+ 			 */
+ 			if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE,
+ 					seed_args, (MAX_BOOTARGS_SIZE - 1U)) != 0) {
+-				pr_err("failed to apend seed arg to SOS bootargs!");
++				pr_err("failed to fill seed arg to SOS bootargs!");
+ 			}
+ 
+ 			/* If there is cmdline from mbi->mi_cmdline, merge it with configured SOS bootargs. */
+diff --git a/hypervisor/include/arch/x86/seed.h b/hypervisor/include/arch/x86/seed.h
+index a4787d24..bd35a52c 100644
+--- a/hypervisor/include/arch/x86/seed.h
++++ b/hypervisor/include/arch/x86/seed.h
+@@ -28,7 +28,7 @@ struct physical_seed {
+ 
+ void init_seed(void);
+ 
+-void append_seed_arg(char *cmd_dst, bool vm_is_sos);
++void fill_seed_arg(char *cmd_dst, size_t cmd_sz);
+ 
+ bool derive_virtual_seed(struct seed_info *seed_list, uint32_t *num_seeds,
+ 			 const uint8_t *salt, size_t salt_len, const uint8_t *info, size_t info_len);
+-- 
+2.20.1
+

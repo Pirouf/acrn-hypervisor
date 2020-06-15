@@ -1,0 +1,441 @@
+From 28b2441f7d5cb22fd3a5057c2ff587392ef56195 Mon Sep 17 00:00:00 2001
+From: Victor Sun <victor.sun@intel.com>
+Date: Fri, 5 Jun 2020 12:08:07 +0800
+Subject: HV: split sanitize_multiboot_info api
+
+Previously sanitize_multiboot_info() was called after init_debug_pre() because
+the debug message can only print after uart is initialized. On the other hand,
+multiboot cmdline need to be parsed before init_debug_pre() because the cmdline
+could override uart settings and make sure debug message printed successfully.
+This cause multiboot info was parsed in two stages.
+
+The patch revise the multiboot parse logic that split sanitize_multiboot_info()
+api and use init_acrn_multiboot_info() api for the early stage. The most of
+multiboot info will be initialized during this stage and no debug message need
+to be printed. After uart is initialized, the sanitize_multiboot_info() would
+do sanitize multiboot info and print needed debug messages.
+
+Tracked-On: #4885
+
+Signed-off-by: Victor Sun <victor.sun@intel.com>
+Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
+Acked-by: Eddie Dong <eddie.dong@intel.com>
+---
+ hypervisor/arch/x86/init.c               |   2 +
+ hypervisor/arch/x86/seed/seed.c          |   2 +-
+ hypervisor/boot/guest/deprivilege_boot.c |   4 +-
+ hypervisor/boot/guest/direct_boot.c      |   4 +-
+ hypervisor/boot/guest/vboot_wrapper.c    |   3 +-
+ hypervisor/boot/include/boot.h           |   9 +-
+ hypervisor/boot/include/guest/vboot.h    |   4 +-
+ hypervisor/boot/multiboot.c              | 105 +++++++++++++++--------
+ hypervisor/boot/multiboot2.c             |  50 +++--------
+ 9 files changed, 96 insertions(+), 87 deletions(-)
+
+diff --git a/hypervisor/arch/x86/init.c b/hypervisor/arch/x86/init.c
+index b991797a..6258d8d5 100644
+--- a/hypervisor/arch/x86/init.c
++++ b/hypervisor/arch/x86/init.c
+@@ -79,6 +79,8 @@ void init_primary_pcpu(void)
+ 	/* Clear BSS */
+ 	(void)memset(&ld_bss_start, 0U, (size_t)(&ld_bss_end - &ld_bss_start));
+ 
++	init_acrn_multiboot_info();
++
+ 	parse_hv_cmdline();
+ 
+ 	init_debug_pre();
+diff --git a/hypervisor/arch/x86/seed/seed.c b/hypervisor/arch/x86/seed/seed.c
+index ee9ddccb..b4b4d6be 100644
+--- a/hypervisor/arch/x86/seed/seed.c
++++ b/hypervisor/arch/x86/seed/seed.c
+@@ -39,7 +39,7 @@ static struct physical_seed g_phy_seed;
+ 
+ static uint32_t parse_seed_arg(void)
+ {
+-	char *cmd_src = NULL;
++	const char *cmd_src = NULL;
+ 	char *arg, *arg_end;
+ 	struct acrn_multiboot_info *mbi = get_multiboot_info();
+ 	uint32_t i = SEED_ARG_NUM - 1U;
+diff --git a/hypervisor/boot/guest/deprivilege_boot.c b/hypervisor/boot/guest/deprivilege_boot.c
+index 24e366f0..cbbc4bf7 100644
+--- a/hypervisor/boot/guest/deprivilege_boot.c
++++ b/hypervisor/boot/guest/deprivilege_boot.c
+@@ -54,9 +54,9 @@ static uint64_t get_depri_boot_ap_trampoline(void)
+ 	return depri_boot_ctx.ap_trampoline_buf;
+ }
+ 
+-static void* get_depri_boot_rsdp(void)
++static const void* get_depri_boot_rsdp(void)
+ {
+-	return hpa2hva((uint64_t)(depri_boot_ctx.rsdp));
++	return (const void*)hpa2hva((uint64_t)(depri_boot_ctx.rsdp));
+ }
+ 
+ static void init_depri_boot_irq(void)
+diff --git a/hypervisor/boot/guest/direct_boot.c b/hypervisor/boot/guest/direct_boot.c
+index 58e32df6..520e9969 100644
+--- a/hypervisor/boot/guest/direct_boot.c
++++ b/hypervisor/boot/guest/direct_boot.c
+@@ -27,12 +27,12 @@ static uint64_t get_direct_boot_ap_trampoline(void)
+ 	return ap_trampoline_buf;
+ }
+ 
+-static void* get_direct_boot_rsdp(void)
++static const void* get_direct_boot_rsdp(void)
+ {
+ #ifdef CONFIG_MULTIBOOT2
+ 	struct acrn_multiboot_info *mbi = get_multiboot_info();
+ 
+-	return mbi->mi_acpi_rsdp;
++	return mbi->mi_acpi_rsdp_va;
+ #else
+ 	return NULL;
+ #endif
+diff --git a/hypervisor/boot/guest/vboot_wrapper.c b/hypervisor/boot/guest/vboot_wrapper.c
+index 072eeda9..c3085bc9 100644
+--- a/hypervisor/boot/guest/vboot_wrapper.c
++++ b/hypervisor/boot/guest/vboot_wrapper.c
+@@ -42,7 +42,6 @@ void init_vboot(void)
+ 		{"PXELINUX", DIRECT_BOOT_MODE},
+ 	};
+ 
+-	printf("Detect bootloader: %s\n", mbi->mi_loader_name);
+ 	for (i = 0U; i < BOOTLOADER_NUM; i++) {
+ 		if (strncmp(mbi->mi_loader_name, vboot_bootloader_maps[i].bootloader_name,
+ 			strnlen_s(vboot_bootloader_maps[i].bootloader_name, BOOTLOADER_NAME_SIZE)) == 0) {
+@@ -79,7 +78,7 @@ uint64_t get_ap_trampoline_buf(void)
+ }
+ 
+ /* @pre: vboot_ops->get_rsdp != NULL */
+-void *get_rsdp_ptr(void)
++const void *get_rsdp_ptr(void)
+ {
+ 	return vboot_ops->get_rsdp();
+ }
+diff --git a/hypervisor/boot/include/boot.h b/hypervisor/boot/include/boot.h
+index c3ec5d1c..1b664a60 100644
+--- a/hypervisor/boot/include/boot.h
++++ b/hypervisor/boot/include/boot.h
+@@ -24,19 +24,21 @@
+ struct acrn_multiboot_info {
+ 	uint32_t		mi_flags;	/* the flags is back-compatible with multiboot1 */
+ 
+-	char			*mi_cmdline;
+-	char			*mi_loader_name;
++	const char		*mi_cmdline;
++	const char		*mi_loader_name;
+ 
+ 	uint32_t		mi_mods_count;
++	const void		*mi_mods_va;
+ 	struct multiboot_module	mi_mods[MAX_MODULE_COUNT];
+ 
+ 	uint32_t 		mi_drives_length;
+ 	uint32_t		mi_drives_addr;
+ 
+ 	uint32_t		mi_mmap_entries;
++	const void		*mi_mmap_va;
+ 	struct multiboot_mmap	mi_mmap_entry[E820_MAX_ENTRIES];
+ 
+-	void			*mi_acpi_rsdp;
++	const void		*mi_acpi_rsdp_va;
+ 	struct efi_info		mi_efi_info;
+ };
+ 
+@@ -72,6 +74,7 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info);
+ #endif
+ 
+ struct acrn_multiboot_info *get_multiboot_info(void);
++void init_acrn_multiboot_info(void);
+ int32_t sanitize_multiboot_info(void);
+ void parse_hv_cmdline(void);
+ 
+diff --git a/hypervisor/boot/include/guest/vboot.h b/hypervisor/boot/include/guest/vboot.h
+index 8bf89b52..62a39d11 100644
+--- a/hypervisor/boot/include/guest/vboot.h
++++ b/hypervisor/boot/include/guest/vboot.h
+@@ -16,14 +16,14 @@ enum vboot_mode {
+ struct vboot_operations {
+ 	void (*init)(void);
+ 	uint64_t (*get_ap_trampoline)(void);
+-	void *(*get_rsdp)(void);
++	const void *(*get_rsdp)(void);
+ 	void (*init_irq)(void);
+ };
+ 
+ void init_vboot(void);
+ void init_vboot_irq(void);
+ uint64_t get_ap_trampoline_buf(void);
+-void *get_rsdp_ptr(void);
++const void *get_rsdp_ptr(void);
+ 
+ enum vboot_mode get_sos_boot_mode(void);
+ 
+diff --git a/hypervisor/boot/multiboot.c b/hypervisor/boot/multiboot.c
+index f03c5b5a..9f3f17bf 100644
+--- a/hypervisor/boot/multiboot.c
++++ b/hypervisor/boot/multiboot.c
+@@ -13,66 +13,101 @@
+ 
+ static struct acrn_multiboot_info acrn_mbi = { 0U };
+ 
+-int32_t sanitize_multiboot_info(void)
+-{
+-	int32_t ret = 0;
++static int32_t mbi_status;
+ 
++void init_acrn_multiboot_info(void)
++{
+ 	if (boot_from_multiboot1()) {
+ 		struct multiboot_info *mbi = (struct multiboot_info *)(hpa2hva_early((uint64_t)boot_regs[1]));
+ 
+-		pr_info("Multiboot1 detected.");
+ 		acrn_mbi.mi_flags = mbi->mi_flags;
+ 		acrn_mbi.mi_drives_addr = mbi->mi_drives_addr;
+ 		acrn_mbi.mi_drives_length = mbi->mi_drives_length;
+ 		acrn_mbi.mi_cmdline = (char *)hpa2hva_early((uint64_t)mbi->mi_cmdline);
+ 		acrn_mbi.mi_loader_name = (char *)hpa2hva_early((uint64_t)mbi->mi_loader_name);
+-
+ 		acrn_mbi.mi_mmap_entries = mbi->mi_mmap_length / sizeof(struct multiboot_mmap);
+-		if ((acrn_mbi.mi_mmap_entries != 0U) && (mbi->mi_mmap_addr != 0U)) {
+-			if (acrn_mbi.mi_mmap_entries > E820_MAX_ENTRIES) {
+-				pr_err("Too many E820 entries %d\n", acrn_mbi.mi_mmap_entries);
+-				acrn_mbi.mi_mmap_entries = E820_MAX_ENTRIES;
+-			}
+-			(void)memcpy_s((void *)(&acrn_mbi.mi_mmap_entry[0]),
+-				(acrn_mbi.mi_mmap_entries * sizeof(struct multiboot_mmap)),
+-				(const void *)hpa2hva_early((uint64_t)mbi->mi_mmap_addr),
+-				(acrn_mbi.mi_mmap_entries * sizeof(struct multiboot_mmap)));
+-		} else {
+-			acrn_mbi.mi_flags &= ~MULTIBOOT_INFO_HAS_MMAP;
++		acrn_mbi.mi_mmap_va = (struct multiboot_mmap *)hpa2hva_early((uint64_t)mbi->mi_mmap_addr);
++		acrn_mbi.mi_mods_count = mbi->mi_mods_count;
++		acrn_mbi.mi_mods_va = (struct multiboot_module *)hpa2hva_early((uint64_t)mbi->mi_mods_addr);
++		mbi_status = 0;
++#ifdef CONFIG_MULTIBOOT2
++	} else if (boot_from_multiboot2()) {
++		mbi_status = multiboot2_to_acrn_mbi(&acrn_mbi, hpa2hva_early((uint64_t)boot_regs[1]));
++#endif
++	} else {
++		mbi_status = -ENODEV;
++	}
++}
++
++int32_t sanitize_multiboot_info(void)
++{
++	uint32_t mmap_entry_size = 0U;
++
++	if (boot_from_multiboot1()) {
++		pr_info("Multiboot1 detected.");
++		mmap_entry_size = sizeof(struct multiboot_mmap);
++#ifdef CONFIG_MULTIBOOT2
++	} else if (boot_from_multiboot2()) {
++		pr_info("Multiboot2 detected.");
++		mmap_entry_size = sizeof(struct multiboot2_mmap_entry);
++	}
++#endif
++
++	if ((acrn_mbi.mi_mmap_entries != 0U) && (acrn_mbi.mi_mmap_va != NULL)) {
++		if (acrn_mbi.mi_mmap_entries > E820_MAX_ENTRIES) {
++			pr_err("Too many E820 entries %d\n", acrn_mbi.mi_mmap_entries);
++			acrn_mbi.mi_mmap_entries = E820_MAX_ENTRIES;
+ 		}
++		(void)memcpy_s((void *)(&acrn_mbi.mi_mmap_entry[0]),
++			(acrn_mbi.mi_mmap_entries * mmap_entry_size),
++			(const void *)acrn_mbi.mi_mmap_va,
++			(acrn_mbi.mi_mmap_entries * mmap_entry_size));
++		acrn_mbi.mi_flags |= MULTIBOOT_INFO_HAS_MMAP;
++	} else {
++		acrn_mbi.mi_flags &= ~MULTIBOOT_INFO_HAS_MMAP;
++	}
+ 
+-		acrn_mbi.mi_mods_count = mbi->mi_mods_count;
+-		if ((mbi->mi_mods_count != 0U) && (mbi->mi_mods_addr != 0U)) {
+-			if (mbi->mi_mods_count > MAX_MODULE_COUNT) {
+-				pr_err("Too many multiboot modules %d\n", mbi->mi_mods_count);
+-				acrn_mbi.mi_mods_count = MAX_MODULE_COUNT;
+-			}
++	if (acrn_mbi.mi_mods_count > MAX_MODULE_COUNT) {
++		pr_err("Too many multiboot modules %d\n", acrn_mbi.mi_mods_count);
++		acrn_mbi.mi_mods_count = MAX_MODULE_COUNT;
++	}
++	if (acrn_mbi.mi_mods_count != 0U) {
++		if (boot_from_multiboot1() && (acrn_mbi.mi_mods_va != NULL)) {
+ 			(void)memcpy_s((void *)(&acrn_mbi.mi_mods[0]),
+ 				(acrn_mbi.mi_mods_count * sizeof(struct multiboot_module)),
+-				(const void *)hpa2hva_early((uint64_t)mbi->mi_mods_addr),
++				(const void *)acrn_mbi.mi_mods_va,
+ 				(acrn_mbi.mi_mods_count * sizeof(struct multiboot_module)));
+-		} else {
+-			acrn_mbi.mi_flags &= ~MULTIBOOT_INFO_HAS_MODS;
+ 		}
+-#ifdef CONFIG_MULTIBOOT2
+-	} else if (boot_from_multiboot2()) {
+-		ret = multiboot2_to_acrn_mbi(&acrn_mbi, hpa2hva_early((uint64_t)boot_regs[1]));
+-#endif
++		acrn_mbi.mi_flags |= MULTIBOOT_INFO_HAS_MODS;
+ 	} else {
+-		pr_err("no multiboot info found!");
+-		ret = -ENODEV;
++		acrn_mbi.mi_flags &= ~MULTIBOOT_INFO_HAS_MODS;
+ 	}
+ 
+ 	if ((acrn_mbi.mi_flags & MULTIBOOT_INFO_HAS_MMAP) == 0U) {
+-		pr_err("no multiboot memory map info found!");
+-		ret = -EINVAL;
++		pr_err("wrong multiboot flags: 0x%08x", acrn_mbi.mi_flags);
++		mbi_status = -EINVAL;
++	}
++
++	if (boot_from_multiboot2()) {
++		if (acrn_mbi.mi_efi_info.efi_memmap_hi != 0U) {
++			pr_err("the efi mmap address should be less than 4G!");
++			acrn_mbi.mi_flags &= ~MULTIBOOT_INFO_HAS_EFI_MMAP;
++			mbi_status = -EINVAL;
++		}
++
++		if ((acrn_mbi.mi_flags & (MULTIBOOT_INFO_HAS_EFI64 | MULTIBOOT_INFO_HAS_EFI_MMAP)) == 0U) {
++			pr_err("no multiboot2 uefi info found!");
++		}
+ 	}
+ 
+ 	if (acrn_mbi.mi_loader_name[0] == '\0') {
+ 		pr_err("no bootloader name found!");
+-		ret = -EINVAL;
++		mbi_status = -EINVAL;
++	} else {
++		printf("Detect bootloader: %s\n", acrn_mbi.mi_loader_name);
+ 	}
+-	return ret;
++
++	return mbi_status;
+ }
+ 
+ /*
+diff --git a/hypervisor/boot/multiboot2.c b/hypervisor/boot/multiboot2.c
+index 8cacd6b9..955d09dc 100644
+--- a/hypervisor/boot/multiboot2.c
++++ b/hypervisor/boot/multiboot2.c
+@@ -8,28 +8,15 @@
+ #include <errno.h>
+ #include <boot.h>
+ #include <pgtable.h>
+-#include <util.h>
+-#include <logmsg.h>
+ 
+ /**
+  * @pre mbi != NULL && mb2_tag_mmap != NULL
+  */
+ static void mb2_mmap_to_mbi(struct acrn_multiboot_info *mbi, const struct multiboot2_tag_mmap *mb2_tag_mmap)
+ {
+-	uint32_t i;
+-
+ 	/* multiboot2 mmap tag header occupied 16 bytes */
+ 	mbi->mi_mmap_entries = (mb2_tag_mmap->size - 16U) / sizeof(struct multiboot2_mmap_entry);
+-	if (mbi->mi_mmap_entries > E820_MAX_ENTRIES) {
+-		pr_err("Too many E820 entries %d\n", mbi->mi_mmap_entries);
+-		mbi->mi_mmap_entries = E820_MAX_ENTRIES;
+-	}
+-	for (i = 0U; i < mbi->mi_mmap_entries; i++) {
+-		mbi->mi_mmap_entry[i].baseaddr = mb2_tag_mmap->entries[i].addr;
+-		mbi->mi_mmap_entry[i].length = mb2_tag_mmap->entries[i].len;
+-		mbi->mi_mmap_entry[i].type = mb2_tag_mmap->entries[i].type;
+-	}
+-	mbi->mi_flags |= MULTIBOOT_INFO_HAS_MMAP;
++	mbi->mi_mmap_va = (struct multiboot2_mmap_entry *)mb2_tag_mmap->entries;
+ }
+ 
+ /**
+@@ -38,15 +25,11 @@ static void mb2_mmap_to_mbi(struct acrn_multiboot_info *mbi, const struct multib
+ static void mb2_mods_to_mbi(struct acrn_multiboot_info *mbi,
+ 			uint32_t mbi_mod_idx, const struct multiboot2_tag_module *mb2_tag_mods)
+ {
+-	if (mbi_mod_idx >= MAX_MODULE_COUNT) {
+-		pr_err("unhandled multiboot2 module: 0x%x", mb2_tag_mods->mod_start);
+-	} else {
++	if (mbi_mod_idx < MAX_MODULE_COUNT) {
+ 		mbi->mi_mods[mbi_mod_idx].mm_mod_start = mb2_tag_mods->mod_start;
+ 		mbi->mi_mods[mbi_mod_idx].mm_mod_end = mb2_tag_mods->mod_end;
+ 		mbi->mi_mods[mbi_mod_idx].mm_string = (uint32_t)(uint64_t)mb2_tag_mods->cmdline;
+-		mbi->mi_mods_count = mbi_mod_idx + 1U;
+ 	}
+-	mbi->mi_flags |= MULTIBOOT_INFO_HAS_MODS;
+ }
+ 
+ /**
+@@ -62,23 +45,15 @@ static void mb2_efi64_to_mbi(struct acrn_multiboot_info *mbi, const struct multi
+ /**
+  * @pre mbi != NULL && mb2_tag_efimmap != 0
+  */
+-static int32_t mb2_efimmap_to_mbi(struct acrn_multiboot_info *mbi,
++static void mb2_efimmap_to_mbi(struct acrn_multiboot_info *mbi,
+ 			const struct multiboot2_tag_efi_mmap *mb2_tag_efimmap)
+ {
+-	int32_t ret = 0;
+-
+ 	mbi->mi_efi_info.efi_memdesc_size = mb2_tag_efimmap->descr_size;
+ 	mbi->mi_efi_info.efi_memdesc_version = mb2_tag_efimmap->descr_vers;
+ 	mbi->mi_efi_info.efi_memmap = (uint32_t)(uint64_t)mb2_tag_efimmap->efi_mmap;
+ 	mbi->mi_efi_info.efi_memmap_size = mb2_tag_efimmap->size - 16U;
+ 	mbi->mi_efi_info.efi_memmap_hi = (uint32_t)(((uint64_t)mb2_tag_efimmap->efi_mmap) >> 32U);
+-	if (mbi->mi_efi_info.efi_memmap_hi != 0U) {
+-		pr_err("the efi mmap address should be less than 4G!");
+-		ret = -EINVAL;
+-	} else {
+-		mbi->mi_flags |= MULTIBOOT_INFO_HAS_EFI64;
+-	}
+-	return ret;
++	mbi->mi_flags |= MULTIBOOT_INFO_HAS_EFI_MMAP;
+ }
+ 
+ /**
+@@ -108,30 +83,25 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+ 			mbi->mi_loader_name = ((struct multiboot2_tag_string *)mb2_tag)->string;
+ 			break;
+ 		case MULTIBOOT2_TAG_TYPE_ACPI_NEW:
+-			mbi->mi_acpi_rsdp = ((struct multiboot2_tag_new_acpi *)mb2_tag)->rsdp;
++			mbi->mi_acpi_rsdp_va = ((struct multiboot2_tag_new_acpi *)mb2_tag)->rsdp;
+ 			break;
+ 		case MULTIBOOT2_TAG_TYPE_EFI64:
+ 			mb2_efi64_to_mbi(mbi, (const struct multiboot2_tag_efi64 *)mb2_tag);
+ 			break;
+ 		case MULTIBOOT2_TAG_TYPE_EFI_MMAP:
+-			ret = mb2_efimmap_to_mbi(mbi, (const struct multiboot2_tag_efi_mmap *)mb2_tag);
++			mb2_efimmap_to_mbi(mbi, (const struct multiboot2_tag_efi_mmap *)mb2_tag);
+ 			break;
+ 		default:
+-			if (mb2_tag->type <= MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR) {
+-				pr_warn("unhandled multiboot2 tag type: %d", mb2_tag->type);
+-			} else {
+-				pr_err("unknown multiboot2 tag type: %d", mb2_tag->type);
++			if (mb2_tag->type > MULTIBOOT2_TAG_TYPE_LOAD_BASE_ADDR) {
+ 				ret = -EINVAL;
+ 			}
+ 			break;
+ 		}
+ 		if (mb2_tag->size == 0U) {
+-			pr_err("the multiboot2 tag size should not be 0!");
+ 			ret = -EINVAL;
+ 		}
+ 
+ 		if (ret != 0) {
+-			pr_err("multiboot2 info format error!");
+ 			break;
+ 		}
+ 		/*
+@@ -141,8 +111,8 @@ int32_t multiboot2_to_acrn_mbi(struct acrn_multiboot_info *mbi, void *mb2_info)
+ 		mb2_tag = (struct multiboot2_tag *)((uint8_t *)mb2_tag
+ 				+ ((mb2_tag->size + (MULTIBOOT2_INFO_ALIGN - 1U)) & ~(MULTIBOOT2_INFO_ALIGN - 1U)));
+ 	}
+-	if ((mbi->mi_flags & (MULTIBOOT_INFO_HAS_EFI64 | MULTIBOOT_INFO_HAS_EFI_MMAP)) == 0U) {
+-		pr_err("no multiboot2 uefi info found!");
+-	}
++
++	mbi->mi_mods_count = mod_idx;
++
+ 	return ret;
+ }
+-- 
+2.20.1
+

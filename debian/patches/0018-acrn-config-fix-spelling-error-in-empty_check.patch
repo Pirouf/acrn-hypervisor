@@ -1,7 +1,7 @@
-From 79a265c6cd066234f3475f395e34e16d02b8fbeb Mon Sep 17 00:00:00 2001
+From 69fbfe0f608f88ca820b5f322edec0b2f0f41a19 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:57:32 +0200
-Subject: [PATCH 10/18] acrn-config: fix spelling error in empty_check()
+Subject: acrn-config: fix spelling error in empty_check()
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---

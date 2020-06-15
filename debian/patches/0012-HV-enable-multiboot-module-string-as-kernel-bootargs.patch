@@ -1,0 +1,184 @@
+From b9c18eb0cd5a337bc4d47193fd191330b8626436 Mon Sep 17 00:00:00 2001
+From: Victor Sun <victor.sun@intel.com>
+Date: Fri, 5 Jun 2020 15:22:40 +0800
+Subject: HV: enable multiboot module string as kernel bootargs
+
+Previously the VM kernel bootargs for pre-launched VMs and direct boot mode
+of SOS VM are built-in hypervisor binary so end users have no way to change
+it. Now we provide another option that the multiboot module string could be
+used as bootargs also. This would bring convenience to end users when they
+use GRUB as bootloader because the bootargs could be configurable in GRUB
+menu.
+
+The usage is if there is any string follows configured kernel_mod_tag in
+module string, the string will be used as new kernel bootargs instead of
+built-in kernel bootargs. If there is no string follows kernel_mod_tag,
+then the built-in bootargs will be the default kernel bootargs.
+
+Please note kernel_mod_tag must be the first word in module string in any
+case, it is used to specify the module for which VM.
+
+Tracked-On: #4885
+
+Signed-off-by: Victor Sun <victor.sun@intel.com>
+Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
+Reviewed-by: Eddie Dong <eddie.dong@intel.com>
+---
+ hypervisor/boot/guest/vboot_info.c | 34 ++++++++++++++++++++++++------
+ hypervisor/boot/include/boot.h     |  6 ++++--
+ hypervisor/boot/multiboot.c        |  4 ++--
+ hypervisor/boot/multiboot2.c       |  2 +-
+ hypervisor/include/lib/rtl.h       |  5 +++++
+ 5 files changed, 40 insertions(+), 11 deletions(-)
+
+diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
+index 5987af2e..b710573e 100644
+--- a/hypervisor/boot/guest/vboot_info.c
++++ b/hypervisor/boot/guest/vboot_info.c
+@@ -22,7 +22,6 @@
+ 
+ #define DBG_LEVEL_BOOT	6U
+ 
+-#define MAX_BOOT_PARAMS_LEN 64U
+ #define INVALID_MOD_IDX		0xFFFFU
+ 
+ /**
+@@ -99,6 +98,9 @@ static int32_t init_vm_kernel_info(struct acrn_vm *vm, const struct multiboot_mo
+ 	return (vm->sw.kernel_info.kernel_load_addr == NULL) ? (-EINVAL) : 0;
+ }
+ 
++/* cmdline parsed from multiboot module string, for pre-launched VMs and SOS VM only. */
++static char mod_cmdline[PRE_VM_NUM + SOS_VM_NUM][MAX_BOOTARGS_SIZE] = { '\0' };
++
+ /**
+  * @pre vm != NULL && mbi != NULL
+  */
+@@ -108,7 +110,14 @@ static void init_vm_bootargs_info(struct acrn_vm *vm, const struct acrn_multiboo
+ 	char *bootargs = vm_config->os_config.bootargs;
+ 
+ 	if ((vm_config->load_order == PRE_LAUNCHED_VM) || (vm_config->load_order == SOS_VM)) {
+-		vm->sw.bootargs_info.src_addr = bootargs;
++		if (mod_cmdline[vm->vm_id][0] == '\0') {
++			vm->sw.bootargs_info.src_addr = bootargs;
++		} else {
++			/* override build-in bootargs with multiboot module string which is configurable
++			 * at bootloader boot time. e.g. GRUB menu
++			 */
++			vm->sw.bootargs_info.src_addr = &mod_cmdline[vm->vm_id][0];
++		}
+ 	}
+ 
+ 	if (vm_config->load_order == SOS_VM) {
+@@ -157,12 +166,13 @@ static uint32_t get_mod_idx_by_tag(const struct multiboot_module *mods, uint32_t
+ 	for (i = 0U; i < mods_count; i++) {
+ 		const char *mm_string = (char *)hpa2hva((uint64_t)mods[i].mm_string);
+ 		uint32_t mm_str_len = strnlen_s(mm_string, MAX_MOD_TAG_LEN);
++		const char *p_chr = mm_string + tag_len; /* point to right after the end of tag */
+ 
+-		/* when do file stitch by tool, the tag in mm_string might be followed with 0x0d or 0x0a */
++		/* The tag must be located at the first word in mm_string and end with SPACE/TAB or EOL since
++		 * when do file stitch by tool, the tag in mm_string might be followed by EOL(0x0d/0x0a).
++		 */
+ 		if ((mm_str_len >= tag_len) && (strncmp(mm_string, tag, tag_len) == 0)
+-				&& ((*(mm_string + tag_len) == 0x0d)
+-				|| (*(mm_string + tag_len) == 0x0a)
+-				|| (*(mm_string + tag_len) == 0))){
++				&& (is_space(*p_chr) || is_eol(*p_chr))) {
+ 			ret = i;
+ 			break;
+ 		}
+@@ -182,8 +192,20 @@ static int32_t init_vm_sw_load(struct acrn_vm *vm, const struct acrn_multiboot_i
+ 	dev_dbg(DBG_LEVEL_BOOT, "mod counts=%d\n", mbi->mi_mods_count);
+ 
+ 	if (mods != NULL) {
++		/* find kernel module first */
+ 		mod_idx = get_mod_idx_by_tag(mods, mbi->mi_mods_count, vm_config->os_config.kernel_mod_tag);
+ 		if (mod_idx != INVALID_MOD_IDX) {
++			const char *mm_string = (char *)hpa2hva((uint64_t)mods[mod_idx].mm_string);
++			uint32_t mm_str_len = strnlen_s(mm_string, MAX_BOOTARGS_SIZE);
++			uint32_t tag_len = strnlen_s(vm_config->os_config.kernel_mod_tag, MAX_MOD_TAG_LEN);
++			const char *p_chr = mm_string + tag_len + 1; /* point to the possible start of cmdline */
++
++			/* check whether there is a cmdline configured in module string */
++			if (((mm_str_len > (tag_len + 1U))) && (is_space(*(p_chr - 1))) && (!is_eol(*p_chr))) {
++				(void)strncpy_s(&mod_cmdline[vm->vm_id][0], MAX_BOOTARGS_SIZE,
++						p_chr, (MAX_BOOTARGS_SIZE - 1U));
++			}
++
+ 			ret = init_vm_kernel_info(vm, &mods[mod_idx]);
+ 		}
+ 	}
+diff --git a/hypervisor/boot/include/boot.h b/hypervisor/boot/include/boot.h
+index 51ff94c9..0f3e2d04 100644
+--- a/hypervisor/boot/include/boot.h
++++ b/hypervisor/boot/include/boot.h
+@@ -13,9 +13,11 @@
+ #endif
+ #include <e820.h>
+ #include <zeropage.h>
++#include <vm_configurations.h>
+ 
+ #define MAX_BOOTARGS_SIZE		2048U
+-#define MAX_MODULE_COUNT		4U
++/* The modules in multiboot are for kernel and ramdisk of pre-launched VMs and SOS VM */
++#define MAX_MODULE_NUM			(2U * PRE_VM_NUM + 2U * SOS_VM_NUM)
+ 
+ /* extended flags for acrn multiboot info from multiboot2  */
+ #define	MULTIBOOT_INFO_HAS_EFI_MMAP	0x00010000U
+@@ -29,7 +31,7 @@ struct acrn_multiboot_info {
+ 
+ 	uint32_t		mi_mods_count;
+ 	const void		*mi_mods_va;
+-	struct multiboot_module	mi_mods[MAX_MODULE_COUNT];
++	struct multiboot_module	mi_mods[MAX_MODULE_NUM];
+ 
+ 	uint32_t 		mi_drives_length;
+ 	uint32_t		mi_drives_addr;
+diff --git a/hypervisor/boot/multiboot.c b/hypervisor/boot/multiboot.c
+index 473f4ead..2b99d20b 100644
+--- a/hypervisor/boot/multiboot.c
++++ b/hypervisor/boot/multiboot.c
+@@ -69,9 +69,9 @@ int32_t sanitize_multiboot_info(void)
+ 		acrn_mbi.mi_flags &= ~MULTIBOOT_INFO_HAS_MMAP;
+ 	}
+ 
+-	if (acrn_mbi.mi_mods_count > MAX_MODULE_COUNT) {
++	if (acrn_mbi.mi_mods_count > MAX_MODULE_NUM) {
+ 		pr_err("Too many multiboot modules %d\n", acrn_mbi.mi_mods_count);
+-		acrn_mbi.mi_mods_count = MAX_MODULE_COUNT;
++		acrn_mbi.mi_mods_count = MAX_MODULE_NUM;
+ 	}
+ 	if (acrn_mbi.mi_mods_count != 0U) {
+ 		if (boot_from_multiboot1() && (acrn_mbi.mi_mods_va != NULL)) {
+diff --git a/hypervisor/boot/multiboot2.c b/hypervisor/boot/multiboot2.c
+index 38754508..ba0b691a 100644
+--- a/hypervisor/boot/multiboot2.c
++++ b/hypervisor/boot/multiboot2.c
+@@ -25,7 +25,7 @@ static void mb2_mmap_to_mbi(struct acrn_multiboot_info *mbi, const struct multib
+ static void mb2_mods_to_mbi(struct acrn_multiboot_info *mbi,
+ 			uint32_t mbi_mod_idx, const struct multiboot2_tag_module *mb2_tag_mods)
+ {
+-	if (mbi_mod_idx < MAX_MODULE_COUNT) {
++	if (mbi_mod_idx < MAX_MODULE_NUM) {
+ 		mbi->mi_mods[mbi_mod_idx].mm_mod_start = mb2_tag_mods->mod_start;
+ 		mbi->mi_mods[mbi_mod_idx].mm_mod_end = mb2_tag_mods->mod_end;
+ 		mbi->mi_mods[mbi_mod_idx].mm_string = (uint32_t)(uint64_t)mb2_tag_mods->cmdline;
+diff --git a/hypervisor/include/lib/rtl.h b/hypervisor/include/lib/rtl.h
+index 63922419..a0f9f8d8 100644
+--- a/hypervisor/include/lib/rtl.h
++++ b/hypervisor/include/lib/rtl.h
+@@ -29,6 +29,11 @@ static inline bool is_space(char c)
+ 	return ((c == ' ') || (c == '\t'));
+ }
+ 
++static inline bool is_eol(char c)
++{
++	return ((c == 0x0d) || (c == 0x0a) || (c == '\0'));
++}
++
+ /* Function prototypes */
+ int32_t strcmp(const char *s1_arg, const char *s2_arg);
+ int32_t strncmp(const char *s1_arg, const char *s2_arg, size_t n_arg);
+-- 
+2.20.1
+

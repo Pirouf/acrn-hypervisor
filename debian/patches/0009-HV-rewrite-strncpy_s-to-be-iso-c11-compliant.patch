@@ -1,0 +1,153 @@
+From 569c002eb316b19cbc1a57f41611a190eb6ff555 Mon Sep 17 00:00:00 2001
+From: Victor Sun <victor.sun@intel.com>
+Date: Thu, 28 May 2020 16:32:17 +0800
+Subject: HV: rewrite strncpy_s to be iso c11 compliant
+
+Per C11 standard (ISO/IEC 9899:2011): K.3.7.1.4
+
+1. Copying shall not take place between objects that overlap;
+2. If there is a runtime-constraint violation, the strncpy_s function sets
+   s1[0] to '\0\;
+3. The strncpy_s function returns zero if there was no runtime-constraint
+   violation. Otherwise, a nonzero value is returned.
+4. The function is implemented with memcpy_s() because the runtime-constraint
+   detection is almost same.
+
+Tracked-On: #4885
+
+Signed-off-by: Victor Sun <victor.sun@intel.com>
+Reviewed-by: Yonghua Huang <yonghua.huang@intel.com>
+Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
+Acked-by: Eddie Dong <eddie.dong@intel.com>
+---
+ hypervisor/include/lib/rtl.h |  2 +-
+ hypervisor/lib/string.c      | 90 ++++++++----------------------------
+ 2 files changed, 20 insertions(+), 72 deletions(-)
+
+diff --git a/hypervisor/include/lib/rtl.h b/hypervisor/include/lib/rtl.h
+index fe923b94..220758bf 100644
+--- a/hypervisor/include/lib/rtl.h
++++ b/hypervisor/include/lib/rtl.h
+@@ -32,7 +32,7 @@ static inline bool is_space(char c)
+ /* Function prototypes */
+ int32_t strcmp(const char *s1_arg, const char *s2_arg);
+ int32_t strncmp(const char *s1_arg, const char *s2_arg, size_t n_arg);
+-char *strncpy_s(char *d_arg, size_t dmax, const char *s_arg, size_t slen_arg);
++int32_t strncpy_s(char *d, size_t dmax, const char *s, size_t slen);
+ char *strchr(char *s_arg, char ch);
+ size_t strnlen_s(const char *str_arg, size_t maxlen_arg);
+ void *memset(void *base, uint8_t v, size_t n);
+diff --git a/hypervisor/lib/string.c b/hypervisor/lib/string.c
+index b0c8b8ce..9f332b2f 100644
+--- a/hypervisor/lib/string.c
++++ b/hypervisor/lib/string.c
+@@ -98,87 +98,35 @@ char *strchr(char *s_arg, char ch)
+  *              string.
+  *
+  * return value:
+- *    dest      pointer to dest string if source string is copied
+- *              successfully, or else return null.
++ *    0		if source string is copied successfully;
++ *    -1	if there is a runtime-constraint violation.
+  *
+  * notes:
+- *    1) both dmax and slen should not be 0.
+- *    2) both d and s should not be null pointers.
+- *    3) will assert() if overlap happens or dest buffer has no
+- *       enough space.
++ *    1) dmax shall not be 0.
++ *    2) both d and s shall not be null pointers.
++ *    3) Copying shall not take place between objects that overlap.
++ *    4) If slen is not less than dmax, then dmax shall be more than strnlen_s(s, dmax).
++ *    5) d[0] shall be set to '\0' if there is a runtime-constraint violation.
+  */
+-char *strncpy_s(char *d_arg, size_t dmax, const char *s_arg, size_t slen_arg)
++int32_t strncpy_s(char *d, size_t dmax, const char *s, size_t slen)
+ {
+-	const char *s = s_arg;
+-	char *d = d_arg;
+-	char *pret;
+-	size_t dest_avail;
+-	uint64_t overlap_guard;
+-	size_t slen = slen_arg;
++	char *dest = d;
++	int32_t ret = -1;
++	size_t len = strnlen_s(s, dmax);
+ 
+-	if ((d == NULL) || (s == NULL)) {
+-		pr_err("%s: invlaid src or dest buffer", __func__);
+-		pret = NULL;
+-	} else {
+-		pret = d_arg;
+-	}
+-
+-	if (pret != NULL) {
+-		if ((dmax == 0U) || (slen == 0U)) {
+-			pr_err("%s: invlaid length of src or dest buffer", __func__);
+-			pret =  NULL;
+-		}
++	if ((slen < dmax) || (dmax > len)) {
++		ret = memcpy_s(d, dmax, s, len);
+ 	}
+ 
+-	/* if d equal to s, just return d; else execute the below code */
+-	if ((pret != NULL) && (d != s)) {
+-		overlap_guard = (uint64_t)((d > s) ? (d - s - 1) : (s - d - 1));
+-		dest_avail = dmax;
+-
+-		while (dest_avail > 0U) {
+-			bool complete = false;
+-
+-			if (overlap_guard == 0U) {
+-				pr_err("%s: overlap happened.", __func__);
+-				d--;
+-				*d = '\0';
+-				pret = NULL;
+-				/* copy complete */
+-				complete = true;
+-			} else {
+-				if (slen == 0U) {
+-					*d = '\0';
+-					/* copy complete */
+-					complete = true;
+-				} else {
+-					*d = *s;
+-					if (*d == '\0') {
+-						/* copy complete */
+-						complete = true;
+-					} else {
+-						d++;
+-						s++;
+-						slen--;
+-						dest_avail--;
+-						overlap_guard--;
+-					}
+-				}
+-			}
+-
+-			if (complete) {
+-				break;
+-			}
+-		}
+-
+-		if (dest_avail == 0U) {
+-			pr_err("%s: dest buffer has no enough space.", __func__);
+-
+-			/* to avoid a string that is not null-terminated in dest buffer */
+-			pret[dmax - 1] = '\0';
++	if (ret == 0) {
++		*(dest + len) = '\0';
++	} else {
++		if ((d != NULL) && (dmax > 0U)) {
++			*dest = '\0';
+ 		}
+ 	}
+ 
+-	return pret;
++	return ret;
+ }
+ 
+ /**
+-- 
+2.20.1
+

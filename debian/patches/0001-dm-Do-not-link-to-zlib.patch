@@ -1,12 +1,12 @@
-From e88ef155c07907d550dea338fe4ac1100e239753 Mon Sep 17 00:00:00 2001
+From 8405b621ecd0ce8b8f97574afe8ea866f68c9371 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 7 Apr 2020 11:16:38 +0200
-Subject: [PATCH 01/18] devicemodel/Makefile: remove unnecessary linking to
- zlib
+Subject: dm: Do not link to zlib
 
-Do not link to zlib if it is not really used. This reduces build
+Since zlib is not used, remove linking to it. This reduces build
 dependencies.
 
+Tracked-On: #4838
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
  devicemodel/Makefile | 1 -

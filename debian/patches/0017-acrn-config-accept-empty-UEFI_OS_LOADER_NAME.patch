@@ -1,7 +1,7 @@
-From 35ae3d3d0c1a0e979b00dbfdb2c0b86a480669f8 Mon Sep 17 00:00:00 2001
+From a293630a50dfc15761d28bf527262f1c6ed23efe Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:55:11 +0200
-Subject: [PATCH 09/18] acrn-config: accept empty UEFI_OS_LOADER_NAME
+Subject: acrn-config: accept empty UEFI_OS_LOADER_NAME
 
 Since direct boot mode does not require CONFIG_UEFI_OS_LOADER_NAME
 set there is no need to force this setting.
