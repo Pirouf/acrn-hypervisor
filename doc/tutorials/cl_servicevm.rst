@@ -1,12 +1,13 @@
 .. _rt_industry_setup:
+.. _clear_service_vm:
 
-Getting Started Guide for ACRN Industry Scenario
-################################################
+Run Clear Linux as the Service VM
+#################################
 
 Verified version
 ****************
 
-- Clear Linux version: **33050**
+- Clear Linux\* version: **33050**
 - ACRN-hypervisor tag: **v1.6.1 (acrn-2020w18.4-140000p)**
 - ACRN-Kernel (Service VM kernel): **4.19.120-108.iot-lts2018-sos**
 
@@ -191,7 +192,7 @@ Use the ACRN industry out-of-the-box image
 
    .. code-block:: none
 
-      # wget https://github.com/projectacrn/acrn-hypervisor/releases/download/acrn-2020w18.4-140000p/sos-industry-33050.img.xz
+      # wget https://github.com/projectacrn/acrn-hypervisor/releases/download/v1.6.1/sos-industry-33050.img.xz
 
    .. note:: You may also follow :ref:`set_up_ootb_service_vm` to build the image by yourself.
 
@@ -238,7 +239,7 @@ build the ACRN kernel for the Service VM, and then :ref:`passthrough the SATA di
 
    .. code-block:: none
 
-      # wget https://github.com/projectacrn/acrn-hypervisor/releases/download/acrn-2020w18.4-140000p/preempt-rt-33050.img.xz
+      # wget https://github.com/projectacrn/acrn-hypervisor/releases/download/v1.6.1/preempt-rt-33050.img.xz
 
    .. note:: You may also follow :ref:`set_up_ootb_rtvm` to build the Preempt-RT VM image by yourself.
 

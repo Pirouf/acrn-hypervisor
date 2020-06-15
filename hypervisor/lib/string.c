@@ -98,87 +98,35 @@ char *strchr(char *s_arg, char ch)
  *              string.
  *
  * return value:
- *    dest      pointer to dest string if source string is copied
- *              successfully, or else return null.
+ *    0		if source string is copied successfully;
+ *    -1	if there is a runtime-constraint violation.
  *
  * notes:
- *    1) both dmax and slen should not be 0.
- *    2) both d and s should not be null pointers.
- *    3) will assert() if overlap happens or dest buffer has no
- *       enough space.
+ *    1) dmax shall not be 0.
+ *    2) both d and s shall not be null pointers.
+ *    3) Copying shall not take place between objects that overlap.
+ *    4) If slen is not less than dmax, then dmax shall be more than strnlen_s(s, dmax).
+ *    5) d[0] shall be set to '\0' if there is a runtime-constraint violation.
  */
-char *strncpy_s(char *d_arg, size_t dmax, const char *s_arg, size_t slen_arg)
+int32_t strncpy_s(char *d, size_t dmax, const char *s, size_t slen)
 {
-	const char *s = s_arg;
-	char *d = d_arg;
-	char *pret;
-	size_t dest_avail;
-	uint64_t overlap_guard;
-	size_t slen = slen_arg;
+	char *dest = d;
+	int32_t ret = -1;
+	size_t len = strnlen_s(s, dmax);
 
-	if ((d == NULL) || (s == NULL)) {
-		pr_err("%s: invlaid src or dest buffer", __func__);
-		pret = NULL;
+	if ((slen < dmax) || (dmax > len)) {
+		ret = memcpy_s(d, dmax, s, len);
+	}
+
+	if (ret == 0) {
+		*(dest + len) = '\0';
 	} else {
-		pret = d_arg;
-	}
-
-	if (pret != NULL) {
-		if ((dmax == 0U) || (slen == 0U)) {
-			pr_err("%s: invlaid length of src or dest buffer", __func__);
-			pret =  NULL;
+		if ((d != NULL) && (dmax > 0U)) {
+			*dest = '\0';
 		}
 	}
 
-	/* if d equal to s, just return d; else execute the below code */
-	if ((pret != NULL) && (d != s)) {
-		overlap_guard = (uint64_t)((d > s) ? (d - s - 1) : (s - d - 1));
-		dest_avail = dmax;
-
-		while (dest_avail > 0U) {
-			bool complete = false;
-
-			if (overlap_guard == 0U) {
-				pr_err("%s: overlap happened.", __func__);
-				d--;
-				*d = '\0';
-				pret = NULL;
-				/* copy complete */
-				complete = true;
-			} else {
-				if (slen == 0U) {
-					*d = '\0';
-					/* copy complete */
-					complete = true;
-				} else {
-					*d = *s;
-					if (*d == '\0') {
-						/* copy complete */
-						complete = true;
-					} else {
-						d++;
-						s++;
-						slen--;
-						dest_avail--;
-						overlap_guard--;
-					}
-				}
-			}
-
-			if (complete) {
-				break;
-			}
-		}
-
-		if (dest_avail == 0U) {
-			pr_err("%s: dest buffer has no enough space.", __func__);
-
-			/* to avoid a string that is not null-terminated in dest buffer */
-			pret[dmax - 1] = '\0';
-		}
-	}
-
-	return pret;
+	return ret;
 }
 
 /**
@@ -313,4 +261,45 @@ char *strstr_s(const char *str1, size_t maxlen1, const char *str2, size_t maxlen
 	}
 
 	return (char *)pret;
+}
+
+/*
+ * strncat_s
+ *
+ * description:
+ *    append src string to the end of dest string
+ *
+ * input:
+ *    dest      pointer to the string to be appended.
+ *
+ *    dmax      maximum length of dest buffer including the NULL char.
+ *
+ *    src       pointer to the string that to be concatenated to string dest.
+ *
+ *    slen      maximum characters to append.
+ *
+ * return value:
+ *     0 for success, -1 for failure.
+ */
+int32_t strncat_s(char *dest, size_t dmax, const char *src, size_t slen)
+{
+	int32_t ret = -1;
+	size_t len_d, len_s;
+	char *d = dest, *start;
+
+	len_d = strnlen_s(dest, dmax);
+	len_s = strnlen_s(src, slen);
+	start = dest + len_d;
+
+	if ((dest != NULL) && (src != NULL) && (dmax > (len_d + len_s))
+			&& ((dest > (src + len_s)) || (src > (dest + len_d)))) {
+		(void)memcpy_s(start, (dmax - len_d), src, len_s);
+		*(start + len_s) = '\0';
+		ret = 0;
+	} else {
+		if (dest != NULL) {
+			*d = '\0';	/* set dest[0] to NULL char on runtime-constraint violation */
+		}
+	}
+	return ret;
 }

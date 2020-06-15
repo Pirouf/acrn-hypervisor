@@ -97,12 +97,11 @@ def ir_entries_check(str_num, cap, cap_ir_entries):
 
 
 def uefi_load_name_check(str_name, mis, mis_uefi_name):
-    if empty_check(str_name, mis, mis_uefi_name):
-        return
+
     name_len = len(str_name)
-    if name_len > 256 or name_len < 1:
+    if name_len > 256 or name_len < 0:
         key = 'hv,{},{}'.format(mis, mis_uefi_name)
-        ERR_LIST[key] = "{} length should be in range[1, 256]".format(mis_uefi_name)
+        ERR_LIST[key] = "{} length should be in range[0, 256]".format(mis_uefi_name)
 
 
 def ny_support_check(sel_str, feat, feat_item, feat_sub_leaf=''):
@@ -173,14 +172,15 @@ def cat_max_mask_check(cat_mask_list, feature, cat_str, max_mask_str):
     if not board_cfg_lib.is_rdt_supported():
         return
 
-    cpu_num = len(board_cfg_lib.get_processor_info())
+    (_, rdt_res_clos_max, clos_max_mask_list) = board_cfg_lib.clos_info_parser(common.BOARD_INFO_FILE)
+
+    clos_max = common.num2int(min(rdt_res_clos_max))
     cat_max_mask_settings_len = len(cat_mask_list)
-    if cpu_num != cat_max_mask_settings_len:
+    if clos_max != cat_max_mask_settings_len:
         key = 'hv,{},{},{}'.format(feature, cat_str, max_mask_str)
-        ERR_LIST[key] = "Total {} CPU cores, should set the same number for CLOS_MASK.".format(cpu_num)
+        ERR_LIST[key] = "clso max: {} in board xml, should set the same number for CLOS_MASK.".format(clos_max)
         return
 
-    (_, rdt_res_clos_max, clos_max_mask_list) = board_cfg_lib.clos_info_parser(common.BOARD_INFO_FILE)
     clos_max_mask_str = clos_max_mask_list[0].strip('"').strip("'")
     clos_max_mask = common.num2int(clos_max_mask_str)
     for val_str in cat_mask_list:

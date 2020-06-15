@@ -22,7 +22,6 @@
 
 #define DBG_LEVEL_BOOT	6U
 
-#define MAX_BOOT_PARAMS_LEN 64U
 #define INVALID_MOD_IDX		0xFFFFU
 
 /**
@@ -37,55 +36,6 @@ static void init_vm_ramdisk_info(struct acrn_vm *vm, const struct multiboot_modu
 		vm->sw.ramdisk_info.load_addr = vm->sw.kernel_info.kernel_load_addr + vm->sw.kernel_info.kernel_size;
 		vm->sw.ramdisk_info.load_addr = (void *)round_page_up((uint64_t)vm->sw.ramdisk_info.load_addr);
 		vm->sw.ramdisk_info.size = mod->mm_mod_end - mod->mm_mod_start;
-	}
-}
-
-/* There are two sources for sos_vm kernel cmdline:
- * - cmdline from direct boot mbi->cmdline
- * - cmdline from acrn stitching tool. mod[0].mm_string
- * We need to merge them together
- */
-static char kernel_cmdline[MAX_BOOTARGS_SIZE + 1U];
-
-/**
- * @pre vm != NULL && cmdline != NULL && cmdstr != NULL
- */
-static void merge_cmdline(const struct acrn_vm *vm, const char *cmdline, const char *cmdstr)
-{
-	char *cmd_dst = kernel_cmdline;
-	uint32_t cmdline_len, cmdstr_len;
-	uint32_t dst_avail; /* available room for cmd_dst[] */
-	uint32_t dst_len; /* the actual number of characters that are copied */
-
-	/*
-	 * Append seed argument for SOS
-	 * seed_arg string ends with a white space and '\0', so no aditional delimiter is needed
-	 */
-	append_seed_arg(cmd_dst, is_sos_vm(vm));
-	dst_len = strnlen_s(cmd_dst, MAX_BOOTARGS_SIZE);
-	dst_avail = MAX_BOOTARGS_SIZE + 1U - dst_len;
-	cmd_dst += dst_len;
-
-	cmdline_len = strnlen_s(cmdline, MAX_BOOTARGS_SIZE);
-	cmdstr_len = strnlen_s(cmdstr, MAX_BOOTARGS_SIZE);
-
-	/* reserve one character for the delimiter between 2 strings (one white space) */
-	if ((cmdline_len + cmdstr_len + 1U) >= dst_avail) {
-		panic("Multiboot bootarg string too long");
-	} else {
-		/* copy mbi->mi_cmdline */
-		(void)strncpy_s(cmd_dst, dst_avail, cmdline, cmdline_len);
-		dst_len = strnlen_s(cmd_dst, dst_avail);
-		dst_avail -= dst_len;
-		cmd_dst += dst_len;
-
-		/* overwrite '\0' with a white space */
-		(void)strncpy_s(cmd_dst, dst_avail, " ", 1U);
-		dst_avail -= 1U;
-		cmd_dst += 1U;
-
-		/* copy vm_config->os_config.bootargs */
-		(void)strncpy_s(cmd_dst, dst_avail, cmdstr, cmdstr_len);
 	}
 }
 
@@ -148,6 +98,9 @@ static int32_t init_vm_kernel_info(struct acrn_vm *vm, const struct multiboot_mo
 	return (vm->sw.kernel_info.kernel_load_addr == NULL) ? (-EINVAL) : 0;
 }
 
+/* cmdline parsed from multiboot module string, for pre-launched VMs and SOS VM only. */
+static char mod_cmdline[PRE_VM_NUM + SOS_VM_NUM][MAX_BOOTARGS_SIZE] = { '\0' };
+
 /**
  * @pre vm != NULL && mbi != NULL
  */
@@ -156,26 +109,44 @@ static void init_vm_bootargs_info(struct acrn_vm *vm, const struct acrn_multiboo
 	struct acrn_vm_config *vm_config = get_vm_config(vm->vm_id);
 	char *bootargs = vm_config->os_config.bootargs;
 
-	if (vm_config->load_order == PRE_LAUNCHED_VM) {
-		vm->sw.bootargs_info.src_addr = bootargs;
-		vm->sw.bootargs_info.size = strnlen_s(bootargs, MAX_BOOTARGS_SIZE);
-	} else {
-		/* vm_config->load_order == SOS_VM */
-		if (((mbi->mi_flags & MULTIBOOT_INFO_HAS_CMDLINE) != 0U)
-				&& (*(mbi->mi_cmdline) != '\0')) {
-			/*
-			 * If there is cmdline from mbi->mi_cmdline, merge it with
-			 * vm_config->os_config.bootargs
-			 */
-			merge_cmdline(vm, mbi->mi_cmdline, bootargs);
-
-			vm->sw.bootargs_info.src_addr = kernel_cmdline;
-			vm->sw.bootargs_info.size = strnlen_s(kernel_cmdline, MAX_BOOTARGS_SIZE);
-		} else {
+	if ((vm_config->load_order == PRE_LAUNCHED_VM) || (vm_config->load_order == SOS_VM)) {
+		if (mod_cmdline[vm->vm_id][0] == '\0') {
 			vm->sw.bootargs_info.src_addr = bootargs;
-			vm->sw.bootargs_info.size = strnlen_s(bootargs, MAX_BOOTARGS_SIZE);
+		} else {
+			/* override build-in bootargs with multiboot module string which is configurable
+			 * at bootloader boot time. e.g. GRUB menu
+			 */
+			vm->sw.bootargs_info.src_addr = &mod_cmdline[vm->vm_id][0];
 		}
 	}
+
+	if (vm_config->load_order == SOS_VM) {
+		if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE, " ", 1U) == 0) {
+			char seed_args[MAX_SEED_ARG_SIZE] = "";
+
+			fill_seed_arg(seed_args, true);
+			/* Fill seed argument for SOS
+			 * seed_args string ends with a white space and '\0', so no aditional delimiter is needed
+			 */
+			if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE,
+					seed_args, (MAX_BOOTARGS_SIZE - 1U)) != 0) {
+				pr_err("failed to fill seed arg to SOS bootargs!");
+			}
+
+			/* If there is cmdline from mbi->mi_cmdline, merge it with configured SOS bootargs. */
+			if (((mbi->mi_flags & MULTIBOOT_INFO_HAS_CMDLINE) != 0U) && (*(mbi->mi_cmdline) != '\0')) {
+				if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE,
+						mbi->mi_cmdline, (MAX_BOOTARGS_SIZE - 1U)) != 0) {
+					pr_err("failed to merge mbi cmdline to SOS bootargs!");
+				}
+			}
+		} else {
+			pr_err("no space to append SOS bootargs!");
+		}
+
+	}
+
+	vm->sw.bootargs_info.size = strnlen_s((const char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE);
 
 	/* Kernel bootarg and zero page are right before the kernel image */
 	if (vm->sw.bootargs_info.size > 0U) {
@@ -195,12 +166,13 @@ static uint32_t get_mod_idx_by_tag(const struct multiboot_module *mods, uint32_t
 	for (i = 0U; i < mods_count; i++) {
 		const char *mm_string = (char *)hpa2hva((uint64_t)mods[i].mm_string);
 		uint32_t mm_str_len = strnlen_s(mm_string, MAX_MOD_TAG_LEN);
+		const char *p_chr = mm_string + tag_len; /* point to right after the end of tag */
 
-		/* when do file stitch by tool, the tag in mm_string might be followed with 0x0d or 0x0a */
+		/* The tag must be located at the first word in mm_string and end with SPACE/TAB or EOL since
+		 * when do file stitch by tool, the tag in mm_string might be followed by EOL(0x0d/0x0a).
+		 */
 		if ((mm_str_len >= tag_len) && (strncmp(mm_string, tag, tag_len) == 0)
-				&& ((*(mm_string + tag_len) == 0x0d)
-				|| (*(mm_string + tag_len) == 0x0a)
-				|| (*(mm_string + tag_len) == 0))){
+				&& (is_space(*p_chr) || is_eol(*p_chr))) {
 			ret = i;
 			break;
 		}
@@ -220,8 +192,20 @@ static int32_t init_vm_sw_load(struct acrn_vm *vm, const struct acrn_multiboot_i
 	dev_dbg(DBG_LEVEL_BOOT, "mod counts=%d\n", mbi->mi_mods_count);
 
 	if (mods != NULL) {
+		/* find kernel module first */
 		mod_idx = get_mod_idx_by_tag(mods, mbi->mi_mods_count, vm_config->os_config.kernel_mod_tag);
 		if (mod_idx != INVALID_MOD_IDX) {
+			const char *mm_string = (char *)hpa2hva((uint64_t)mods[mod_idx].mm_string);
+			uint32_t mm_str_len = strnlen_s(mm_string, MAX_BOOTARGS_SIZE);
+			uint32_t tag_len = strnlen_s(vm_config->os_config.kernel_mod_tag, MAX_MOD_TAG_LEN);
+			const char *p_chr = mm_string + tag_len + 1; /* point to the possible start of cmdline */
+
+			/* check whether there is a cmdline configured in module string */
+			if (((mm_str_len > (tag_len + 1U))) && (is_space(*(p_chr - 1))) && (!is_eol(*p_chr))) {
+				(void)strncpy_s(&mod_cmdline[vm->vm_id][0], MAX_BOOTARGS_SIZE,
+						p_chr, (MAX_BOOTARGS_SIZE - 1U));
+			}
+
 			ret = init_vm_kernel_info(vm, &mods[mod_idx]);
 		}
 	}
