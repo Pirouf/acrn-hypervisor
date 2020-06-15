@@ -1,17 +1,18 @@
+From 0ee5601c9c5ebfa02886e34371df7f6348cf9ea2 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 21 Apr 2020 12:50:59 +0200
 Subject: vm_configurations: provide max three RT VMs instead of only one
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/arch/x86/configs/vm_config.c                 | 11 ++++++++---
- hypervisor/include/common/vm_uuids.h                    |  8 ++++++++
- misc/acrn-config/library/scenario_cfg_lib.py            |  5 +++--
- misc/acrn-config/scenario_config/vm_configurations_c.py | 13 ++-----------
+ hypervisor/arch/x86/configs/vm_config.c             | 11 ++++++++---
+ hypervisor/include/common/vm_uuids.h                |  8 ++++++++
+ misc/acrn-config/library/scenario_cfg_lib.py        |  5 +++--
+ .../scenario_config/vm_configurations_c.py          | 13 ++-----------
  4 files changed, 21 insertions(+), 16 deletions(-)
 
 diff --git a/hypervisor/arch/x86/configs/vm_config.c b/hypervisor/arch/x86/configs/vm_config.c
-index 1f63ef4..a68638a 100644
+index 1f63ef44..a68638aa 100644
 --- a/hypervisor/arch/x86/configs/vm_config.c
 +++ b/hypervisor/arch/x86/configs/vm_config.c
 @@ -11,7 +11,11 @@
@@ -40,7 +41,7 @@ index 1f63ef4..a68638a 100644
  
  /**
 diff --git a/hypervisor/include/common/vm_uuids.h b/hypervisor/include/common/vm_uuids.h
-index 4927e09..89c66cd 100644
+index 4927e09a..89c66cd9 100644
 --- a/hypervisor/include/common/vm_uuids.h
 +++ b/hypervisor/include/common/vm_uuids.h
 @@ -47,6 +47,14 @@
@@ -59,7 +60,7 @@ index 4927e09..89c66cd 100644
  #define KATA_VM_UUID1		{0xa7U, 0xadU, 0xa5U, 0x06U, 0x1aU, 0xb0U, 0x4bU, 0x6bU, \
  				 0xa0U, 0xdaU, 0xe5U, 0x13U, 0xcaU, 0x9bU, 0x8cU, 0x2fU}
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index 9ba6ca2..bf410f9 100644
+index 5cec359a..576b704a 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
 @@ -44,7 +44,8 @@ UUID_DB = {
@@ -82,7 +83,7 @@ index 9ba6ca2..bf410f9 100644
  
      KATA_VM_COUNT = len(kata_vm_ids)
 diff --git a/misc/acrn-config/scenario_config/vm_configurations_c.py b/misc/acrn-config/scenario_config/vm_configurations_c.py
-index 3c8204e..24992af 100644
+index 3c8204e0..24992afb 100644
 --- a/misc/acrn-config/scenario_config/vm_configurations_c.py
 +++ b/misc/acrn-config/scenario_config/vm_configurations_c.py
 @@ -25,21 +25,12 @@ def get_pre_vm_type(vm_type, vm_i):
@@ -109,3 +110,6 @@ index 3c8204e..24992af 100644
  
  def vuart0_output(i, vm_type, vm_info, config):
      """
+-- 
+2.20.1
+

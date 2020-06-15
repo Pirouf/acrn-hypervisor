@@ -1,6 +1,10 @@
+From 6b1f95227b1b4d4405c15a5a3d4e66c562a02879 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Mon, 27 Apr 2020 12:51:27 +0200
-Subject: makefile: honor BUILD_VERSION and BUILD_TAG
+Subject: Makefile: honor BUILD_VERSION and BUILD_TAG
+
+Use BUILD_VERSION an BUILD_TAG variable also for hypervisor,
+acrnprobe and crashlog.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
@@ -10,10 +14,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  3 files changed, 23 insertions(+), 10 deletions(-)
 
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index 3f9c76f..324de9e 100644
+index a12835ff..36bccd22 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -504,10 +504,15 @@ $(VERSION):
+@@ -506,10 +506,15 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
  		echo "Found SCENARIO configurations under $(SCENARIO_CFG_DIR)"; \
  	fi;
  	touch $(VERSION)
@@ -34,7 +38,7 @@ index 3f9c76f..324de9e 100644
  	USER="$${USER:-$$(id -u -n)}"; \
  	if [ x$(CONFIG_RELEASE) = "xy" ];then BUILD_TYPE="REL";else BUILD_TYPE="DBG";fi;\
 diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
-index 7b69293..1b119f5 100644
+index 7b692935..1b119f54 100644
 --- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
 +++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
 @@ -62,9 +62,13 @@ $(VERSION_H):
@@ -55,7 +59,7 @@ index 7b69293..1b119f5 100644
  	USER="$${USER:-$$(id -u -n)}"; \
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
 diff --git a/misc/tools/acrn-crashlog/usercrash/Makefile b/misc/tools/acrn-crashlog/usercrash/Makefile
-index a7e5471..d21d4a9 100644
+index a7e5471c..d21d4a98 100644
 --- a/misc/tools/acrn-crashlog/usercrash/Makefile
 +++ b/misc/tools/acrn-crashlog/usercrash/Makefile
 @@ -42,9 +42,13 @@ $(VERSION_H):
@@ -75,3 +79,6 @@ index a7e5471..d21d4a9 100644
  	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
  	USER="$${USER:-$$(id -u -n)}"; \
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
+-- 
+2.20.1
+
