@@ -1,6 +1,6 @@
-acrn-hypervisor (2.0-unstable-1~5.gbp072680) UNRELEASED; urgency=medium
+acrn-hypervisor (2.0-unstable-1~6.gbp366b26) UNRELEASED; urgency=medium
 
-  ** SNAPSHOT build @07268089e6be791b30c83b5540d2b74ae01d9f0e **
+  ** SNAPSHOT build @366b267c0e98ec2567c6ed522b1f17b9167b02bf **
 
   [ Helmut Buchsbaum ]
   * debian: cherry-picked debian directory from debian/1.6
@@ -199,8 +199,10 @@ acrn-hypervisor (2.0-unstable-1~5.gbp072680) UNRELEASED; urgency=medium
   * debian/configs: fix typo in kontron-COMe-mAL10/industry2.xml
   * debian: adapt install paths
   * debian: 25_linux_acrn: move kernel params to module
+  * debian/changelog: update snapshot to 2.0-unstable-1~5.gbp072680
+  * debian/patches: add Shuo's changes to from release_2.0
 
- -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 15 Jun 2020 14:51:54 +0200
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 15 Jun 2020 15:35:52 +0200
 
 acrn-hypervisor (1.6.1-2) unstable; urgency=medium
 
