@@ -1,3 +1,19 @@
+acrn-hypervisor (1.6~g6d2b213b-1) unstable; urgency=medium
+
+  [ Li Fei1 ]
+  * hv: virq: refine pending event inject sequence
+
+  [ David B. Kinder ]
+  * doc: update links to pre-built images
+
+  [ Helmut Buchsbaum ]
+  * debian/patches: update, rework according to debian/2.0
+  * debian/configs: fix typo in kontron-COMe-mAL10/industry2.xml
+  * debian: 25_linux_acrn: move kernel params to module
+  * debian/gbp.conf: use upstream merge parent as long as there is no new release tag
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 15 Jun 2020 17:02:22 +0200
+
 acrn-hypervisor (1.6.1-3) unstable; urgency=medium
 
   * debian/README.source: fix typo
