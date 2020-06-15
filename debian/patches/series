@@ -1,0 +1,11 @@
+0001-Makefile-use-POSIX-compatible-expression.patch
+0002-Makefile-Make-builds-reproducible.patch
+0003-Makefile-honor-BUILD_VERSION-and-BUILD_TAG.patch
+0004-Makefile-lifemngr-split-linux-and-windows-build.patch
+0005-acrn-config-print-warnings-and-errors-to-stderr.patch
+0006-misc-efi-stub-Fix-cast-warning.patch
+0007-hv-ept-fix-debug-format.patch
+0008-dm-virtio-net-allow-arbitrary-names-for-tap-devices.patch
+0009-vm_configurations-provide-max-three-RT-VMs-instead-o.patch
+0010-hv-vm_load-copy-memory-sections-for-boot-considering.patch
+0011-e820-ignore-zero-length-ranges-in-obtain_mem_range_i.patch

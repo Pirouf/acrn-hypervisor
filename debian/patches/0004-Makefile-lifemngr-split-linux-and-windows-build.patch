@@ -1,0 +1,35 @@
+From 67396aa44478c6c8a45f203839f877188cb88760 Mon Sep 17 00:00:00 2001
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Tue, 26 May 2020 16:49:53 +0200
+Subject: Makefile: lifemngr: split linux and windows build
+
+Split linux and windows build of lifemngr to be able to build them
+independently.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ misc/life_mngr/Makefile | 5 ++++-
+ 1 file changed, 4 insertions(+), 1 deletion(-)
+
+diff --git a/misc/life_mngr/Makefile b/misc/life_mngr/Makefile
+index 725f257e..116b3009 100644
+--- a/misc/life_mngr/Makefile
++++ b/misc/life_mngr/Makefile
+@@ -37,10 +37,13 @@ LIFEMNGR_LDFLAGS += -Wl,-z,relro,-z,now
+ LIFEMNGR_LDFLAGS += -pie
+ LIFEMNGR_LDFLAGS += $(LDFLAGS)
+ 
+-all:
++all: all-linux all-win
++
++all-linux:
+ 	$(CC) -g life_mngr.c -o $(OUT_DIR)/life_mngr -lpthread $(LIFEMNGR_CFLAGS) $(LIFEMNGR_LDFLAGS)
+ 	cp life_mngr.service $(OUT_DIR)/life_mngr.service
+ 
++all-win:
+ 	-x86_64-w64-mingw32-gcc -g life_mngr_win.c -o $(OUT_DIR)/life_mngr_win.exe -Wall -O2 $(LDFLAGS)
+ 	cp COPYING.MinGW-w64-runtime.txt $(OUT_DIR)/COPYING.MinGW-w64-runtime.txt
+ 
+-- 
+2.20.1
+

@@ -1,0 +1,80 @@
+From c6425d1cdae13bf2fc4979ab286700128957c02f Mon Sep 17 00:00:00 2001
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Sun, 5 Apr 2020 09:56:29 +0200
+Subject: Makefile: Make builds reproducible
+
+Make builds reproducible by honoring SOURCE_DATE_EPOCH and USER
+environment variables in the respective Makefiles. Just follow the
+recommendations at https://reproducible-builds.org/
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ devicemodel/Makefile                        | 4 ++--
+ hypervisor/Makefile                         | 4 ++--
+ misc/tools/acrn-crashlog/acrnprobe/Makefile | 4 ++--
+ misc/tools/acrn-crashlog/usercrash/Makefile | 4 ++--
+ 4 files changed, 8 insertions(+), 8 deletions(-)
+
+diff --git a/devicemodel/Makefile b/devicemodel/Makefile
+index 3cfae455..ed53a3fb 100644
+--- a/devicemodel/Makefile
++++ b/devicemodel/Makefile
+@@ -208,8 +208,8 @@ $(VERSION_H):
+ 		PATCH=$(DM_BUILD_VERSION);\
+ 		DAILY_TAG=$(DM_BUILD_TAG);\
+ 	fi;\
+-	TIME=`date "+%Y-%m-%d %H:%M:%S"`;\
+-	USER=`id -u -n`; \
++	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
++	USER="$${USER:-$$(id -u -n)}"; \
+ 	echo "/*" > $(VERSION_H); \
+ 	sed 's/^/ * /' ../LICENSE >> $(VERSION_H);\
+ 	echo " */" >> $(VERSION_H);\
+diff --git a/hypervisor/Makefile b/hypervisor/Makefile
+index 068e20c2..a12835ff 100644
+--- a/hypervisor/Makefile
++++ b/hypervisor/Makefile
+@@ -510,8 +510,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
+ 	DIRTY=`git diff-index --name-only HEAD`;\
+ 	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
+ 	DAILY_TAG=`git tag --merged HEAD|grep "acrn"|tail -n 1`;\
+-	TIME=`date "+%F %T"`;\
+-	USER=`id -u -n`; \
++	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%F %T"); \
++	USER="$${USER:-$$(id -u -n)}"; \
+ 	if [ x$(CONFIG_RELEASE) = "xy" ];then BUILD_TYPE="REL";else BUILD_TYPE="DBG";fi;\
+ 	echo "/*" > $(VERSION); \
+ 	sed 's/^/ * /' ../LICENSE >> $(VERSION); \
+diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
+index 7bc25674..7b692935 100644
+--- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
++++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
+@@ -65,8 +65,8 @@ $(VERSION_H):
+ 	@COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
+ 	DIRTY=`git diff --name-only $(CURDIR)`;\
+ 	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
+-	TIME=`date "+%Y-%m-%d %H:%M:%S"`;\
+-	USER=`id -u -n`; \
++	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
++	USER="$${USER:-$$(id -u -n)}"; \
+ 	cat $(CURDIR)/../license_header > $(VERSION_H);\
+ 	echo "#define AP_MAJOR_VERSION $(MAJOR_VERSION)" >> $(VERSION_H);\
+ 	echo "#define AP_MINOR_VERSION $(MINOR_VERSION)" >> $(VERSION_H);\
+diff --git a/misc/tools/acrn-crashlog/usercrash/Makefile b/misc/tools/acrn-crashlog/usercrash/Makefile
+index dec5a0f9..a7e5471c 100644
+--- a/misc/tools/acrn-crashlog/usercrash/Makefile
++++ b/misc/tools/acrn-crashlog/usercrash/Makefile
+@@ -45,8 +45,8 @@ $(VERSION_H):
+ 	@COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
+ 	DIRTY=`git diff --name-only $(CURDIR)`;\
+ 	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
+-	TIME=`date "+%Y-%m-%d %H:%M:%S"`;\
+-	USER=`id -u -n`; \
++	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
++	USER="$${USER:-$$(id -u -n)}"; \
+ 	cat $(CURDIR)/../license_header > $(VERSION_H);\
+ 	echo "#define UC_MAJOR_VERSION $(MAJOR_VERSION)" >> $(VERSION_H);\
+ 	echo "#define UC_MINOR_VERSION $(MINOR_VERSION)" >> $(VERSION_H);\
+-- 
+2.20.1
+
