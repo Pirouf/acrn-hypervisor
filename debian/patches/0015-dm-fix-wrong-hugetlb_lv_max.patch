@@ -1,0 +1,50 @@
+From d82bb010103f6bdc42daf24c284119205976ec4e Mon Sep 17 00:00:00 2001
+From: Shuo A Liu <shuo.a.liu@intel.com>
+Date: Mon, 8 Jun 2020 16:48:03 +0800
+Subject: dm: fix wrong hugetlb_lv_max
+
+The logic to get hugetlb_lv_max is wrong. Correct it.
+
+Tracked-On: #4937
+Signed-off-by: Shuo A Liu <shuo.a.liu@intel.com>
+---
+ devicemodel/core/hugetlb.c | 13 +++++--------
+ 1 file changed, 5 insertions(+), 8 deletions(-)
+
+diff --git a/devicemodel/core/hugetlb.c b/devicemodel/core/hugetlb.c
+index 8f5a9c61..e14faf46 100644
+--- a/devicemodel/core/hugetlb.c
++++ b/devicemodel/core/hugetlb.c
+@@ -44,7 +44,7 @@ extern char *vmname;
+ 
+ #define HUGETLB_LV1		0
+ #define HUGETLB_LV2		1
+-#define HUGETLB_LV_MAX	2
++#define HUGETLB_LV_MAX		2
+ 
+ #define MAX_PATH_LEN 256
+ 
+@@ -653,16 +653,13 @@ bool init_hugetlb(void)
+ 			return false;
+ 	}
+ 
+-	for (level = HUGETLB_LV1; level < HUGETLB_LV_MAX; level++) {
+-		if (mount_hugetlbfs(level) < 0) {
+-			level--;
++	for (level = HUGETLB_LV1; level < HUGETLB_LV_MAX; level++)
++		if (mount_hugetlbfs(level) < 0)
+ 			break;
+-		}
+-	}
+ 
+-	if (level < HUGETLB_LV1) /* mount fail for level 1 */
++	if (level == HUGETLB_LV1) /* mount fail for level 1 */
+ 		return false;
+-	else if (level == HUGETLB_LV1) /* mount fail for level 2 */
++	else if (level == HUGETLB_LV2) /* mount fail for level 2 */
+ 		pr_warn("WARNING: only level 1 hugetlb supported");
+ 
+ 	lock_fd = open(ACRN_HUGETLB_LOCK_FILE, O_RDWR | O_CREAT, S_IRUSR | S_IWUSR);
+-- 
+2.20.1
+
