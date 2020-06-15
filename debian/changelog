@@ -1,16 +1,17 @@
-acrn-hypervisor (2.0-unstable-1~4.gbp6f68ba) UNRELEASED; urgency=medium
-
-  ** SNAPSHOT build @6f68ba54181518b8a076e3e00cc5bee517ca1694 **
+acrn-hypervisor (2.0-unstable-1) unstable; urgency=medium
 
   [ Helmut Buchsbaum ]
-  * debian: cherry-picked debian directory from debian/1.6
-  * debian/gbp.conf: change for debian/master
+  * debian: pick debian files from debian/master
   * dm: bzimage: dynamically adapt to ramdisk size
   * debian/README.source: fix typo
   * debian: add INSTALL file
   * Revert "dm: acpi: add PSDS table in ACPI table"
   * debian/configs: update scenarios
   * debian: add acrn-hypervisor.prerm.in
+  * debian/configs: fix typo in kontron-COMe-mAL10/industry2.xml
+  * debian/patches: update, rework and reorder patches
+  * debian: adapt install paths
+  * debian: 25_linux_acrn: move kernel params to module
 
   [ Binbin Wu ]
   * hv: vtd: init DMAR/IR table address when register
@@ -65,7 +66,88 @@ acrn-hypervisor (2.0-unstable-1~4.gbp6f68ba) UNRELEASED; urgency=medium
   * acrn-config: re-generate TTYS_INFO in native board
   * acrn-config: update native board information
 
- -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 02 Jun 2020 13:57:21 +0200
+  [ Li Fei1 ]
+  * hv: pci: remove host bridge BDF definition
+  * hv: pci: check whether a PCI device is host bridge or not by class
+  * hv: vpci: hv: vpci: refine pci device assignment logic
+
+  [ Wei Liu ]
+  * acrn-config: update efi bootloader image file path for acrn-config
+  * HV/Kconfig: update efi bootloader image file path for Kconfig
+  * acrn-config: refine GVT args for SOS cmdline
+  * acrn-config: refine sanity check for MASK_CLOS number
+
+  [ David B. Kinder ]
+  * doc: rst syntax tweaks
+
+  [ Deb Taylor ]
+  * Initial GSG for ARCN industry Scenario with Unbuntu Service VM
+
+  [ Fuzhong Liu ]
+  * Update doc/getting-started/rt_industry_ubuntu.rst
+
+  [ David B. Kinder ]
+  * doc: update Kata tutorial for Ubuntu Service VM
+
+  [ Victor Sun ]
+  * Makefile: minor fix on hypervisor dependency
+
+  [ Deb Taylor ]
+  * Grammatical updates to GSG Indust Scen Ubuntu
+
+  [ David B. Kinder ]
+  * doc: rename rt_industry GSG
+
+  [ Binbin Wu ]
+  * hv: vtd: fix potential dead loop if qi request timeout
+
+  [ Wei Liu ]
+  * acrn-config: add RDT configurable item for QEMU sdc xml
+
+  [ Naveen Saini ]
+  * use variables for installation directories.
+
+  [ Long Liu ]
+  * DM USB: xHCI: Drop commands if slot is disabled
+
+  [ Xiaoguang Wu ]
+  * DM USB: xHCI: [REVERTME] release memory on port resetting.
+
+  [ Victor Sun ]
+  * HV: split sanitize_multiboot_info api
+  * HV: add hv cmdline support for multiboot2
+  * HV: rewrite memcpy_s to be iso c11 compliant
+  * HV: rewrite strncpy_s to be iso c11 compliant
+  * HV: replace merge_cmdline api with strncat_s
+  * HV: rename append_seed_arg to fill_seed_arg
+  * HV: enable multiboot module string as kernel bootargs
+
+  [ Yin Fengwei ]
+  * debug: dump more info when walk guest page table.
+
+  [ Victor Sun ]
+  * HV: correct mmap info for multiboot2
+
+  [ Long Liu ]
+  * DM USB: xHCI: Fix XHCI_GET_SLOT value check issue
+
+  [ Wei Liu ]
+  * acrn-config: modify whl-ipc-i7 default industry xml
+  * acrn-config: add support to generate General Linux/Yocto/Ubuntu
+  * acrn-config: modify the linux like uos type to yocto
+
+  [ Shuo A Liu ]
+  * hv: Refine dmar parsing code
+  * hv: Change to a permissive check with broken DMAR table
+  * Revert "hv: Offload syncing PIR to vIRR to processor hardware"
+  * dm: fix wrong hugetlb_lv_max
+  * acrn-config: update EHL CRB configs
+
+  [ Li Fei1 ]
+  * Revert "hv: Let trampoline execution use 1GB pages"
+  * hv: mmu: release 1GB cpu side support constrain
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 15 Jun 2020 12:00:47 +0200
 
 acrn-hypervisor (1.6.1-2) unstable; urgency=medium
 
