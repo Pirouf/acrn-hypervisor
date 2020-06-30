@@ -1,4 +1,3 @@
-From 8673b67d9cc074d4fe4e979b1db2c555df1d803c Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 9 Jun 2020 18:53:37 +0200
 Subject: Makefile: use POSIX compatible expression
@@ -14,7 +13,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/hypervisor/scripts/makefile/kconfig.mk b/hypervisor/scripts/makefile/kconfig.mk
-index eb14d272..e0ee307d 100644
+index eb14d27..e0ee307 100644
 --- a/hypervisor/scripts/makefile/kconfig.mk
 +++ b/hypervisor/scripts/makefile/kconfig.mk
 @@ -68,7 +68,7 @@ $(HV_OBJDIR)/$(HV_CONFIG_H): $(HV_OBJDIR)/$(HV_CONFIG)
@@ -26,6 +25,3 @@ index eb14d272..e0ee307d 100644
  		BOARD=$(CONFIG_BOARD) python3 $(KCONFIG_DIR)/defconfig.py Kconfig $(HV_OBJDIR)/$(HV_CONFIG); \
  	else \
  		if [ "$(KCONFIG_FILE)" != "" ] && [ -f $(KCONFIG_FILE) ]; then \
--- 
-2.20.1
-

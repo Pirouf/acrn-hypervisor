@@ -1,4 +1,3 @@
-From 4cce3cdcf92cf33579075ba51c6eecff955854e8 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Wed, 10 Jun 2020 16:32:36 +0200
 Subject: hv: vm_load: copy memory sections for boot considering possible
@@ -46,11 +45,11 @@ bootloader           for SOS boot
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/common/vm_load.c | 92 +++++++++++++++++++++++++++++--------
+ hypervisor/common/vm_load.c | 92 +++++++++++++++++++++++++++++++++++----------
  1 file changed, 73 insertions(+), 19 deletions(-)
 
 diff --git a/hypervisor/common/vm_load.c b/hypervisor/common/vm_load.c
-index de9b580d..af64e942 100644
+index de9b580..af64e94 100644
 --- a/hypervisor/common/vm_load.c
 +++ b/hypervisor/common/vm_load.c
 @@ -178,6 +178,75 @@ static void prepare_loading_rawimage(struct acrn_vm *vm)
@@ -166,6 +165,3 @@ index de9b580d..af64e942 100644
  	}
  	switch (vm->sw.kernel_type) {
  	case KERNEL_BZIMAGE:
--- 
-2.20.1
-

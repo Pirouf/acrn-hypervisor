@@ -9,3 +9,5 @@
 0009-vm_configurations-provide-max-three-RT-VMs-instead-o.patch
 0010-hv-vm_load-copy-memory-sections-for-boot-considering.patch
 0011-e820-ignore-zero-length-ranges-in-obtain_mem_range_i.patch
+0012-hv-boot-enhance-Linux-boot-header-structure.patch
+0013-vboot_info-load-ramdisk-at-highest-possible-memory-l.patch
