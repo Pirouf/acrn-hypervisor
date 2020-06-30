@@ -1,4 +1,3 @@
-From 4e04d2543ed1a7da7d8bb1e1fadf5f37637ef572 Mon Sep 17 00:00:00 2001
 From: Victor Sun <victor.sun@intel.com>
 Date: Wed, 3 Jun 2020 12:41:03 +0800
 Subject: HV: rename append_seed_arg to fill_seed_arg
@@ -19,13 +18,13 @@ Signed-off-by: Victor Sun <victor.sun@intel.com>
 Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
 Acked-by: Eddie Dong <eddie.dong@intel.com>
 ---
- hypervisor/arch/x86/seed/seed.c    | 40 ++++++++++++++----------------
- hypervisor/boot/guest/vboot_info.c |  8 +++---
+ hypervisor/arch/x86/seed/seed.c    | 40 +++++++++++++++++---------------------
+ hypervisor/boot/guest/vboot_info.c |  8 ++++----
  hypervisor/include/arch/x86/seed.h |  2 +-
  3 files changed, 23 insertions(+), 27 deletions(-)
 
 diff --git a/hypervisor/arch/x86/seed/seed.c b/hypervisor/arch/x86/seed/seed.c
-index b4b4d6be..d5b192ee 100644
+index b4b4d6b..d5b192e 100644
 --- a/hypervisor/arch/x86/seed/seed.c
 +++ b/hypervisor/arch/x86/seed/seed.c
 @@ -76,46 +76,42 @@ static uint32_t parse_seed_arg(void)
@@ -94,7 +93,7 @@ index b4b4d6be..d5b192ee 100644
  	}
  }
 diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
-index b426c02e..5987af2e 100644
+index b426c02..5987af2 100644
 --- a/hypervisor/boot/guest/vboot_info.c
 +++ b/hypervisor/boot/guest/vboot_info.c
 @@ -113,15 +113,15 @@ static void init_vm_bootargs_info(struct acrn_vm *vm, const struct acrn_multiboo
@@ -118,7 +117,7 @@ index b426c02e..5987af2e 100644
  
  			/* If there is cmdline from mbi->mi_cmdline, merge it with configured SOS bootargs. */
 diff --git a/hypervisor/include/arch/x86/seed.h b/hypervisor/include/arch/x86/seed.h
-index a4787d24..bd35a52c 100644
+index a4787d2..bd35a52 100644
 --- a/hypervisor/include/arch/x86/seed.h
 +++ b/hypervisor/include/arch/x86/seed.h
 @@ -28,7 +28,7 @@ struct physical_seed {
@@ -130,6 +129,3 @@ index a4787d24..bd35a52c 100644
  
  bool derive_virtual_seed(struct seed_info *seed_list, uint32_t *num_seeds,
  			 const uint8_t *salt, size_t salt_len, const uint8_t *info, size_t info_len);
--- 
-2.20.1
-

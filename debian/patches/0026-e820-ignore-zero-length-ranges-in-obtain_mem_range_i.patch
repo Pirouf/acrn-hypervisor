@@ -1,4 +1,3 @@
-From 68bd3ec4e8c87cf268e0dba61bda7ff591c7d0eb Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Mon, 15 Jun 2020 11:18:57 +0200
 Subject: e820: ignore zero length ranges in obtain_mem_range_info
@@ -100,7 +99,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 4 insertions(+)
 
 diff --git a/hypervisor/arch/x86/e820.c b/hypervisor/arch/x86/e820.c
-index a835150b..bcc449f4 100644
+index a835150..bcc449f 100644
 --- a/hypervisor/arch/x86/e820.c
 +++ b/hypervisor/arch/x86/e820.c
 @@ -38,6 +38,10 @@ static void obtain_mem_range_info(void)
@@ -114,6 +113,3 @@ index a835150b..bcc449f4 100644
  		if (hv_mem_range.mem_bottom > entry->baseaddr) {
  			hv_mem_range.mem_bottom = entry->baseaddr;
  		}
--- 
-2.20.1
-

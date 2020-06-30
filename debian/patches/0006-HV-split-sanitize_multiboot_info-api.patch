@@ -1,4 +1,3 @@
-From 28b2441f7d5cb22fd3a5057c2ff587392ef56195 Mon Sep 17 00:00:00 2001
 From: Victor Sun <victor.sun@intel.com>
 Date: Fri, 5 Jun 2020 12:08:07 +0800
 Subject: HV: split sanitize_multiboot_info api
@@ -26,14 +25,14 @@ Acked-by: Eddie Dong <eddie.dong@intel.com>
  hypervisor/boot/guest/deprivilege_boot.c |   4 +-
  hypervisor/boot/guest/direct_boot.c      |   4 +-
  hypervisor/boot/guest/vboot_wrapper.c    |   3 +-
- hypervisor/boot/include/boot.h           |   9 +-
+ hypervisor/boot/include/boot.h           |   9 ++-
  hypervisor/boot/include/guest/vboot.h    |   4 +-
- hypervisor/boot/multiboot.c              | 105 +++++++++++++++--------
- hypervisor/boot/multiboot2.c             |  50 +++--------
+ hypervisor/boot/multiboot.c              | 105 ++++++++++++++++++++-----------
+ hypervisor/boot/multiboot2.c             |  50 +++------------
  9 files changed, 96 insertions(+), 87 deletions(-)
 
 diff --git a/hypervisor/arch/x86/init.c b/hypervisor/arch/x86/init.c
-index b991797a..6258d8d5 100644
+index b991797..6258d8d 100644
 --- a/hypervisor/arch/x86/init.c
 +++ b/hypervisor/arch/x86/init.c
 @@ -79,6 +79,8 @@ void init_primary_pcpu(void)
@@ -46,7 +45,7 @@ index b991797a..6258d8d5 100644
  
  	init_debug_pre();
 diff --git a/hypervisor/arch/x86/seed/seed.c b/hypervisor/arch/x86/seed/seed.c
-index ee9ddccb..b4b4d6be 100644
+index ee9ddcc..b4b4d6b 100644
 --- a/hypervisor/arch/x86/seed/seed.c
 +++ b/hypervisor/arch/x86/seed/seed.c
 @@ -39,7 +39,7 @@ static struct physical_seed g_phy_seed;
@@ -59,7 +58,7 @@ index ee9ddccb..b4b4d6be 100644
  	struct acrn_multiboot_info *mbi = get_multiboot_info();
  	uint32_t i = SEED_ARG_NUM - 1U;
 diff --git a/hypervisor/boot/guest/deprivilege_boot.c b/hypervisor/boot/guest/deprivilege_boot.c
-index 24e366f0..cbbc4bf7 100644
+index 24e366f..cbbc4bf 100644
 --- a/hypervisor/boot/guest/deprivilege_boot.c
 +++ b/hypervisor/boot/guest/deprivilege_boot.c
 @@ -54,9 +54,9 @@ static uint64_t get_depri_boot_ap_trampoline(void)
@@ -75,7 +74,7 @@ index 24e366f0..cbbc4bf7 100644
  
  static void init_depri_boot_irq(void)
 diff --git a/hypervisor/boot/guest/direct_boot.c b/hypervisor/boot/guest/direct_boot.c
-index 58e32df6..520e9969 100644
+index 58e32df..520e996 100644
 --- a/hypervisor/boot/guest/direct_boot.c
 +++ b/hypervisor/boot/guest/direct_boot.c
 @@ -27,12 +27,12 @@ static uint64_t get_direct_boot_ap_trampoline(void)
@@ -94,7 +93,7 @@ index 58e32df6..520e9969 100644
  	return NULL;
  #endif
 diff --git a/hypervisor/boot/guest/vboot_wrapper.c b/hypervisor/boot/guest/vboot_wrapper.c
-index 072eeda9..c3085bc9 100644
+index 072eeda..c3085bc 100644
 --- a/hypervisor/boot/guest/vboot_wrapper.c
 +++ b/hypervisor/boot/guest/vboot_wrapper.c
 @@ -42,7 +42,6 @@ void init_vboot(void)
@@ -115,7 +114,7 @@ index 072eeda9..c3085bc9 100644
  	return vboot_ops->get_rsdp();
  }
 diff --git a/hypervisor/boot/include/boot.h b/hypervisor/boot/include/boot.h
-index c3ec5d1c..1b664a60 100644
+index c3ec5d1..1b664a6 100644
 --- a/hypervisor/boot/include/boot.h
 +++ b/hypervisor/boot/include/boot.h
 @@ -24,19 +24,21 @@
@@ -152,7 +151,7 @@ index c3ec5d1c..1b664a60 100644
  void parse_hv_cmdline(void);
  
 diff --git a/hypervisor/boot/include/guest/vboot.h b/hypervisor/boot/include/guest/vboot.h
-index 8bf89b52..62a39d11 100644
+index 8bf89b5..62a39d1 100644
 --- a/hypervisor/boot/include/guest/vboot.h
 +++ b/hypervisor/boot/include/guest/vboot.h
 @@ -16,14 +16,14 @@ enum vboot_mode {
@@ -173,7 +172,7 @@ index 8bf89b52..62a39d11 100644
  enum vboot_mode get_sos_boot_mode(void);
  
 diff --git a/hypervisor/boot/multiboot.c b/hypervisor/boot/multiboot.c
-index f03c5b5a..9f3f17bf 100644
+index f03c5b5..9f3f17b 100644
 --- a/hypervisor/boot/multiboot.c
 +++ b/hypervisor/boot/multiboot.c
 @@ -13,66 +13,101 @@
@@ -314,7 +313,7 @@ index f03c5b5a..9f3f17bf 100644
  
  /*
 diff --git a/hypervisor/boot/multiboot2.c b/hypervisor/boot/multiboot2.c
-index 8cacd6b9..955d09dc 100644
+index 8cacd6b..955d09d 100644
 --- a/hypervisor/boot/multiboot2.c
 +++ b/hypervisor/boot/multiboot2.c
 @@ -8,28 +8,15 @@
@@ -436,6 +435,3 @@ index 8cacd6b9..955d09dc 100644
 +
  	return ret;
  }
--- 
-2.20.1
-

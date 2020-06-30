@@ -1,0 +1,131 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Tue, 30 Jun 2020 18:30:25 +0200
+Subject: vboot_info: load ramdisk at highest possible memory location
+
+Since booting bzImage/initrd with large initrds (20-40M, which occur at
+Debian like kernel configurations) fail with corrupted initrd, place
+initrd image at the highest possible memory location to have enough
+room for kernel decompression. Use initrd_addr_max filed from the
+kernel images zeropage to determine the allowed maximum address.
+Nevertheless there are additional restrictions (see Grub sources at
+grub-core/loader/linux.c for details). The try to match this memory
+requirement with the given E820 memory map to find a suitable E820
+memory block. Using this process ensure even large bzImage/initrds are
+booted successfully.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/boot/guest/vboot_info.c | 92 +++++++++++++++++++++++++++++++++++---
+ 1 file changed, 87 insertions(+), 5 deletions(-)
+
+diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
+index b710573..5d730d4 100644
+--- a/hypervisor/boot/guest/vboot_info.c
++++ b/hypervisor/boot/guest/vboot_info.c
+@@ -24,19 +24,101 @@
+ 
+ #define INVALID_MOD_IDX		0xFFFFU
+ 
++#define LINUX_INITRD_MAX_ADDRESS	0x37FFFFFFUL
++#define VGDT_ALIGN			8
++#define VGDT_SIZE			32
++#define ALIGN_UP(x, align)		(((x) + ((align)-1)) & ~((align)-1))
++
+ /**
+  * @pre vm != NULL && mbi != NULL
+  */
+ static void init_vm_ramdisk_info(struct acrn_vm *vm, const struct multiboot_module *mod)
+ {
++	unsigned int i, idx;
++	uint32_t addr_max, addr_min, rd_size, alloc_size;
+ 	void *mod_addr = hpa2hva((uint64_t)mod->mm_mod_start);
++	struct zero_page *zeropage = (struct zero_page *)vm->sw.kernel_info.kernel_src_addr;
+ 
+-	if ((mod_addr != NULL) && (mod->mm_mod_end > mod->mm_mod_start)) {
+-		vm->sw.ramdisk_info.src_addr = mod_addr;
+-		vm->sw.ramdisk_info.load_addr = vm->sw.kernel_info.kernel_load_addr + vm->sw.kernel_info.kernel_size;
+-		vm->sw.ramdisk_info.load_addr = (void *)round_page_up((uint64_t)vm->sw.ramdisk_info.load_addr);
+-		vm->sw.ramdisk_info.size = mod->mm_mod_end - mod->mm_mod_start;
++	if (!mod_addr || (mod->mm_mod_end <= mod->mm_mod_start)) {
++		/* no ramdisk */
++		return;
++	}
++	rd_size = mod->mm_mod_end - mod->mm_mod_start;
++	/*
++	 * Since we place the VMs initial vGDT *AFTER* ramdisk leave
++	 * room for it
++	 */
++	alloc_size = ALIGN_UP(rd_size, VGDT_ALIGN) + VGDT_SIZE;
++
++	/* Use the highest address available for the initrd. */
++	if (zeropage->hdr.version >= 0x0203) {
++		/*
++		 * According to Grub:
++		 * in reality, Linux specifies a bogus value, so
++		 * it is necessary to make sure that ADDR_MAX does not exceed
++		 * 0x3fffffff.
++		 */
++		addr_max = min(zeropage->hdr.initrd_addr_max,
++			       LINUX_INITRD_MAX_ADDRESS);
++	} else {
++		addr_max = LINUX_INITRD_MAX_ADDRESS;
+ 	}
++
++	/*
++	 * According to Grub:
++	 * Linux 2.3.xx has a bug in the memory range check, so avoid the last
++	 * page. Linux 2.2.xx has an even worse bug in the memory range check,
++	 * so avoid the last 64kb.
++	 */
++	addr_max -= 0x10000;
++
++	/* search highest available RAM range below or equal addr_max */
++	idx = vm->e820_entry_num;
++	for (i = 0; i < vm->e820_entry_num; ++i) {
++		struct e820_entry *e = &vm->e820_entries[i];
++
++		/* make sure it's available RAM */
++		if (e->type != E820_TYPE_RAM)
++			continue;
++
++		/* make sure size fits */
++		if (e->length < alloc_size)
++			continue;
++
++		/* make sure, mem is below addr_max */
++		if (e->baseaddr + e->length - 1 <= addr_max) {
++			if (idx == vm->e820_entry_num) {
++				idx = i;
++			} else if (vm->e820_entries[idx].baseaddr
++				  < vm->e820_entries[i].baseaddr) {
++				/* always use the higher mem */
++				idx = i;
++			}
++		}
++	}
++
++	if (idx < vm->e820_entry_num) {
++		/* found an appropriate e820 mem range */
++		uint32_t end_addr;
++
++		end_addr = vm->e820_entries[idx].baseaddr
++			+ vm->e820_entries[idx].length - 1;
++		addr_min = round_page_down(end_addr - alloc_size);
++	} else {
++		pr_err("No memory for ramdisk available!");
++		return;
++	}
++
++	/* sanity check */
++	if (vm->sw.kernel_info.kernel_load_addr + vm->sw.kernel_info.kernel_size
++	    > (void *)(uint64_t)addr_min) {
++		pr_err("Ramdisk too large: 0x%08lx", rd_size);
++		return;
++	}
++
++	vm->sw.ramdisk_info.src_addr = mod_addr;
++	vm->sw.ramdisk_info.load_addr = (void *)(uint64_t)addr_min;
++	vm->sw.ramdisk_info.size = rd_size;
+ }
+ 
+ /**

@@ -1,4 +1,3 @@
-From 97aa1844d2fe439c69d12428d28d351e9e6b8b22 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 26 Apr 2020 09:45:58 +0200
 Subject: acrn-config: accept empty SOS_ROOTFS
@@ -13,13 +12,13 @@ is overwritten by the VM configuration.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- misc/acrn-config/board_config/misc_cfg_h.py      |  6 +++++-
- misc/acrn-config/library/scenario_cfg_lib.py     | 16 ----------------
- .../acrn-config/scenario_config/scenario_item.py |  1 -
+ misc/acrn-config/board_config/misc_cfg_h.py       |  6 +++++-
+ misc/acrn-config/library/scenario_cfg_lib.py      | 16 ----------------
+ misc/acrn-config/scenario_config/scenario_item.py |  1 -
  3 files changed, 5 insertions(+), 18 deletions(-)
 
 diff --git a/misc/acrn-config/board_config/misc_cfg_h.py b/misc/acrn-config/board_config/misc_cfg_h.py
-index d2ac8a4a..b06cb047 100644
+index d2ac8a4..b06cb04 100644
 --- a/misc/acrn-config/board_config/misc_cfg_h.py
 +++ b/misc/acrn-config/board_config/misc_cfg_h.py
 @@ -168,7 +168,11 @@ def generate_file(config):
@@ -36,7 +35,7 @@ index d2ac8a4a..b06cb047 100644
              print('#define SOS_CONSOLE\t\t"console={} "'.format(ttys_n), file=config)
          else:
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index 31c03457..c2c9d711 100644
+index 31c0345..c2c9d71 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
 @@ -89,22 +89,6 @@ def get_pci_num(pci_devs):
@@ -63,7 +62,7 @@ index 31c03457..c2c9d711 100644
      """
      Check vm name
 diff --git a/misc/acrn-config/scenario_config/scenario_item.py b/misc/acrn-config/scenario_config/scenario_item.py
-index bf0b8308..3b858529 100644
+index bf0b830..3b85852 100644
 --- a/misc/acrn-config/scenario_config/scenario_item.py
 +++ b/misc/acrn-config/scenario_config/scenario_item.py
 @@ -148,7 +148,6 @@ class VuartInfo:
@@ -74,6 +73,3 @@ index bf0b8308..3b858529 100644
          scenario_cfg_lib.check_vuart(self.v0_vuart, self.v1_vuart)
  
  class MemInfo:
--- 
-2.20.1
-

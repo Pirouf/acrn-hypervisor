@@ -1,4 +1,3 @@
-From f26de1df72c30b70882a315ace6764e4c7b50986 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Mon, 27 Apr 2020 12:51:27 +0200
 Subject: makefile: honor BUILD_VERSION and BUILD_TAG
@@ -11,7 +10,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  3 files changed, 23 insertions(+), 10 deletions(-)
 
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index dfb89c41..19f659cf 100644
+index dfb89c4..19f659c 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
 @@ -508,10 +508,15 @@ $(VERSION):
@@ -35,7 +34,7 @@ index dfb89c41..19f659cf 100644
  	USER="$${USER:-$$(id -u -n)}"; \
  	if [ x$(CONFIG_RELEASE) = "xy" ];then BUILD_TYPE="REL";else BUILD_TYPE="DBG";fi;\
 diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
-index 17e7afca..97a7d965 100644
+index 17e7afc..97a7d96 100644
 --- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
 +++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
 @@ -62,9 +62,13 @@ $(VERSION_H):
@@ -56,7 +55,7 @@ index 17e7afca..97a7d965 100644
  	USER="$${USER:-$$(id -u -n)}"; \
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
 diff --git a/misc/tools/acrn-crashlog/usercrash/Makefile b/misc/tools/acrn-crashlog/usercrash/Makefile
-index 9484d992..746aff81 100644
+index 9484d99..746aff8 100644
 --- a/misc/tools/acrn-crashlog/usercrash/Makefile
 +++ b/misc/tools/acrn-crashlog/usercrash/Makefile
 @@ -42,9 +42,13 @@ $(VERSION_H):
@@ -76,6 +75,3 @@ index 9484d992..746aff81 100644
  	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
  	USER="$${USER:-$$(id -u -n)}"; \
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
--- 
-2.20.1
-

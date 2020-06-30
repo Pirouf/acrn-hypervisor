@@ -1,4 +1,3 @@
-From e328befdad68d2487fb4fccf622e2ea5537eaff0 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Thu, 28 May 2020 09:21:46 +0200
 Subject: Revert "dm: acpi: add PSDS table in ACPI table"
@@ -12,12 +11,12 @@ exposure of PSDS table for now.
 Tracked-On: #4846
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- devicemodel/hw/platform/acpi/acpi.c | 112 +---------------------------
+ devicemodel/hw/platform/acpi/acpi.c | 112 +-----------------------------------
  devicemodel/include/acpi.h          |   1 -
  2 files changed, 1 insertion(+), 112 deletions(-)
 
 diff --git a/devicemodel/hw/platform/acpi/acpi.c b/devicemodel/hw/platform/acpi/acpi.c
-index 3d815975..6950039f 100644
+index 3d81597..6950039 100644
 --- a/devicemodel/hw/platform/acpi/acpi.c
 +++ b/devicemodel/hw/platform/acpi/acpi.c
 @@ -85,8 +85,7 @@
@@ -195,7 +194,7 @@ index 3d815975..6950039f 100644
  	return err;
  }
 diff --git a/devicemodel/include/acpi.h b/devicemodel/include/acpi.h
-index 775a71d4..572a2dba 100644
+index 775a71d..572a2db 100644
 --- a/devicemodel/include/acpi.h
 +++ b/devicemodel/include/acpi.h
 @@ -41,7 +41,6 @@
@@ -206,6 +205,3 @@ index 775a71d4..572a2dba 100644
  
  void acpi_table_enable(int num);
  uint32_t get_acpi_base(void);
--- 
-2.20.1
-

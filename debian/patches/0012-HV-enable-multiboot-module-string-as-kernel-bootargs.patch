@@ -1,4 +1,3 @@
-From b9c18eb0cd5a337bc4d47193fd191330b8626436 Mon Sep 17 00:00:00 2001
 From: Victor Sun <victor.sun@intel.com>
 Date: Fri, 5 Jun 2020 15:22:40 +0800
 Subject: HV: enable multiboot module string as kernel bootargs
@@ -24,7 +23,7 @@ Signed-off-by: Victor Sun <victor.sun@intel.com>
 Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
 Reviewed-by: Eddie Dong <eddie.dong@intel.com>
 ---
- hypervisor/boot/guest/vboot_info.c | 34 ++++++++++++++++++++++++------
+ hypervisor/boot/guest/vboot_info.c | 34 ++++++++++++++++++++++++++++------
  hypervisor/boot/include/boot.h     |  6 ++++--
  hypervisor/boot/multiboot.c        |  4 ++--
  hypervisor/boot/multiboot2.c       |  2 +-
@@ -32,7 +31,7 @@ Reviewed-by: Eddie Dong <eddie.dong@intel.com>
  5 files changed, 40 insertions(+), 11 deletions(-)
 
 diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
-index 5987af2e..b710573e 100644
+index 5987af2..b710573 100644
 --- a/hypervisor/boot/guest/vboot_info.c
 +++ b/hypervisor/boot/guest/vboot_info.c
 @@ -22,7 +22,6 @@
@@ -109,7 +108,7 @@ index 5987af2e..b710573e 100644
  		}
  	}
 diff --git a/hypervisor/boot/include/boot.h b/hypervisor/boot/include/boot.h
-index 51ff94c9..0f3e2d04 100644
+index 51ff94c..0f3e2d0 100644
 --- a/hypervisor/boot/include/boot.h
 +++ b/hypervisor/boot/include/boot.h
 @@ -13,9 +13,11 @@
@@ -135,7 +134,7 @@ index 51ff94c9..0f3e2d04 100644
  	uint32_t 		mi_drives_length;
  	uint32_t		mi_drives_addr;
 diff --git a/hypervisor/boot/multiboot.c b/hypervisor/boot/multiboot.c
-index 473f4ead..2b99d20b 100644
+index 473f4ea..2b99d20 100644
 --- a/hypervisor/boot/multiboot.c
 +++ b/hypervisor/boot/multiboot.c
 @@ -69,9 +69,9 @@ int32_t sanitize_multiboot_info(void)
@@ -151,7 +150,7 @@ index 473f4ead..2b99d20b 100644
  	if (acrn_mbi.mi_mods_count != 0U) {
  		if (boot_from_multiboot1() && (acrn_mbi.mi_mods_va != NULL)) {
 diff --git a/hypervisor/boot/multiboot2.c b/hypervisor/boot/multiboot2.c
-index 38754508..ba0b691a 100644
+index 3875450..ba0b691 100644
 --- a/hypervisor/boot/multiboot2.c
 +++ b/hypervisor/boot/multiboot2.c
 @@ -25,7 +25,7 @@ static void mb2_mmap_to_mbi(struct acrn_multiboot_info *mbi, const struct multib
@@ -164,7 +163,7 @@ index 38754508..ba0b691a 100644
  		mbi->mi_mods[mbi_mod_idx].mm_mod_end = mb2_tag_mods->mod_end;
  		mbi->mi_mods[mbi_mod_idx].mm_string = (uint32_t)(uint64_t)mb2_tag_mods->cmdline;
 diff --git a/hypervisor/include/lib/rtl.h b/hypervisor/include/lib/rtl.h
-index 63922419..a0f9f8d8 100644
+index 6392241..a0f9f8d 100644
 --- a/hypervisor/include/lib/rtl.h
 +++ b/hypervisor/include/lib/rtl.h
 @@ -29,6 +29,11 @@ static inline bool is_space(char c)
@@ -179,6 +178,3 @@ index 63922419..a0f9f8d8 100644
  /* Function prototypes */
  int32_t strcmp(const char *s1_arg, const char *s2_arg);
  int32_t strncmp(const char *s1_arg, const char *s2_arg, size_t n_arg);
--- 
-2.20.1
-

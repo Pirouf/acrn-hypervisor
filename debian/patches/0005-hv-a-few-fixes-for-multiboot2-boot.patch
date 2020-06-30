@@ -1,4 +1,3 @@
-From 751a2b195835af25b93314dcf6faa37db6bea2f1 Mon Sep 17 00:00:00 2001
 From: Victor Sun <victor.sun@intel.com>
 Date: Wed, 11 Mar 2020 13:51:48 +0800
 Subject: hv: a few fixes for multiboot2 boot
@@ -25,7 +24,7 @@ Reviewed-by: Yin Fengwei <fengwei.yin@intel.com>
  5 files changed, 14 insertions(+), 4 deletions(-)
 
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index 902f224e..99ffcdda 100644
+index 902f224..99ffcdd 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
 @@ -112,6 +112,10 @@ ifeq (y, $(CONFIG_MULTIBOOT2))
@@ -40,7 +39,7 @@ index 902f224e..99ffcdda 100644
  LDFLAGS += -Wl,-n,-z,max-page-size=0x1000
  LDFLAGS += -Wl,--no-dynamic-linker
 diff --git a/hypervisor/arch/x86/Kconfig b/hypervisor/arch/x86/Kconfig
-index e1c5b8fa..4f811326 100644
+index e1c5b8f..4f81132 100644
 --- a/hypervisor/arch/x86/Kconfig
 +++ b/hypervisor/arch/x86/Kconfig
 @@ -15,8 +15,7 @@ config SCENARIO
@@ -54,7 +53,7 @@ index e1c5b8fa..4f811326 100644
  	  Support boot ACRN from multiboot2 protocol. Multiboot2 support is needed for
  	  some EFI platforms to get correct ACPI RSDP, it also could provide host efi
 diff --git a/hypervisor/arch/x86/boot/cpu_primary.S b/hypervisor/arch/x86/boot/cpu_primary.S
-index a53d008c..f76deb0c 100644
+index a53d008..f76deb0 100644
 --- a/hypervisor/arch/x86/boot/cpu_primary.S
 +++ b/hypervisor/arch/x86/boot/cpu_primary.S
 @@ -71,13 +71,14 @@ info_req_tag_start:
@@ -90,7 +89,7 @@ index a53d008c..f76deb0c 100644
      /*
       * The page tables are aligned to 4KB, which implicitly aligns this section at
 diff --git a/hypervisor/boot/guest/vboot_wrapper.c b/hypervisor/boot/guest/vboot_wrapper.c
-index 3519794a..072eeda9 100644
+index 3519794..072eeda 100644
 --- a/hypervisor/boot/guest/vboot_wrapper.c
 +++ b/hypervisor/boot/guest/vboot_wrapper.c
 @@ -42,6 +42,7 @@ void init_vboot(void)
@@ -102,7 +101,7 @@ index 3519794a..072eeda9 100644
  		if (strncmp(mbi->mi_loader_name, vboot_bootloader_maps[i].bootloader_name,
  			strnlen_s(vboot_bootloader_maps[i].bootloader_name, BOOTLOADER_NAME_SIZE)) == 0) {
 diff --git a/hypervisor/boot/multiboot.c b/hypervisor/boot/multiboot.c
-index f2e3797d..f03c5b5a 100644
+index f2e3797..f03c5b5 100644
 --- a/hypervisor/boot/multiboot.c
 +++ b/hypervisor/boot/multiboot.c
 @@ -68,6 +68,10 @@ int32_t sanitize_multiboot_info(void)
@@ -116,6 +115,3 @@ index f2e3797d..f03c5b5a 100644
  	return ret;
  }
  
--- 
-2.20.1
-

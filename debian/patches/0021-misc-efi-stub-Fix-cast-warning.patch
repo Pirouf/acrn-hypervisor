@@ -1,9 +1,8 @@
-From 75bacd3835eb83ba1e7c8e585cfe15cd67321109 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Thu, 2 Apr 2020 17:49:11 +0200
 Subject: misc/efi-stub: Fix cast warning
 MIME-Version: 1.0
-Content-Type: text/plain; charset=UTF-8
+Content-Type: text/plain; charset="utf-8"
 Content-Transfer-Encoding: 8bit
 
 Fix the following warning;
@@ -18,7 +17,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/misc/efi-stub/boot.c b/misc/efi-stub/boot.c
-index 529775db..d7089ac6 100644
+index 529775d..d7089ac 100644
 --- a/misc/efi-stub/boot.c
 +++ b/misc/efi-stub/boot.c
 @@ -307,7 +307,7 @@ switch_to_guest_mode(EFI_HANDLE image, EFI_PHYSICAL_ADDRESS hv_hpa)
@@ -30,6 +29,3 @@ index 529775db..d7089ac6 100644
  
  	asm volatile ("pushf\n\t"
  		      "pop %0\n\t"
--- 
-2.20.1
-
