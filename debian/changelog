@@ -1,3 +1,34 @@
+acrn-hypervisor (2.0-2-gae748704) buster; urgency=medium
+
+  [ yuhong.tao@intel.com ]
+  * HV: Fix split-locked access detection is disabled by default
+
+  [ Li Fei1 ]
+  * hv: vpci: a minor fix about is_zombie_vf
+
+  [ David B. Kinder ]
+  * doc: update release_2.0 branch with doc changes
+
+  [ wenlingz ]
+  * version:v2.0
+
+  [ Yin Fengwei ]
+  * kconfig: extend the max msix table number to 64
+
+  [ Wei Liu ]
+  * acrn-config: extend the max msix table number to 64
+
+  [ Helmut Buchsbaum ]
+  * debian/gbp.conf: update upstream-tag
+  * debian/patches: update patches
+
+  * move distribution to buster
+  * use 'git describe' for version of non-tagged upstream:
+    git describe $(grep -E ^upstream-tag debian/gbp.conf \
+      | cut -d'=' -f2) | sed 's/^v//'
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 30 Jun 2020 22:12:10 +0200
+
 acrn-hypervisor (2.0-unstable-1) unstable; urgency=medium
 
   [ Helmut Buchsbaum ]
