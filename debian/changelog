@@ -1,3 +1,19 @@
+acrn-hypervisor (1.6.1-3-g5d8fabf1) buster; urgency=medium
+
+  [ Wei Liu ]
+  * acrn-config: refinement acrn-dm arguments for "Soft RT/Hard RT" VMs
+
+  [ Helmut Buchsbaum ]
+  * debian/gbp.conf: update upstream-tag
+  * debian/patches: update patches
+
+  * move to distribution buster
+  * use 'git describe' for version of non-tagged upstream:
+    git describe $(grep -E ^upstream-tag debian/gbp.conf \
+      | cut -d'=' -f2) | sed 's/^v//'
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 30 Jun 2020 21:08:14 +0200
+
 acrn-hypervisor (1.6~g6d2b213b-1) unstable; urgency=medium
 
   [ Li Fei1 ]
