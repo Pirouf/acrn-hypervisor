@@ -11,3 +11,9 @@
 0011-e820-ignore-zero-length-ranges-in-obtain_mem_range_i.patch
 0012-hv-boot-enhance-Linux-boot-header-structure.patch
 0013-vboot_info-load-ramdisk-at-highest-possible-memory-l.patch
+0014-acrn-config-fix-macro-creation-on-empty-SOS-rootfs.patch
+0015-acrn-config-fix-internal-BDF-format-for-hidden-pci-d.patch
+0016-acrn-config-add-new-HV-config-HIDDEN_PDEV-BDF.patch
+0017-doc-fix-typo-at-MCE_ON_PSC_DISABLED.patch
+0018-doc-add-documentation-for-HIDDEN_PDEVS-BDF.patch
+0019-hv-dm-pass-through-platform-hidden-devices-also-for-.patch

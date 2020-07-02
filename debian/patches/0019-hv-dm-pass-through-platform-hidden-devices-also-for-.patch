@@ -1,0 +1,42 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Thu, 2 Jul 2020 18:24:29 +0200
+Subject: hv: dm: pass through platform hidden devices also for pio_cfgdata
+ access
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/dm/vpci/vpci.c | 14 ++++++++++++--
+ 1 file changed, 12 insertions(+), 2 deletions(-)
+
+diff --git a/hypervisor/dm/vpci/vpci.c b/hypervisor/dm/vpci/vpci.c
+index 7cbf117..6aeeb03 100644
+--- a/hypervisor/dm/vpci/vpci.c
++++ b/hypervisor/dm/vpci/vpci.c
+@@ -139,7 +139,12 @@ static bool vpci_pio_cfgdata_read(struct acrn_vcpu *vcpu, uint16_t addr, size_t
+ 	if (cfg_addr.bits.enable != 0U) {
+ 		if (vpci_is_valid_access(cfg_addr.bits.reg_num + offset, bytes)) {
+ 			bdf.value = cfg_addr.bits.bdf;
+-			ret = vpci_read_cfg(vpci, bdf, cfg_addr.bits.reg_num + offset, bytes, &val);
++			if (!is_plat_hidden_pdev(bdf)) {
++				ret = vpci_read_cfg(vpci, bdf, cfg_addr.bits.reg_num + offset, bytes, &val);
++			} else {
++				/* expose and pass through platform hidden devices to SOS */
++				val = pci_pdev_read_cfg(bdf, cfg_addr.bits.reg_num + offset, bytes);
++			}
+ 		}
+ 	}
+ 
+@@ -170,7 +175,12 @@ static bool vpci_pio_cfgdata_write(struct acrn_vcpu *vcpu, uint16_t addr, size_t
+ 	if (cfg_addr.bits.enable != 0U) {
+ 		if (vpci_is_valid_access(cfg_addr.bits.reg_num + offset, bytes)) {
+ 			bdf.value = cfg_addr.bits.bdf;
+-			ret = vpci_write_cfg(vpci, bdf, cfg_addr.bits.reg_num + offset, bytes, val);
++			if (!is_plat_hidden_pdev(bdf)) {
++				ret = vpci_write_cfg(vpci, bdf, cfg_addr.bits.reg_num + offset, bytes, val);
++			} else {
++				/* expose and pass through platform hidden devices to SOS */
++				pci_pdev_write_cfg(bdf, cfg_addr.bits.reg_num + offset, bytes, val);
++			}
+ 		}
+ 	}
+ 

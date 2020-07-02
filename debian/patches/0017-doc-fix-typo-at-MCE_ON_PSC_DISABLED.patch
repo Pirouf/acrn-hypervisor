@@ -1,0 +1,22 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Thu, 2 Jul 2020 16:26:40 +0200
+Subject: doc: fix typo at MCE_ON_PSC_DISABLED
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ doc/tutorials/acrn_configuration_tool.rst | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/doc/tutorials/acrn_configuration_tool.rst b/doc/tutorials/acrn_configuration_tool.rst
+index d1f8174..203cebd 100644
+--- a/doc/tutorials/acrn_configuration_tool.rst
++++ b/doc/tutorials/acrn_configuration_tool.rst
+@@ -162,7 +162,7 @@ Additional scenario XML elements:
+ ``L1D_VMENTRY_ENABLED`` (a child node of ``FEATURES``):
+   Specify whether the L1 cache flush before VM entry is enabled.
+ 
+-``MCE_ON_PSC_DISABLED`` (a child node of ``FEATURE``):
++``MCE_ON_PSC_DISABLED`` (a child node of ``FEATURES``):
+   Specify whether force to disable software workaround for Machine Check
+   Error on Page Size Change is enabled.
+ 
