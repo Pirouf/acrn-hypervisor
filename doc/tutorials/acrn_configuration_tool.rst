@@ -166,6 +166,14 @@ Additional scenario XML elements:
   Specify whether force to disable software workaround for Machine Check
   Error on Page Size Change is enabled.
 
+``HIDDEN_PDEVS`` (a child node of ``FEATURES``):
+  Optinional: Specify a list of ``BDF`` nodes. This overrides any existing configuration
+  tool internal data.
+
+``BDF`` (a child node of ``FEATURES/HIDDEN_PDEVS``):
+  Optional: Specify a hidden PCI device to be accessed by SOS only in BDF format
+  (Bus:Device.Function)
+
 ``STACK_SIZE`` (a child node of ``MEMORY``):
   Specify the size of stacks used by physical cores. Each core uses one stack
   for normal operations and another three for specific exceptions.
