@@ -263,8 +263,8 @@ def gen_pci_hide(config):
         print("const union pci_bdf plat_hidden_pdevs[MAX_HIDDEN_PDEVS_NUM] = {", file=config)
         for hidden_pdev_i in range(hidden_pdev_num):
             bus = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[0], 16))
-            dev = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[1], 16))
-            fun = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[2], 16))
+            dev = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[1].split('.')[0], 16))
+            fun = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[1].split('.')[1], 16))
             print("\t{", file=config)
             print("\t\t.bits.b = {}U,".format(bus), file=config)
             print("\t\t.bits.d = {}U,".format(dev), file=config)
