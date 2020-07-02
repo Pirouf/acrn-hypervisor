@@ -287,10 +287,10 @@ def generate_file(config):
 
     # set macro for HIDDEN PTDEVS
     print("", file=config)
-    if board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB):
-        print("#define MAX_HIDDEN_PDEVS_NUM	{}U".format(len(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME])), file=config)
-    else:
-        print("#define MAX_HIDDEN_PDEVS_NUM	0U", file=config)
+    hidden_list = common.get_hv_item_tag(common.SCENARIO_INFO_FILE, "FEATURES", "HIDDEN_PDEVS", "BDF")
+    if len(hidden_list) == 0 and board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB):
+        hidden_list = board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME]
+    print("#define MAX_HIDDEN_PDEVS_NUM\t{}U".format(len(hidden_list)), file=config)
 
     # generate HI_MMIO_START/HI_MMIO_END
     find_hi_mmio_window(config)

@@ -256,10 +256,24 @@ def gen_px_cx(config):
 
 
 def gen_pci_hide(config):
-    """Generate hide pci information for this platform"""
-    if board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB.keys()) and board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME] != 0:
-        hidden_pdev_list = board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME]
-        hidden_pdev_num = len(hidden_pdev_list)
+    """
+    Generate hide pci information for this platform
+    :param config: it is a file pointer of board information for writing to
+
+    Hidden devices defined via HV section have precedence. Only fallback to
+    in-code database if there is nothing defined. This makes it possible to
+    override internal settings.
+    """
+
+    hidden_pdev_list = common.get_hv_item_tag(common.SCENARIO_INFO_FILE, "FEATURES", "HIDDEN_PDEVS", "BDF")
+
+    # no hidden devs defined, look at predefined database
+    if len(hidden_pdev_list) == 0:
+        if board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB.keys()) and board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME] != 0:
+            hidden_pdev_list = board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME]
+
+    hidden_pdev_num = len(hidden_pdev_list)
+    if hidden_pdev_num > 0:
         print("const union pci_bdf plat_hidden_pdevs[MAX_HIDDEN_PDEVS_NUM] = {", file=config)
         for hidden_pdev_i in range(hidden_pdev_num):
             bus = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[0], 16))

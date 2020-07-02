@@ -112,6 +112,7 @@ class Features:
         self.acpi_parse_enabled = ''
         self.l1d_flush_vmentry_enabled = ''
         self.mce_on_psc_workaround_disabled = ''
+        self.hidden_pdevs = []
 
     def get_info(self):
         self.multiboot2 = common.get_hv_item_tag(self.hv_file, "FEATURES", "MULTIBOOT2")
@@ -126,6 +127,7 @@ class Features:
         self.l1d_flush_vmentry_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "L1D_VMENTRY_ENABLED")
         self.mce_on_psc_workaround_disabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "MCE_ON_PSC_DISABLED")
         self.iommu_enforce_snp = common.get_hv_item_tag(self.hv_file, "FEATURES", "IOMMU_ENFORCE_SNP")
+        self.hidden_pdevs = common.get_hv_item_tag(self.hv_file, "FEATURES", "HIDDEN_PDEVS", "BDF")
 
     def check_item(self):
         hv_cfg_lib.ny_support_check(self.multiboot2, "FEATURES", "MULTIBOOT2")
