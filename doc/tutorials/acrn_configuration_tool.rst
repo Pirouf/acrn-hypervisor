@@ -162,7 +162,7 @@ Additional scenario XML elements:
 ``L1D_VMENTRY_ENABLED`` (a child node of ``FEATURES``):
   Specify whether the L1 cache flush before VM entry is enabled.
 
-``MCE_ON_PSC_DISABLED`` (a child node of ``FEATURE``):
+``MCE_ON_PSC_DISABLED`` (a child node of ``FEATURES``):
   Specify whether force to disable software workaround for Machine Check
   Error on Page Size Change is enabled.
 
