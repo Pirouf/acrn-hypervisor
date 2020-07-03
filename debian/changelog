@@ -1,3 +1,20 @@
+acrn-hypervisor (2.0-5-g1a167ca0) buster; urgency=medium
+
+  [ Yin Fengwei ]
+  * debug: BOARD_ENABLE: update the debug serial port info of SOS
+
+  [ Victor Sun ]
+  * HV:BOARD_ENABLE: add whl-phx-i7 xmls
+  * HV:BOARD_ENABLE: add whl-phx-i7 configs code
+
+  [ Helmut Buchsbaum ]
+  * debian/gbp.conf: update upstream-tag to 1a167ca0
+  * debian: kontron-COMe-mAL10: remove block device info
+  * debian: scenarios/kontron-COMe-mAL10: add HIDDEN_PDEVS
+  * debian/patches: update patches
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Fri, 03 Jul 2020 16:26:01 +0200
+
 acrn-hypervisor (2.0-2-gae748704) buster; urgency=medium
 
   [ yuhong.tao@intel.com ]
