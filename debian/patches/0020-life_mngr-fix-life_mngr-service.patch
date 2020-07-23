@@ -1,0 +1,13 @@
+diff --git a/misc/life_mngr/life_mngr.service b/misc/life_mngr/life_mngr.service
+index c8c2dd3d..8a38f6d7 100644
+--- a/misc/life_mngr/life_mngr.service
++++ b/misc/life_mngr/life_mngr.service
+@@ -7,7 +7,7 @@ Type=simple
+ ExecStart=/usr/bin/life_mngr uos /dev/ttyS1
+ StandardOutput=journal
+ StandardError=journal
+-Restart=yes
++Restart=always
+ 
+ [Install]
+ WantedBy=multi-user.target
