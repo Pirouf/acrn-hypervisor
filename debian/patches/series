@@ -18,3 +18,4 @@
 0018-doc-add-documentation-for-HIDDEN_PDEVS-BDF.patch
 0019-hv-dm-pass-through-platform-hidden-devices-also-for-.patch
 0020-life_mngr-fix-life_mngr-service.patch
+0021-acrn-config-Do-not-insist-on-using-SOS-COM_BASE-IRQ.patch

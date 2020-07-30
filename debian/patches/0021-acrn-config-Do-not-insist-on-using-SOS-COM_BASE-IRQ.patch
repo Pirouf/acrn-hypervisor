@@ -1,0 +1,85 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Thu, 30 Jul 2020 21:41:02 +0200
+Subject: acrn-config: Do not insist on using SOS/COM_BASE/IRQ
+
+acrn-config creates interdependencies between the HV console and the
+VUART settings of the VMs. This is not correct since the HV console
+is a direct mapping to the availbale serial port wheres all VMUARTS are
+purely virtual and thus local to each VM.
+These settings are created by defining macros like [SOS_]COM_[BASE|IRQ]*
+and using them for creating misc_cfg.h which then is used in
+vm_configurations.c.
+
+To circumvent these eventually wrongly calculated - just use /dev/ttyS1
+for HV console - simply diretly use the value given in the scenario XML
+for vm_configurations.c WITHOUT the need to use these macros. This enables
+configurations that directly give the values (no macro names!) for
+VUART base address and irq.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ misc/acrn-config/library/scenario_cfg_lib.py       |  4 ----
+ .../scenario_config/vm_configurations_c.py         | 24 ++++------------------
+ 2 files changed, 4 insertions(+), 24 deletions(-)
+
+diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
+index 576b704..84f6587 100644
+--- a/misc/acrn-config/library/scenario_cfg_lib.py
++++ b/misc/acrn-config/library/scenario_cfg_lib.py
+@@ -566,10 +566,6 @@ def check_vuart(v0_vuart, v1_vuart):
+             ERR_LIST[key] = "base should be in xml"
+             return
+ 
+-        if not vuart_dic['base'] or vuart_dic['base'] not in VUART_BASE:
+-            key = "vm:id={},vuart:id=1,base".format(vm_i)
+-            ERR_LIST[key] = "base should be SOS/COM BASE"
+-
+         if vuart_dic['base'] == "INVALID_COM_BASE":
+             continue
+ 
+diff --git a/misc/acrn-config/scenario_config/vm_configurations_c.py b/misc/acrn-config/scenario_config/vm_configurations_c.py
+index 24992af..f0a0785 100644
+--- a/misc/acrn-config/scenario_config/vm_configurations_c.py
++++ b/misc/acrn-config/scenario_config/vm_configurations_c.py
+@@ -41,24 +41,12 @@ def vuart0_output(i, vm_type, vm_info, config):
+     :param config: it is the pointer which file write to
+     :return: None
+     """
+-    # SOS_VM vuart[0]
+     print("\t\t.vuart[0] = {", file=config)
+     print("\t\t\t.type = {0},".format(vm_info.vuart.v0_vuart[i]['type']), file=config)
+-    if "SOS_" in vm_type:
+-        print("\t\t\t.addr.port_base = SOS_COM1_BASE,", file=config)
+-        print("\t\t\t.irq = SOS_COM1_IRQ,", file=config)
+-    elif "PRE_LAUNCHED_VM" == scenario_cfg_lib.VM_DB[vm_type]['load_type']:
+-        print("\t\t\t.addr.port_base = COM1_BASE,", file=config)
+-        print("\t\t\t.irq = COM1_IRQ,", file=config)
+-    elif "POST_LAUNCHED_VM" in scenario_cfg_lib.VM_DB[vm_type]['load_type']:
+-        print("\t\t\t.addr.port_base = {0},".format(
+-            vm_info.vuart.v0_vuart[i]['base']), file=config)
+-        if vm_info.vuart.v0_vuart[i]['base'] != "INVALID_COM_BASE":
+-            print("\t\t\t.irq = {0},".format(
+-                vm_info.vuart.v0_vuart[i]['irq']), file=config)
++    print("\t\t\t.addr.port_base = {0},".format(vm_info.vuart.v0_vuart[i]['base']), file=config)
++    print("\t\t\t.irq = {0},".format(vm_info.vuart.v0_vuart[i]['irq']), file=config)
+     print("\t\t},", file=config)
+ 
+-
+ def vuart_map_enable(vm_info):
+ 
+     map_dic = {}
+@@ -98,12 +86,8 @@ def vuart1_output(i, vm_type, vuart1_vmid_dic, vm_info, config):
+         print("\t\t\t.addr.port_base = INVALID_COM_BASE,", file=config)
+ 
+     if vuart1_vmid_dic and i in vuart1_vmid_dic.keys():
+-        if "SOS_VM" == scenario_cfg_lib.VM_DB[vm_type]['load_type']:
+-            if vm_info.vuart.v1_vuart[i]['base'] != "INVALID_COM_BASE" and vuart_enable[i]:
+-                print("\t\t\t.irq = SOS_COM2_IRQ,", file=config)
+-        else:
+-            if vm_info.vuart.v1_vuart[i]['base'] != "INVALID_COM_BASE" and vuart_enable[i]:
+-                print("\t\t\t.irq = COM2_IRQ,", file=config)
++        if vm_info.vuart.v1_vuart[i]['base'] != "INVALID_COM_BASE" and vuart_enable[i]:
++            print("\t\t\t.irq = {0},".format(vm_info.vuart.v1_vuart[i]['irq']), file=config)
+ 
+         if vm_info.vuart.v1_vuart[i]['base'] != "INVALID_COM_BASE" and vuart_enable[i]:
+             print("\t\t\t.t_vuart.vm_id = {0}U,".format(
