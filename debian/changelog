@@ -1,3 +1,21 @@
+acrn-hypervisor (2.0-9-g8570ff71) buster; urgency=medium
+
+  [ Qian Wang ]
+  * HV: restrict conditions to assign/deassign pcidev
+
+  [ Wei Liu ]
+  * acrn-config: minor fix mac seed for launch config
+  * acrn-config: generate '-s 1:0,lpc ' for non-hart rt in launch script
+  * acrn-config: refine mac seed for launch config
+
+  [ Helmut Buchsbaum ]
+  * debian/patches: fix life_mngr.service
+  * debian/patches: Add acrn-config-Do-not-insist-on-using-SOS-COM_BASE-IRQ patch
+  * debian/configs/scenarios: use 'real' values for vuarts
+  * debian/configs/scenarios: add industry 3 scenario for kontron-COMe-mAL10
+
+ -- Helmut Buchsbaum <buchsbaum@stretch64.tttech.com>  Fri, 31 Jul 2020 09:24:59 +0200
+
 acrn-hypervisor (2.0-5-g1a167ca0) buster; urgency=medium
 
   [ Yin Fengwei ]
