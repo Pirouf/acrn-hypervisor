@@ -1,3 +1,32 @@
+acrn-hypervisor (2.0-20-g25fff0c2) buster; urgency=medium
+
+  [ Binbin Wu ]
+  *  hv: pmu: passthrough pmu to vm when GUEST_FLAG_PMU_PASSTHROUGH set
+  * dm: vm: add option to enable pmu passthrough
+  * config: add GUEST_FLAG_PMU_PASSTHROUGH to DM_OWNED_GUEST_FLAG_MASK
+
+  [ Xiaoguang Wu ]
+  * hv: fix stos and stosq asm instruction emulation error
+
+  [ Junming Liu ]
+  * DM: PT: Add "d3hot_reset" sub-parameter for passthrough device
+
+  [ Victor Sun ]
+  * HV: correct RO mask of MSI cap structure
+  * HV: init vcpu affinity of SOS VM when launch VMs
+  * HV: remove sanitize_vm_config function
+  * HV: move vm configuration check to pre-build time
+
+  [ Minggui Cao ]
+  * sample vmexit data per-pCPU and per-vCPU
+  * add flag to control vmexit sample in HV bootargs
+
+  [ Helmut Buchsbaum ]
+  * debian/configs: Add maxtang-wl10 + industry3 configs
+  * debian: rebase patches
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 07 Sep 2020 16:26:42 +0200
+
 acrn-hypervisor (2.0-9-g8570ff71) buster; urgency=medium
 
   [ Qian Wang ]
@@ -14,7 +43,7 @@ acrn-hypervisor (2.0-9-g8570ff71) buster; urgency=medium
   * debian/configs/scenarios: use 'real' values for vuarts
   * debian/configs/scenarios: add industry 3 scenario for kontron-COMe-mAL10
 
- -- Helmut Buchsbaum <buchsbaum@stretch64.tttech.com>  Fri, 31 Jul 2020 09:24:59 +0200
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Fri, 31 Jul 2020 09:24:59 +0200
 
 acrn-hypervisor (2.0-5-g1a167ca0) buster; urgency=medium
 
