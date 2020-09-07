@@ -46,12 +46,18 @@
 #error "VIOAPIC_RTE_NUM must be larger than 23"
 #endif
 
+#ifdef HV_DEBUG
+#define MAX_VMEXIT_LEVEL 14 /* from 0 to 14 for counts*/
+#define TOTAL_ARRAY_LEVEL (MAX_VMEXIT_LEVEL + 1)
+#endif
+
 /* Generic VM flags from guest OS */
 #define GUEST_FLAG_SECURE_WORLD_ENABLED		(1UL << 0U)	/* Whether secure world is enabled */
 #define GUEST_FLAG_LAPIC_PASSTHROUGH		(1UL << 1U)  	/* Whether LAPIC is passed through */
 #define GUEST_FLAG_IO_COMPLETION_POLLING	(1UL << 2U)  	/* Whether need hypervisor poll IO completion */
 #define GUEST_FLAG_HIDE_MTRR			(1UL << 3U)  	/* Whether hide MTRR from VM */
 #define GUEST_FLAG_RT				(1UL << 4U)     /* Whether the vm is RT-VM */
+#define GUEST_FLAG_PMU_PASSTHROUGH		(1UL << 5U)     /* Whether passthrough PMU to the VM */
 
 /* TODO: We may need to get this addr from guest ACPI instead of hardcode here */
 #define VIRTUAL_PM1A_CNT_ADDR		0x404U

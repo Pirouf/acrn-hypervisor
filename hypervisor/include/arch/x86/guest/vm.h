@@ -156,6 +156,7 @@ struct acrn_vm {
 	uint8_t vrtc_offset;
 
 	uint64_t intr_inject_delay_delta; /* delay of intr injection */
+
 } __aligned(PAGE_SIZE);
 
 /*
@@ -241,6 +242,7 @@ void vrtc_init(struct acrn_vm *vm);
 bool is_lapic_pt_configured(const struct acrn_vm *vm);
 bool is_rt_vm(const struct acrn_vm *vm);
 bool is_pi_capable(const struct acrn_vm *vm);
+bool is_pmu_pt_configured(const struct acrn_vm *vm);
 bool has_rt_vm(void);
 struct acrn_vm *get_highest_severity_vm(bool runtime);
 bool vm_hide_mtrr(const struct acrn_vm *vm);
