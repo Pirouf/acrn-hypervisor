@@ -30,10 +30,10 @@ index 3cfae45..ed53a3f 100644
  	sed 's/^/ * /' ../LICENSE >> $(VERSION_H);\
  	echo " */" >> $(VERSION_H);\
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index 068e20c..a12835f 100644
+index dcc2527..440548e 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -510,8 +510,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
+@@ -502,8 +502,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
  	DIRTY=`git diff-index --name-only HEAD`;\
  	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
  	DAILY_TAG=`git tag --merged HEAD|grep "acrn"|tail -n 1`;\

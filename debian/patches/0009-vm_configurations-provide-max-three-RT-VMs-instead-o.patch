@@ -4,41 +4,12 @@ Subject: vm_configurations: provide max three RT VMs instead of only one
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/arch/x86/configs/vm_config.c                 | 11 ++++++++---
  hypervisor/include/common/vm_uuids.h                    |  8 ++++++++
  misc/acrn-config/library/scenario_cfg_lib.py            |  5 +++--
  misc/acrn-config/scenario_config/vm_configurations_c.py | 13 ++-----------
+ misc/hv_prebuild/vm_cfg_checks.c                        | 11 ++++++++---
  4 files changed, 21 insertions(+), 16 deletions(-)
 
-diff --git a/hypervisor/arch/x86/configs/vm_config.c b/hypervisor/arch/x86/configs/vm_config.c
-index 1f63ef4..a68638a 100644
---- a/hypervisor/arch/x86/configs/vm_config.c
-+++ b/hypervisor/arch/x86/configs/vm_config.c
-@@ -11,7 +11,11 @@
- #include <pgtable.h>
- #include <vuart.h>
- 
--static uint8_t rtvm_uuid1[16] = POST_RTVM_UUID1;
-+static uint8_t rtvm_uuid[3][16] = {
-+	POST_RTVM_UUID1,
-+	POST_RTVM_UUID2,
-+	POST_RTVM_UUID3,
-+};
- static uint8_t safety_vm_uuid1[16] = SAFETY_VM_UUID1;
- 
- /*
-@@ -70,8 +74,9 @@ static bool is_safety_vm_uuid(const uint8_t *uuid)
-  */
- static bool is_rtvm_uuid(const uint8_t *uuid)
- {
--	/* TODO: Extend to check more rtvm uuid if we have more than one RTVM. */
--	return uuid_is_equal(uuid, rtvm_uuid1);
-+	return uuid_is_equal(uuid, rtvm_uuid[0]) ||
-+	       uuid_is_equal(uuid, rtvm_uuid[1]) ||
-+	       uuid_is_equal(uuid, rtvm_uuid[2]);
- }
- 
- /**
 diff --git a/hypervisor/include/common/vm_uuids.h b/hypervisor/include/common/vm_uuids.h
 index 4927e09..89c66cd 100644
 --- a/hypervisor/include/common/vm_uuids.h
@@ -109,3 +80,32 @@ index 3c8204e..24992af 100644
  
  def vuart0_output(i, vm_type, vm_info, config):
      """
+diff --git a/misc/hv_prebuild/vm_cfg_checks.c b/misc/hv_prebuild/vm_cfg_checks.c
+index ea16631..ead9052 100644
+--- a/misc/hv_prebuild/vm_cfg_checks.c
++++ b/misc/hv_prebuild/vm_cfg_checks.c
+@@ -12,7 +12,11 @@
+ #include <vpci.h>
+ #include <hv_prebuild.h>
+ 
+-static uint8_t rtvm_uuid1[16] = POST_RTVM_UUID1;
++static uint8_t rtvm_uuid[3][16] = {
++	POST_RTVM_UUID1,
++	POST_RTVM_UUID2,
++	POST_RTVM_UUID3,
++};
+ static uint8_t safety_vm_uuid1[16] = SAFETY_VM_UUID1;
+ 
+ /* sanity check for below structs is not needed, so use a empty struct instead */
+@@ -39,8 +43,9 @@ static bool is_safety_vm_uuid(const uint8_t *uuid)
+  */
+ static bool is_rtvm_uuid(const uint8_t *uuid)
+ {
+-	/* TODO: Extend to check more rtvm uuid if we have more than one RTVM. */
+-	return uuid_is_equal(uuid, rtvm_uuid1);
++	return uuid_is_equal(uuid, rtvm_uuid[0]) ||
++	       uuid_is_equal(uuid, rtvm_uuid[1]) ||
++	       uuid_is_equal(uuid, rtvm_uuid[2]);
+ }
+ 
+ /**
