@@ -104,7 +104,8 @@ endif
 debian/acrn-hypervisor.postinst: debian/acrn-hypervisor.postinst.in
 	@$(call echo-verbose)
 	@$(call echo-silent,CREATE $@)
-	$(Q)sed -e 's/@acrnversion@/$(ACRNVERSION)/g' $< > $@
+	$(Q)sed -e 's/@acrnversion@/$(ACRNVERSION)/g' \
+		-e 's%@acrndir@%$(libdir)/acrn%g' $< > $@
 
 debian/acrn-hypervisor.postrm: debian/acrn-hypervisor.postrm.in
 	@$(call echo-verbose)
@@ -123,8 +124,7 @@ override_dh_installdeb: debian/acrn-hypervisor.postinst debian/acrn-hypervisor.p
 debian/acrn-hypervisor.templates: debian/acrn-hypervisor.templates.in
 	@$(call echo-verbose)
 	@$(call echo-silent,CREATE $@)
-	$(Q)sed -e 's/@boardlist@/$(call commasep,$(boardlist))/' \
-		-e 's/@scenariolist@/$(call commasep,$(scenariolist))/' $< > $@
+	$(Q)sed -e 's/@boardlist@/$(call commasep,$(boardlist))/g' $< > $@
 
 override_dh_installdebconf-arch: debian/acrn-hypervisor.templates
 	$(Q)dh_installdebconf -a
