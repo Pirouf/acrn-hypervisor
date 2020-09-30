@@ -8,7 +8,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 8 insertions(+)
 
 diff --git a/doc/tutorials/acrn_configuration_tool.rst b/doc/tutorials/acrn_configuration_tool.rst
-index 203cebd..3e85139 100644
+index 203cebd..d19c66d 100644
 --- a/doc/tutorials/acrn_configuration_tool.rst
 +++ b/doc/tutorials/acrn_configuration_tool.rst
 @@ -166,6 +166,14 @@ Additional scenario XML elements:
@@ -16,7 +16,7 @@ index 203cebd..3e85139 100644
    Error on Page Size Change is enabled.
  
 +``HIDDEN_PDEVS`` (a child node of ``FEATURES``):
-+  Optinional: Specify a list of ``BDF`` nodes. This overrides any existing configuration
++  Optional: Specify a list of ``BDF`` nodes. This overrides any existing configuration
 +  tool internal data.
 +
 +``BDF`` (a child node of ``FEATURES/HIDDEN_PDEVS``):

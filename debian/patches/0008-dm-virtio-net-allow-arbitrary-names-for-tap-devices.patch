@@ -12,7 +12,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 54 insertions(+), 2 deletions(-)
 
 diff --git a/devicemodel/hw/pci/virtio/virtio_net.c b/devicemodel/hw/pci/virtio/virtio_net.c
-index 6d51eea..6aebb38 100644
+index f42b7b1..5ae7639 100644
 --- a/devicemodel/hw/pci/virtio/virtio_net.c
 +++ b/devicemodel/hw/pci/virtio/virtio_net.c
 @@ -742,6 +742,59 @@ virtio_net_tap_setup(struct virtio_net *net, char *devname)
