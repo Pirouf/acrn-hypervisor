@@ -23,6 +23,10 @@
         <ACPI_PARSE_ENABLED desc="Enable ACPI runtime parsing.">y</ACPI_PARSE_ENABLED>
         <L1D_VMENTRY_ENABLED desc="Enable L1 cache flush before VM entry.">n</L1D_VMENTRY_ENABLED>
         <MCE_ON_PSC_DISABLED desc="Force to disable software workaround for Machine Check Error on Page Size Change.">n</MCE_ON_PSC_DISABLED>
+        <IVSHMEM desc="IVSHMEM configuration">
+            <IVSHMEM_ENABLED desc="Enable Share Memory between VMs by IVSHMEM.">n</IVSHMEM_ENABLED>
+            <IVSHMEM_REGION desc="the name, size, colon separated IDs of communication VMs of share memory region, separated by comma like this: hv:/shm_region_0, 0x200000, 0:2"></IVSHMEM_REGION>
+        </IVSHMEM>
         <HIDDEN_PDEVS desc="Enable SOS access to otherwise hidden PCI devices">
             <BDF>0:1b.0</BDF>
             <BDF>0:1b.1</BDF>
@@ -54,7 +58,7 @@
     <MEMORY>
         <STACK_SIZE desc="Capacity of one stack, in bytes.">0x2000</STACK_SIZE>
         <HV_RAM_SIZE desc="Size of the RAM region used by the hypervisor"></HV_RAM_SIZE>
-        <HV_RAM_START desc="2M-aligned Start physical address of the RAM region used by the hypervisor."></HV_RAM_START>
+        <HV_RAM_START desc="2M-aligned Start physical address of the RAM region used by the hypervisor.">0x11000000</HV_RAM_START>
         <LOW_RAM_SIZE desc="Size of the low RAM region">0x00010000</LOW_RAM_SIZE>
         <UOS_RAM_SIZE desc="Size of the User OS (UOS) RAM.">0x80000000</UOS_RAM_SIZE>
         <SOS_RAM_SIZE desc="Size of the Service OS (SOS) RAM.">0x800000000</SOS_RAM_SIZE>
