@@ -8,10 +8,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/doc/tutorials/acrn_configuration_tool.rst b/doc/tutorials/acrn_configuration_tool.rst
-index d1f8174..203cebd 100644
+index 8f965d7..36b6613 100644
 --- a/doc/tutorials/acrn_configuration_tool.rst
 +++ b/doc/tutorials/acrn_configuration_tool.rst
-@@ -162,7 +162,7 @@ Additional scenario XML elements:
+@@ -164,7 +164,7 @@ Additional scenario XML elements:
  ``L1D_VMENTRY_ENABLED`` (a child node of ``FEATURES``):
    Specify whether the L1 cache flush before VM entry is enabled.
  

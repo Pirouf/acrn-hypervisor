@@ -15,10 +15,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  4 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/devicemodel/Makefile b/devicemodel/Makefile
-index 3cfae45..ed53a3f 100644
+index 18dfab3..f36efb9 100644
 --- a/devicemodel/Makefile
 +++ b/devicemodel/Makefile
-@@ -208,8 +208,8 @@ $(VERSION_H):
+@@ -209,8 +209,8 @@ $(VERSION_H):
  		PATCH=$(DM_BUILD_VERSION);\
  		DAILY_TAG=$(DM_BUILD_TAG);\
  	fi;\
@@ -30,10 +30,10 @@ index 3cfae45..ed53a3f 100644
  	sed 's/^/ * /' ../LICENSE >> $(VERSION_H);\
  	echo " */" >> $(VERSION_H);\
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index dcc2527..440548e 100644
+index bc1cf33..dafb111 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -502,8 +502,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
+@@ -485,8 +485,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
  	DIRTY=`git diff-index --name-only HEAD`;\
  	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
  	DAILY_TAG=`git tag --merged HEAD|grep "acrn"|tail -n 1`;\

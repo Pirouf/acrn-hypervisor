@@ -8,11 +8,11 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/hypervisor/arch/x86/guest/ept.c b/hypervisor/arch/x86/guest/ept.c
-index a7b9d4c..d7307cd 100644
+index 724877d..9af680d 100644
 --- a/hypervisor/arch/x86/guest/ept.c
 +++ b/hypervisor/arch/x86/guest/ept.c
-@@ -113,7 +113,7 @@ void ept_add_mr(struct acrn_vm *vm, uint64_t *pml4_page,
- 	struct acrn_vcpu *vcpu;
+@@ -121,7 +121,7 @@ void ept_add_mr(struct acrn_vm *vm, uint64_t *pml4_page,
+ {
  	uint64_t prot = prot_orig;
  
 -	dev_dbg(DBG_LEVEL_EPT, "%s, vm[%d] hpa: 0x%016lx gpa: 0x%016lx size: 0x%016lx prot: 0x%016x\n",

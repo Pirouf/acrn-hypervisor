@@ -19,12 +19,12 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 87 insertions(+), 5 deletions(-)
 
 diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
-index 58e74af..e5e5012 100644
+index 7e7568b..6b57750 100644
 --- a/hypervisor/boot/guest/vboot_info.c
 +++ b/hypervisor/boot/guest/vboot_info.c
-@@ -24,19 +24,101 @@
+@@ -23,19 +23,101 @@
  
- #define INVALID_MOD_IDX		0xFFFFU
+ #define DBG_LEVEL_BOOT	6U
  
 +#define LINUX_INITRD_MAX_ADDRESS	0x37FFFFFFUL
 +#define VGDT_ALIGN			8
@@ -69,7 +69,7 @@ index 58e74af..e5e5012 100644
 +			       LINUX_INITRD_MAX_ADDRESS);
 +	} else {
 +		addr_max = LINUX_INITRD_MAX_ADDRESS;
- 	}
++ 	}
 +
 +	/*
 +	 * According to Grub:
@@ -102,7 +102,7 @@ index 58e74af..e5e5012 100644
 +				idx = i;
 +			}
 +		}
-+	}
+ 	}
 +
 +	if (idx < vm->e820_entry_num) {
 +		/* found an appropriate e820 mem range */

@@ -8,12 +8,12 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 8 insertions(+)
 
 diff --git a/doc/tutorials/acrn_configuration_tool.rst b/doc/tutorials/acrn_configuration_tool.rst
-index 203cebd..d19c66d 100644
+index 36b6613..04f355f 100644
 --- a/doc/tutorials/acrn_configuration_tool.rst
 +++ b/doc/tutorials/acrn_configuration_tool.rst
-@@ -166,6 +166,14 @@ Additional scenario XML elements:
-   Specify whether force to disable software workaround for Machine Check
-   Error on Page Size Change is enabled.
+@@ -186,6 +186,14 @@ Additional scenario XML elements:
+     separated by a ``:``, for example, ``0:2`` (to share this area between
+     VMs 0 and 2), or ``0:1:2`` (to let VMs 0, 1, and 2 share this area).
  
 +``HIDDEN_PDEVS`` (a child node of ``FEATURES``):
 +  Optional: Specify a list of ``BDF`` nodes. This overrides any existing configuration

@@ -18,18 +18,18 @@ calculation based on a physical UARTs.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- misc/acrn-config/board_config/misc_cfg_h.py | 71 ++---------------------------
- 1 file changed, 3 insertions(+), 68 deletions(-)
+ misc/acrn-config/library/scenario_cfg_lib.py | 80 ++--------------------------
+ 1 file changed, 3 insertions(+), 77 deletions(-)
 
-diff --git a/misc/acrn-config/board_config/misc_cfg_h.py b/misc/acrn-config/board_config/misc_cfg_h.py
-index f98ba62..fa3dc0a 100644
---- a/misc/acrn-config/board_config/misc_cfg_h.py
-+++ b/misc/acrn-config/board_config/misc_cfg_h.py
-@@ -24,79 +24,14 @@ class Vuart:
-     v_irq = {}
+diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
+index d3a4fdf..cd1a6fe 100644
+--- a/misc/acrn-config/library/scenario_cfg_lib.py
++++ b/misc/acrn-config/library/scenario_cfg_lib.py
+@@ -872,87 +872,13 @@ def check_pt_intx(phys_gsi, virt_gsi):
+             return
  
  
--def get_valid_ttys_for_vuart(ttys_n):
+-def get_valid_ttys_for_sos_vuart(ttys_n):
 -    """
 -    Get available ttysn list for vuart0/vuart1
 -    :param ttys_n: the serial port was chosen as hv console
@@ -62,33 +62,42 @@ index f98ba62..fa3dc0a 100644
 -    return (vuart0_valid, vuart1_valid)
 -
 -
- def get_vuart_settings():
+ def get_sos_vuart_settings(launch_flag=True):
      """
 -    Get vuart setting from scenario setting
-+    Get fixed vuart setting
++    Get fixed vuart settings
      :return: vuart0/vuart1 setting dictionary
      """
+-    global SOS_UART1_VALID_NUM
      err_dic = {}
 -    vuart0_setting = {}
 -    vuart1_setting = {}
 -
 -    (err_dic, ttys_n) = board_cfg_lib.parser_hv_console()
 -    if err_dic:
+-        if launch_flag:
+-            SOS_UART1_VALID_NUM += "ttyS1"
+-            return
 -        return err_dic
 -
 -    if ttys_n:
--        (vuart0_valid, vuart1_valid) = get_valid_ttys_for_vuart(ttys_n)
+-        (vuart0_valid, vuart1_valid) = get_valid_ttys_for_sos_vuart(ttys_n)
 -
 -        # VUART0 setting
--        if ttys_n not in list(NATIVE_TTYS_DIC.keys()):
--            vuart0_setting['ttyS0'] = board_cfg_lib.alloc_irq()
--        else:
--            if int(NATIVE_TTYS_DIC[ttys_n]['irq']) >= 16:
--                vuart0_setting[ttys_n] = board_cfg_lib.alloc_irq()
+-        if not launch_flag:
+-            if ttys_n not in list(NATIVE_TTYS_DIC.keys()):
+-                vuart0_setting['ttyS0'] = board_cfg_lib.alloc_irq()
 -            else:
--                vuart0_setting[ttys_n] = NATIVE_TTYS_DIC[ttys_n]['irq']
+-                if int(NATIVE_TTYS_DIC[ttys_n]['irq']) >= 16:
+-                    vuart0_setting[ttys_n] = board_cfg_lib.alloc_irq()
+-                else:
+-                    vuart0_setting[ttys_n] = NATIVE_TTYS_DIC[ttys_n]['irq']
 -    else:
 -        vuart1_valid = ['ttyS1']
+-
+-    if launch_flag:
+-        SOS_UART1_VALID_NUM += vuart1_valid[0]
+-        return
 -
 -    # VUART1 setting
 -    # The IRQ of vUART1(COM2) might be hard-coded by SOS ACPI table(i.e. host ACPI),
@@ -107,4 +116,3 @@ index f98ba62..fa3dc0a 100644
 +    vuart1_setting = {'ttyS1': 3}
  
      return (err_dic, vuart0_setting, vuart1_setting)
- 

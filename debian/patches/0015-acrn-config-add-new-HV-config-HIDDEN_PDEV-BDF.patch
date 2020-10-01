@@ -15,17 +15,17 @@ unvisible devices adt 0:d.0 and 0:14.1 use:
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- misc/acrn-config/board_config/board_c.py    | 22 ++++++++++++++++++----
- misc/acrn-config/board_config/misc_cfg_h.py |  8 ++++----
- misc/acrn-config/hv_config/hv_item.py       |  2 ++
- misc/acrn-config/library/common.py          |  4 ++--
+ misc/acrn-config/board_config/board_c.py      | 22 ++++++++++++++++++----
+ misc/acrn-config/board_config/board_info_h.py |  8 ++++----
+ misc/acrn-config/hv_config/hv_item.py         |  2 ++
+ misc/acrn-config/library/common.py            |  4 ++--
  4 files changed, 26 insertions(+), 10 deletions(-)
 
 diff --git a/misc/acrn-config/board_config/board_c.py b/misc/acrn-config/board_config/board_c.py
-index dbe55c1..f892437 100644
+index a79a98e..ce43672 100644
 --- a/misc/acrn-config/board_config/board_c.py
 +++ b/misc/acrn-config/board_config/board_c.py
-@@ -241,10 +241,24 @@ def gen_px_cx(config):
+@@ -242,10 +242,24 @@ def gen_px_cx(config):
  
  
  def gen_pci_hide(config):
@@ -54,18 +54,18 @@ index dbe55c1..f892437 100644
          print("const union pci_bdf plat_hidden_pdevs[MAX_HIDDEN_PDEVS_NUM] = {", file=config)
          for hidden_pdev_i in range(hidden_pdev_num):
              bus = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[0], 16))
-diff --git a/misc/acrn-config/board_config/misc_cfg_h.py b/misc/acrn-config/board_config/misc_cfg_h.py
-index 8542310..f98ba62 100644
---- a/misc/acrn-config/board_config/misc_cfg_h.py
-+++ b/misc/acrn-config/board_config/misc_cfg_h.py
-@@ -282,10 +282,10 @@ def generate_file(config):
+diff --git a/misc/acrn-config/board_config/board_info_h.py b/misc/acrn-config/board_config/board_info_h.py
+index 75edde9..f618774 100644
+--- a/misc/acrn-config/board_config/board_info_h.py
++++ b/misc/acrn-config/board_config/board_info_h.py
+@@ -83,10 +83,10 @@ def generate_file(config):
+     gen_known_caps_pci_head(config)
  
-     # set macro for HIDDEN PTDEVS
-     print("", file=config)
+     # define MAX_HIDDEN_PDEVS_NUM
 -    if board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB):
--        print("#define MAX_HIDDEN_PDEVS_NUM	{}U".format(len(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME])), file=config)
+-        print("#define MAX_HIDDEN_PDEVS_NUM\t\t{}U".format(len(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME])), file=config)
 -    else:
--        print("#define MAX_HIDDEN_PDEVS_NUM	0U", file=config)
+-        print("#define MAX_HIDDEN_PDEVS_NUM\t\t0U", file=config)
 +    hidden_list = common.get_hv_item_tag(common.SCENARIO_INFO_FILE, "FEATURES", "HIDDEN_PDEVS", "BDF")
 +    if len(hidden_list) == 0 and board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB):
 +        hidden_list = board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME]
@@ -74,10 +74,10 @@ index 8542310..f98ba62 100644
      # generate HI_MMIO_START/HI_MMIO_END
      find_hi_mmio_window(config)
 diff --git a/misc/acrn-config/hv_config/hv_item.py b/misc/acrn-config/hv_config/hv_item.py
-index c849b67..d9a42ee 100644
+index acedae8..374812d 100644
 --- a/misc/acrn-config/hv_config/hv_item.py
 +++ b/misc/acrn-config/hv_config/hv_item.py
-@@ -111,6 +111,7 @@ class Features:
+@@ -112,6 +112,7 @@ class Features:
          self.acpi_parse_enabled = ''
          self.l1d_flush_vmentry_enabled = ''
          self.mce_on_psc_workaround_disabled = ''
@@ -85,7 +85,7 @@ index c849b67..d9a42ee 100644
  
      def get_info(self):
          self.multiboot2 = common.get_hv_item_tag(self.hv_file, "FEATURES", "MULTIBOOT2")
-@@ -124,6 +125,7 @@ class Features:
+@@ -126,6 +127,7 @@ class Features:
          self.l1d_flush_vmentry_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "L1D_VMENTRY_ENABLED")
          self.mce_on_psc_workaround_disabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "MCE_ON_PSC_DISABLED")
          self.iommu_enforce_snp = common.get_hv_item_tag(self.hv_file, "FEATURES", "IOMMU_ENFORCE_SNP")
@@ -94,22 +94,22 @@ index c849b67..d9a42ee 100644
      def check_item(self):
          hv_cfg_lib.ny_support_check(self.multiboot2, "FEATURES", "MULTIBOOT2")
 diff --git a/misc/acrn-config/library/common.py b/misc/acrn-config/library/common.py
-index 6ab1854..be8b69f 100644
+index d93c2ab..a40b19f 100644
 --- a/misc/acrn-config/library/common.py
 +++ b/misc/acrn-config/library/common.py
-@@ -432,13 +432,13 @@ def get_hv_item_tag(config_file, branch_tag, tag_str='', leaf_str=''):
+@@ -448,13 +448,13 @@ def get_hv_item_tag(config_file, branch_tag, tag_str='', leaf_str=''):
                              tmp_list = []
                              for leaf_s in leaf:
                                  if leaf_s.tag == leaf_str and leaf_s.text and leaf_s.text != None:
--                                    if leaf_str == "CLOS_MASK":
-+                                    if leaf_str == "CLOS_MASK" or leaf_str == "BDF":
+-                                    if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION":
++                                    if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION" or leaf_str == "BDF":
                                          tmp_list.append(leaf_s.text)
                                      else:
                                          tmp = leaf_s.text
                                  continue
  
--                            if leaf_str == "CLOS_MASK":
-+                            if leaf_str == "CLOS_MASK" or leaf_str == "BDF":
+-                            if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION":
++                            if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION" or leaf_str == "BDF":
                                  tmp = tmp_list
                                  break
  

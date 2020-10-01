@@ -19,18 +19,18 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  4 files changed, 49 insertions(+), 9 deletions(-)
 
 diff --git a/hypervisor/arch/x86/guest/vm.c b/hypervisor/arch/x86/guest/vm.c
-index 1a3f6f5..f111308 100644
+index 6172571..1c73345 100644
 --- a/hypervisor/arch/x86/guest/vm.c
 +++ b/hypervisor/arch/x86/guest/vm.c
-@@ -32,6 +32,7 @@
- #include <pci_dev.h>
- #include <vacpi.h>
- #include <platform_caps.h>
+@@ -35,6 +35,7 @@
+ #include <mmio_dev.h>
+ #include <assign.h>
+ #include <vgpio.h>
 +#include <shell.h>
  
  vm_sw_loader_t vm_sw_loader;
  
-@@ -757,6 +758,7 @@ void prepare_vm(uint16_t vm_id, struct acrn_vm_config *vm_config)
+@@ -787,6 +788,7 @@ void prepare_vm(uint16_t vm_id, struct acrn_vm_config *vm_config)
  		start_vm(vm);
  
  		pr_acrnlog("Start VM id: %x name: %s", vm_id, vm_config->name);
@@ -79,18 +79,18 @@ index 72bed57..edb4886 100644
 -
  }
 diff --git a/hypervisor/debug/shell.c b/hypervisor/debug/shell.c
-index c0da0c8..3ca9e8f 100644
+index 63fd401..ed438e7 100644
 --- a/hypervisor/debug/shell.c
 +++ b/hypervisor/debug/shell.c
 @@ -29,6 +29,7 @@
  
- #define SHELL_LOG_BUF_SIZE		(PAGE_SIZE * MAX_PCPU_NUM)
+ #define SHELL_LOG_BUF_SIZE		(PAGE_SIZE * MAX_PCPU_NUM / 2U)
  static char shell_log_buf[SHELL_LOG_BUF_SIZE];
 +static uint16_t shell_vm_id = -1;
  
  /* Input Line Other - Switch to the "other" input line (there are only two
   * input lines total).
-@@ -957,18 +958,13 @@ static int32_t shell_dump_guest_mem(int32_t argc, char **argv)
+@@ -947,18 +948,13 @@ static int32_t shell_dump_guest_mem(int32_t argc, char **argv)
  	return ret;
  }
  
@@ -110,7 +110,7 @@ index c0da0c8..3ca9e8f 100644
  	/* Get the virtual device node */
  	vm = get_vm_from_vmid(vm_id);
  	if (is_poweroff_vm(vm)) {
-@@ -989,6 +985,34 @@ static int32_t shell_to_vm_console(int32_t argc, char **argv)
+@@ -979,6 +975,34 @@ static int32_t shell_to_vm_console(int32_t argc, char **argv)
  	return 0;
  }
  
@@ -146,10 +146,10 @@ index c0da0c8..3ca9e8f 100644
   * @brief Get the interrupt statistics
   *
 diff --git a/hypervisor/include/debug/shell.h b/hypervisor/include/debug/shell.h
-index 3534e4e..399deb0 100644
+index 67e5f46..ae69bc8 100644
 --- a/hypervisor/include/debug/shell.h
 +++ b/hypervisor/include/debug/shell.h
-@@ -7,8 +7,12 @@
+@@ -7,7 +7,11 @@
  #ifndef SHELL_H
  #define SHELL_H
  
@@ -160,5 +160,4 @@ index 3534e4e..399deb0 100644
 +bool handle_console_cmd(const char *cmd, int32_t len);
 +int32_t switch_vm_console(uint16_t vm_id);
  
- void set_vmexit_sample_flag(bool to_enable);
- bool is_vmexit_sample_enabled(void);
+ #endif /* SHELL_H */

@@ -7,14 +7,14 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  hypervisor/include/common/vm_uuids.h                    |  8 ++++++++
  misc/acrn-config/library/scenario_cfg_lib.py            |  5 +++--
  misc/acrn-config/scenario_config/vm_configurations_c.py | 13 ++-----------
- misc/hv_prebuild/vm_cfg_checks.c                        | 11 ++++++++---
- 4 files changed, 21 insertions(+), 16 deletions(-)
+ misc/hv_prebuild/vm_cfg_checks.c                        |  2 ++
+ 4 files changed, 15 insertions(+), 13 deletions(-)
 
 diff --git a/hypervisor/include/common/vm_uuids.h b/hypervisor/include/common/vm_uuids.h
-index 4927e09..89c66cd 100644
+index e87d071..d46eb73 100644
 --- a/hypervisor/include/common/vm_uuids.h
 +++ b/hypervisor/include/common/vm_uuids.h
-@@ -47,6 +47,14 @@
+@@ -51,6 +51,14 @@
  #define	POST_RTVM_UUID1		{0x49U, 0x5aU, 0xe2U, 0xe5U, 0x26U, 0x03U, 0x4dU, 0x64U, \
  				 0xafU, 0x76U, 0xd4U, 0xbcU, 0x5aU, 0x8eU, 0xc0U, 0xe5U}
  
@@ -30,10 +30,10 @@ index 4927e09..89c66cd 100644
  #define KATA_VM_UUID1		{0xa7U, 0xadU, 0xa5U, 0x06U, 0x1aU, 0xb0U, 0x4bU, 0x6bU, \
  				 0xa0U, 0xdaU, 0xe5U, 0x13U, 0xcaU, 0x9bU, 0x8cU, 0x2fU}
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index 5cec359..576b704 100644
+index d65cda2..d3a4fdf 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
-@@ -44,7 +44,8 @@ UUID_DB = {
+@@ -47,7 +47,8 @@ UUID_DB = {
      'PRE_STD_VM':['26c5e0d8-8f8a-47d8-8109-f201ebd61a5e', 'dd87ce08-66f9-473d-bc58-7605837f935e'],
      'POST_STD_VM':['d2795438-25d6-11e8-864e-cb7a18b34643', '615db82a-e189-4b4f-8dbb-d321343e4ab3',
          '38158821-5208-4005-b72a-8a609e4190d0', 'a6750180-f87a-48d2-91d9-4e7f62b6519e', 'd1816e4a-a9bb-4cb4-a066-3f1a8a5ce73f'],
@@ -41,9 +41,9 @@ index 5cec359..576b704 100644
 +    'POST_RT_VM':['495ae2e5-2603-4d64-af76-d4bc5a8ec0e5', '4b4d5d02-0909-4ca1-a2c2-acd0330d07bb',
 +        'da40d15c-1221-45aa-b0d6-f908fb347614'],
      'KATA_VM':['a7ada506-1ab0-4b6b-a0da-e513ca9b8c2f'],
+     'PRE_RT_VM':['b2a92bec-ca6b-11ea-b106-3716a8ba0bb9'],
  }
- 
-@@ -155,7 +156,7 @@ def load_vm_check(load_vms, item):
+@@ -195,7 +196,7 @@ def load_vm_check(load_vms, item):
          if "KATA_VM" == load_str:
              kata_vm_ids.append(order_i)
  
@@ -53,10 +53,10 @@ index 5cec359..576b704 100644
  
      KATA_VM_COUNT = len(kata_vm_ids)
 diff --git a/misc/acrn-config/scenario_config/vm_configurations_c.py b/misc/acrn-config/scenario_config/vm_configurations_c.py
-index 3c8204e..24992af 100644
+index e3ce33c..7a94c9a 100644
 --- a/misc/acrn-config/scenario_config/vm_configurations_c.py
 +++ b/misc/acrn-config/scenario_config/vm_configurations_c.py
-@@ -25,21 +25,12 @@ def get_pre_vm_type(vm_type, vm_i):
+@@ -28,21 +28,12 @@ def get_pre_vm_type(vm_type, vm_i):
              i_cnt += 1
      return "CONFIG_PRE_STD_VM({})".format(i_cnt)
  
@@ -81,31 +81,15 @@ index 3c8204e..24992af 100644
  def vuart0_output(i, vm_type, vm_info, config):
      """
 diff --git a/misc/hv_prebuild/vm_cfg_checks.c b/misc/hv_prebuild/vm_cfg_checks.c
-index ea16631..ead9052 100644
+index 31ae9a6..b773b55 100644
 --- a/misc/hv_prebuild/vm_cfg_checks.c
 +++ b/misc/hv_prebuild/vm_cfg_checks.c
-@@ -12,7 +12,11 @@
- #include <vpci.h>
- #include <hv_prebuild.h>
- 
--static uint8_t rtvm_uuid1[16] = POST_RTVM_UUID1;
-+static uint8_t rtvm_uuid[3][16] = {
-+	POST_RTVM_UUID1,
+@@ -16,6 +16,8 @@
+ static uint8_t rtvm_uuids[][16] = {
+ 	PRE_RTVM_UUID1,
+ 	POST_RTVM_UUID1,
 +	POST_RTVM_UUID2,
 +	POST_RTVM_UUID3,
-+};
+ };
  static uint8_t safety_vm_uuid1[16] = SAFETY_VM_UUID1;
  
- /* sanity check for below structs is not needed, so use a empty struct instead */
-@@ -39,8 +43,9 @@ static bool is_safety_vm_uuid(const uint8_t *uuid)
-  */
- static bool is_rtvm_uuid(const uint8_t *uuid)
- {
--	/* TODO: Extend to check more rtvm uuid if we have more than one RTVM. */
--	return uuid_is_equal(uuid, rtvm_uuid1);
-+	return uuid_is_equal(uuid, rtvm_uuid[0]) ||
-+	       uuid_is_equal(uuid, rtvm_uuid[1]) ||
-+	       uuid_is_equal(uuid, rtvm_uuid[2]);
- }
- 
- /**

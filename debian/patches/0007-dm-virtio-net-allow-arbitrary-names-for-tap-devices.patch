@@ -12,10 +12,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 54 insertions(+), 2 deletions(-)
 
 diff --git a/devicemodel/hw/pci/virtio/virtio_net.c b/devicemodel/hw/pci/virtio/virtio_net.c
-index f42b7b1..5ae7639 100644
+index cddd6e1..a27e690 100644
 --- a/devicemodel/hw/pci/virtio/virtio_net.c
 +++ b/devicemodel/hw/pci/virtio/virtio_net.c
-@@ -742,6 +742,59 @@ virtio_net_tap_setup(struct virtio_net *net, char *devname)
+@@ -807,6 +807,59 @@ virtio_net_tap_setup(struct virtio_net *net, char *devname)
  	}
  }
  
@@ -75,12 +75,12 @@ index f42b7b1..5ae7639 100644
  static int
  virtio_net_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
  {
-@@ -835,8 +888,7 @@ virtio_net_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
+@@ -900,8 +953,7 @@ virtio_net_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
  		return -1;
  	}
  
--	if (strncmp(devname, "tap", 3) == 0 ||
--	    strncmp(devname, "vmnet", 5) == 0)
+-	if ((strstr(devname, "tap") != NULL) ||
+-	    (strncmp(devname, "vmnet", 5) == 0))
 +	if (virtio_net_is_tap(devname))
  		virtio_net_tap_setup(net, devname);
  

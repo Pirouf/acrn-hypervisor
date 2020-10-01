@@ -11,10 +11,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/devicemodel/core/main.c b/devicemodel/core/main.c
-index 81e609a..e2ab609 100644
+index d13f459..50f0c0a 100644
 --- a/devicemodel/core/main.c
 +++ b/devicemodel/core/main.c
-@@ -793,6 +793,7 @@ main(int argc, char *argv[])
+@@ -807,6 +807,7 @@ main(int argc, char *argv[])
  	struct vmctx *ctx;
  	size_t memsize;
  	int option_idx = 0;
@@ -22,7 +22,7 @@ index 81e609a..e2ab609 100644
  
  	progname = basename(argv[0]);
  	memsize = 256 * MB;
-@@ -928,8 +929,8 @@ main(int argc, char *argv[])
+@@ -950,8 +951,8 @@ main(int argc, char *argv[])
  				errx(EX_USAGE, "invalid intr-monitor params %s", optarg);
  			break;
  		case CMD_OPT_LOGGER_SETTING:
@@ -33,7 +33,7 @@ index 81e609a..e2ab609 100644
  			break;
  		case CMD_OPT_PM_NOTIFY_CHANNEL:
  			if (strncmp("ioc", optarg, 3) == 0)
-@@ -968,6 +969,10 @@ main(int argc, char *argv[])
+@@ -987,6 +988,10 @@ main(int argc, char *argv[])
  		exit(1);
  	}
  

@@ -45,11 +45,11 @@ See the following figure for such a problematic scenario:
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/common/vm_load.c | 119 ++++++++++++++++++++++++++++++++++++++++----
- 1 file changed, 109 insertions(+), 10 deletions(-)
+ hypervisor/common/vm_load.c | 124 ++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 113 insertions(+), 11 deletions(-)
 
 diff --git a/hypervisor/common/vm_load.c b/hypervisor/common/vm_load.c
-index de9b580..d7346ca 100644
+index 73d596f..b69d5fc 100644
 --- a/hypervisor/common/vm_load.c
 +++ b/hypervisor/common/vm_load.c
 @@ -178,6 +178,93 @@ static void prepare_loading_rawimage(struct acrn_vm *vm)
@@ -146,7 +146,7 @@ index de9b580..d7346ca 100644
  /**
   * @pre vm != NULL
   */
-@@ -199,23 +286,35 @@ int32_t direct_boot_sw_loader(struct acrn_vm *vm)
+@@ -200,27 +287,42 @@ int32_t direct_boot_sw_loader(struct acrn_vm *vm)
  	 */
  	init_vcpu_protect_mode_regs(vcpu, get_guest_gdt_base_gpa(vcpu->vm));
  
@@ -179,6 +179,14 @@ index de9b580..d7346ca 100644
 +			bootargs_info->load_addr,
 +			strnlen_s((char *)bootargs_info->src_addr,
 +				MAX_BOOTARGS_SIZE) + 1U);
++		if (ret)
++			return ret;
+ 	}
+ 	/* Copy Guest OS ACPI to its load location */
+ 	if (acpi_info->size == ACPI_MODULE_SIZE) {
+-		(void)copy_to_gpa(vm, acpi_info->src_addr, (uint64_t)acpi_info->load_addr, ACPI_MODULE_SIZE);
++		ret = add_copy_operation(acpi_info->src_addr, acpi_info->load_addr,
++			ACPI_MODULE_SIZE);
 +		if (ret)
 +			return ret;
 +	}
