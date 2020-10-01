@@ -23,6 +23,10 @@
         <ACPI_PARSE_ENABLED desc="Enable ACPI runtime parsing.">y</ACPI_PARSE_ENABLED>
         <L1D_VMENTRY_ENABLED desc="Enable L1 cache flush before VM entry.">n</L1D_VMENTRY_ENABLED>
         <MCE_ON_PSC_DISABLED desc="Force to disable software workaround for Machine Check Error on Page Size Change.">n</MCE_ON_PSC_DISABLED>
+        <HIDDEN_PDEVS desc="Enable SOS access to otherwise hidden PCI devices">
+            <BDF>0:14.1</BDF>
+            <BDF>0:1f.1</BDF>
+        </HIDDEN_PDEVS>
     </FEATURES>
 
     <MEMORY>
