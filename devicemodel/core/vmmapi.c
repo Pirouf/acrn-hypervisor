@@ -468,6 +468,7 @@ vm_map_gpa(struct vmctx *ctx, vm_paddr_t gaddr, size_t len)
 		}
 	}
 
+	pr_dbg("%s context memory is not valid!\n", __func__);
 	return NULL;
 }
 
@@ -573,6 +574,18 @@ vm_deassign_pcidev(struct vmctx *ctx, struct acrn_assign_pcidev *pcidev)
 }
 
 int
+vm_assign_mmiodev(struct vmctx *ctx, struct acrn_mmiodev *mmiodev)
+{
+	return ioctl(ctx->fd, IC_ASSIGN_MMIODEV, mmiodev);
+}
+
+int
+vm_deassign_mmiodev(struct vmctx *ctx, struct acrn_mmiodev *mmiodev)
+{
+	return ioctl(ctx->fd, IC_DEASSIGN_MMIODEV, mmiodev);
+}
+
+int
 vm_map_ptdev_mmio(struct vmctx *ctx, int bus, int slot, int func,
 		   vm_paddr_t gpa, size_t len, vm_paddr_t hpa)
 {
@@ -602,6 +615,18 @@ vm_unmap_ptdev_mmio(struct vmctx *ctx, int bus, int slot, int func,
 	memmap.prot = PROT_ALL;
 
 	return ioctl(ctx->fd, IC_UNSET_MEMSEG, &memmap);
+}
+
+int
+vm_create_hv_vdev(struct vmctx *ctx, struct acrn_emul_dev *dev)
+{
+	return ioctl(ctx->fd, IC_CREATE_HV_VDEV, dev);
+}
+
+int
+vm_destroy_hv_vdev(struct vmctx *ctx, struct acrn_emul_dev *dev)
+{
+	return ioctl(ctx->fd, IC_DESTROY_HV_VDEV, dev);
 }
 
 int

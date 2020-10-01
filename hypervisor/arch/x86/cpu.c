@@ -27,6 +27,7 @@
 #include <vboot.h>
 #include <sgx.h>
 #include <uart16550.h>
+#include <ivshmem.h>
 
 #define CPU_UP_TIMEOUT		100U /* millisecond */
 #define CPU_DOWN_TIMEOUT	100U /* millisecond */
@@ -100,7 +101,7 @@ uint64_t get_active_pcpu_bitmap(void)
 
 static void enable_ac_for_splitlock(void)
 {
-#ifdef CONFIG_ENFORCE_TURNOFF_AC
+#ifndef CONFIG_ENFORCE_TURNOFF_AC
 	uint64_t test_ctl;
 
 	if (has_core_cap(1U << 5U)) {
@@ -214,22 +215,17 @@ void init_pcpu_post(uint16_t pcpu_id)
 		/* Calibrate TSC Frequency */
 		calibrate_tsc();
 
-		pr_acrnlog("HV version %s-%s-%s %s (daily tag:%s) build by %s%s, start time %luus",
+		pr_acrnlog("HV version %s-%s-%s %s (daily tag:%s) %s@%s build by %s%s, start time %luus",
 				HV_FULL_VERSION,
 				HV_BUILD_TIME, HV_BUILD_VERSION, HV_BUILD_TYPE,
-				HV_DAILY_TAG,
+				HV_DAILY_TAG, HV_BUILD_SCENARIO, HV_BUILD_BOARD,
 				HV_BUILD_USER, HV_CONFIG_TOOL, ticks_to_us(start_tsc));
 
-		pr_acrnlog("API version %u.%u",
-				HV_API_MAJOR_VERSION, HV_API_MINOR_VERSION);
+		pr_acrnlog("API version %u.%u",	HV_API_MAJOR_VERSION, HV_API_MINOR_VERSION);
 
 		pr_acrnlog("Detect processor: %s", (get_pcpu_info())->model_name);
 
 		pr_dbg("Core %hu is up", BSP_CPU_ID);
-
-		if (!sanitize_vm_config()) {
-			panic("VM Configuration Error!");
-		}
 
 		/* Warn for security feature not ready */
 		if (!check_cpu_security_cap()) {
@@ -248,7 +244,9 @@ void init_pcpu_post(uint16_t pcpu_id)
 			panic("failed to initialize iommu!");
 		}
 
-		hv_access_memory_region_update(get_mmcfg_base(), PCI_MMCONFIG_SIZE);
+#ifdef CONFIG_IVSHMEM_ENABLED
+		init_ivshmem_shared_memory();
+#endif
 		init_pci_pdev_list(); /* init_iommu must come before this */
 		ptdev_init();
 
@@ -271,6 +269,8 @@ void init_pcpu_post(uint16_t pcpu_id)
 		ASSERT(get_pcpu_id() == BSP_CPU_ID, "");
 	} else {
 		pr_dbg("Core %hu is up", pcpu_id);
+
+		pr_warn("Skipping VM configuration check which should be done before building HV binary.");
 
 		/* Initialize secondary processor interrupts. */
 		init_interrupt(pcpu_id);

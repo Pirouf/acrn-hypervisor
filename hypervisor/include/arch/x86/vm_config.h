@@ -10,10 +10,12 @@
 #include <types.h>
 #include <pci.h>
 #include <boot.h>
+#include <board_info.h>
 #include <acrn_common.h>
 #include <vm_uuids.h>
 #include <vm_configurations.h>
 #include <sgx.h>
+#include <acrn_hv_defs.h>
 
 #define CONFIG_MAX_VM_NUM	(PRE_VM_NUM + SOS_VM_NUM + MAX_POST_VM_NUM)
 
@@ -33,6 +35,8 @@
 #define PCI_DEV_TYPE_HVEMUL	(1U << 1U)
 #define PCI_DEV_TYPE_SOSEMUL	(1U << 2U)
 
+#define MAX_MMIO_DEV_NUM	2U
+
 #define CONFIG_SOS_VM		.load_order = SOS_VM,	\
 				.uuid = SOS_VM_UUID,	\
 				.severity = SEVERITY_SOS,	\
@@ -46,6 +50,10 @@
 #define CONFIG_PRE_STD_VM(idx)	.load_order = PRE_LAUNCHED_VM,	\
 				.uuid = PRE_STANDARD_VM_UUID##idx,	\
 				.severity = SEVERITY_STANDARD_VM
+
+#define CONFIG_PRE_RT_VM(idx)	.load_order = PRE_LAUNCHED_VM,	\
+				.uuid = PRE_RTVM_UUID##idx,	\
+				.severity = SEVERITY_RTVM
 
 #define CONFIG_POST_STD_VM(idx)	.load_order = POST_LAUNCHED_VM,	\
 				.uuid = POST_STANDARD_VM_UUID##idx,	\
@@ -132,13 +140,26 @@ struct acrn_vm_os_config {
 	uint64_t kernel_ramdisk_addr;
 } __aligned(8);
 
+struct acrn_vm_acpi_config {
+	char acpi_mod_tag[MAX_MOD_TAG_LEN];		/* multiboot module tag for ACPI */
+} __aligned(8);
+
+/* the vbdf is assgined by device model */
+#define UNASSIGNED_VBDF        0xFFFFU
+
 struct acrn_vm_pci_dev_config {
 	uint32_t emu_type;				/* the type how the device is emulated. */
 	union pci_bdf vbdf;				/* virtual BDF of PCI device */
 	union pci_bdf pbdf;				/* physical BDF of PCI device */
-	uint64_t vbar_base[PCI_BAR_COUNT];		/* vbar base address of PCI device */
+	char shm_region_name[32];			/* TODO: combine pbdf and shm_region_name into a union member */
+	uint64_t vbar_base[PCI_BAR_COUNT];		/* vbar base address of PCI device, which is power-on default value */
 	struct pci_pdev *pdev;				/* the physical PCI device if it's a PT device */
 	const struct pci_vdev_ops *vdev_ops;		/* operations for PCI CFG read/write */
+} __aligned(8);
+
+struct pt_intx_config {
+	uint32_t phys_gsi;	/* physical IOAPIC gsi to be forwarded to the VM */
+	uint32_t virt_gsi;	/* virtual IOAPIC gsi triggered on the vIOAPIC */
 } __aligned(8);
 
 struct acrn_vm_config {
@@ -163,9 +184,10 @@ struct acrn_vm_config {
 	uint16_t pci_dev_num;				/* indicate how many PCI devices in VM */
 	struct acrn_vm_pci_dev_config *pci_devs;	/* point to PCI devices BDF list */
 	struct acrn_vm_os_config os_config;		/* OS information the VM */
+	struct acrn_vm_acpi_config acpi_config;		/* ACPI config for the VM */
 
 	/*
-	 * below are varaible length members (per build).
+	 * below are variable length members (per build).
 	 * SOS can get the vm_configs[] array through hypercall, but SOS may not
 	 * need to parse these members.
 	 */
@@ -174,12 +196,19 @@ struct acrn_vm_config {
 							 */
 
 	struct vuart_config vuart[MAX_VUART_NUM_PER_VM];/* vuart configuration for VM */
+
+	bool pt_tpm2;
+	struct acrn_mmiodev mmiodevs[MAX_MMIO_DEV_NUM];
+
+	bool pt_p2sb_bar; /* whether to passthru p2sb bridge to pre-launched VM or not */
+
+	uint16_t pt_intx_num; /* number of pt_intx_config entries pointed by pt_intx */
+	struct pt_intx_config *pt_intx; /* stores the base address of struct pt_intx_config array */
 } __aligned(8);
 
 struct acrn_vm_config *get_vm_config(uint16_t vm_id);
 uint8_t get_vm_severity(uint16_t vm_id);
 bool vm_has_matched_uuid(uint16_t vmid, const uint8_t *uuid);
-bool sanitize_vm_config(void);
 
 extern struct acrn_vm_config vm_configs[CONFIG_MAX_VM_NUM];
 

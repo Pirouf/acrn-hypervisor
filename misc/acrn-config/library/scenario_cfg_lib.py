@@ -3,10 +3,13 @@
 # SPDX-License-Identifier: BSD-3-Clause
 #
 
+import math
 import common
 import board_cfg_lib
 
 HEADER_LICENSE = common.open_license()
+SOS_UART1_VALID_NUM = ""
+NATIVE_TTYS_DIC = {}
 
 START_HPA_LIST = ['0', '0x100000000', '0x120000000']
 
@@ -46,6 +49,7 @@ UUID_DB = {
         '38158821-5208-4005-b72a-8a609e4190d0', 'a6750180-f87a-48d2-91d9-4e7f62b6519e', 'd1816e4a-a9bb-4cb4-a066-3f1a8a5ce73f'],
     'POST_RT_VM':['495ae2e5-2603-4d64-af76-d4bc5a8ec0e5'],
     'KATA_VM':['a7ada506-1ab0-4b6b-a0da-e513ca9b8c2f'],
+    'PRE_RT_VM':['b2a92bec-ca6b-11ea-b106-3716a8ba0bb9'],
 }
 
 VM_DB = {
@@ -55,6 +59,7 @@ VM_DB = {
     'POST_STD_VM':{'load_type':'POST_LAUNCHED_VM', 'severity':'SEVERITY_STANDARD_VM', 'uuid':UUID_DB['POST_STD_VM']},
     'POST_RT_VM':{'load_type':'POST_LAUNCHED_VM', 'severity':'SEVERITY_RTVM', 'uuid':UUID_DB['POST_RT_VM']},
     'KATA_VM':{'load_type':'POST_LAUNCHED_VM', 'severity':'SEVERITY_STANDARD_VM', 'uuid':UUID_DB['KATA_VM']},
+    'PRE_RT_VM':{'load_type':'PRE_LAUNCHED_VM', 'severity':'SEVERITY_RTVM', 'uuid':UUID_DB['PRE_RT_VM']},
 }
 LOAD_VM_TYPE = list(VM_DB.keys())
 
@@ -88,6 +93,41 @@ def get_pci_num(pci_devs):
         pci_devs_num[vm_i] = cnt_dev
 
     return pci_devs_num
+
+
+def get_shmem_regions(raw_shmem_regions):
+    shmem_regions = {'err': []}
+    for raw_shmem_region in raw_shmem_regions:
+        if raw_shmem_region and raw_shmem_region.strip():
+            shm_splited = raw_shmem_region.split(',')
+            if len(shm_splited) == 3 and (shm_splited[0].strip() != '' and shm_splited[1].strip() != ''
+                                          and len(shm_splited[2].split(':')) >= 2):
+                name = shm_splited[0].strip()
+                size = shm_splited[1].strip()
+                vmid_list = shm_splited[2].split(':')
+                for i in range(len(vmid_list)):
+                    try:
+                        int_vm_id = int(vmid_list[i])
+                    except:
+                        shmem_regions['err'].append(raw_shmem_region)
+                        break
+                    if int_vm_id not in shmem_regions.keys():
+                        shmem_regions[int_vm_id] = [','.join([name, size, ':'.join(vmid_list[0:i]+vmid_list[i+1:])])]
+                    else:
+                        shmem_regions[int_vm_id].append(','.join([name, size, ':'.join(vmid_list[0:i]+vmid_list[i+1:])]))
+            elif raw_shmem_region.strip() != '':
+                shmem_regions['err'].append(raw_shmem_region)
+
+    return shmem_regions
+
+
+def get_shmem_num(shmem_regions):
+
+    shmem_num = {}
+    for shm_i, shm_list in shmem_regions.items():
+        shmem_num[shm_i] = len(shm_list)
+
+    return shmem_num
 
 
 def check_board_private_info():
@@ -179,9 +219,10 @@ def load_vm_check(load_vms, item):
         ERR_LIST[key] = "POST Standard vm number should not be greater than {}".format(len(UUID_DB["POST_STD_VM"]))
         return
 
-    if len(pre_vm_ids) > len(UUID_DB["PRE_STD_VM"]):
+    max_pre_launch_vms = len(UUID_DB["PRE_STD_VM"]) + len(UUID_DB["SAFETY_VM"]) + len(UUID_DB["PRE_RT_VM"])
+    if len(pre_vm_ids) > max_pre_launch_vms:
         key = "vm:id={},{}".format(pre_vm_ids[0], item)
-        ERR_LIST[key] = "PRE Standard vm number should not be greater than {}".format(len(UUID_DB["PRE_STD_VM"]))
+        ERR_LIST[key] = "PRE Launched VM number should not be greater than {}".format(max_pre_launch_vms)
         return
 
     if post_vm_ids and sos_vm_ids:
@@ -237,6 +278,7 @@ def vm_cpu_affinity_check(config_file, id_cpus_per_vm_dic, item):
             else:
                 use_cpus.append(cpu)
 
+    sos_vm_cpus = []
     pre_launch_cpus = []
     post_launch_cpus = []
     for vm_i, vm_type in common.VM_TYPES.items():
@@ -248,6 +290,9 @@ def vm_cpu_affinity_check(config_file, id_cpus_per_vm_dic, item):
         elif VM_DB[vm_type]['load_type'] == "POST_LAUNCHED_VM":
             cpus = [x for x in id_cpus_per_vm_dic[vm_i] if not None]
             post_launch_cpus.extend(cpus)
+        elif VM_DB[vm_type]['load_type'] == "SOS_VM":
+            cpus = [x for x in id_cpus_per_vm_dic[vm_i] if not None]
+            sos_vm_cpus.extend(cpus)
 
         # duplicate cpus assign the same VM check
         cpus_vm_i = id_cpus_per_vm_dic[vm_i]
@@ -258,13 +303,14 @@ def vm_cpu_affinity_check(config_file, id_cpus_per_vm_dic, item):
                 return err_dic
 
     if pre_launch_cpus:
+        if "SOS_VM" in common.VM_TYPES and not sos_vm_cpus:
+            key = "SOS VM cpu_affinity"
+            err_dic[key] = "Should assign CPU id for SOS VM"
+
         for pcpu in pre_launch_cpus:
             if pre_launch_cpus.count(pcpu) >= 2:
                 key = "Pre launched VM cpu_affinity"
                 err_dic[key] = "Pre_launched_vm vm should not have the same cpus assignment"
-            if pcpu in post_launch_cpus:
-                key = "Pre launched vm and Post launchded VM cpu_affinity"
-                err_dic[key] = "Pre launched_vm and Post launched vm should not have the same cpus assignment"
 
     return err_dic
 
@@ -381,7 +427,7 @@ def os_kern_args_check(id_kern_args_dic, prime_item, item):
             ERR_LIST[key] = "VM os config kernel service os should be SOS_VM_BOOTARGS"
 
 
-def os_kern_load_addr_check(id_kern_load_addr_dic, prime_item, item):
+def os_kern_load_addr_check(kern_type, id_kern_load_addr_dic, prime_item, item):
     """
     Check os kernel load address
     :param prime_item: the prime item in xml file
@@ -390,6 +436,8 @@ def os_kern_load_addr_check(id_kern_load_addr_dic, prime_item, item):
     """
 
     for id_key, kern_load_addr in id_kern_load_addr_dic.items():
+        if kern_type[id_key] != 'KERNEL_ZEPHYR':
+            continue
 
         if not kern_load_addr:
             key = "vm:id={},{},{}".format(id_key, prime_item, item)
@@ -401,7 +449,7 @@ def os_kern_load_addr_check(id_kern_load_addr_dic, prime_item, item):
             ERR_LIST[key] = "VM os config kernel load address should Hex format"
 
 
-def os_kern_entry_addr_check(id_kern_entry_addr_dic, prime_item, item):
+def os_kern_entry_addr_check(kern_type, id_kern_entry_addr_dic, prime_item, item):
     """
     Check os kernel entry address
     :param prime_item: the prime item in xml file
@@ -410,6 +458,8 @@ def os_kern_entry_addr_check(id_kern_entry_addr_dic, prime_item, item):
     """
 
     for id_key, kern_entry_addr in id_kern_entry_addr_dic.items():
+        if kern_type[id_key] != 'KERNEL_ZEPHYR':
+            continue
 
         if not kern_entry_addr:
             key = "vm:id={},{},{}".format(id_key, prime_item, item)
@@ -468,6 +518,20 @@ def cpus_assignment(cpus_per_vm, index):
     :return: cpu assignment string
     """
     vm_cpu_bmp = {}
+    if "SOS_VM" == common.VM_TYPES[index]:
+        if index not in cpus_per_vm or cpus_per_vm[index] == [None]:
+            sos_extend_all_cpus = board_cfg_lib.get_processor_info()
+            pre_all_cpus = []
+            for vmid, cpu_list in cpus_per_vm.items():
+                if vmid in common.VM_TYPES:
+                    vm_type = common.VM_TYPES[vmid]
+                    load_type = ''
+                    if vm_type in VM_DB:
+                        load_type = VM_DB[vm_type]['load_type']
+                    if load_type == "PRE_LAUNCHED_VM":
+                        pre_all_cpus += cpu_list
+            cpus_per_vm[index] = list(set(sos_extend_all_cpus) - set(pre_all_cpus))
+            cpus_per_vm[index].sort()
 
     for i in range(len(cpus_per_vm[index])):
         if i == 0:
@@ -581,24 +645,32 @@ def check_vuart(v0_vuart, v1_vuart):
             ERR_LIST[key] = "target_vm_id should be numeric of vm id"
         vm_target_id_dic[vm_i] = vuart_dic['target_vm_id']
 
+    connect_set = False
+    target_id_keys = list(vm_target_id_dic.keys())
+    i = 0
     for vm_i,t_vm_id in vm_target_id_dic.items():
-        if t_vm_id.isnumeric() and  int(t_vm_id) not in common.VM_TYPES.keys():
+        if t_vm_id.isnumeric() and int(t_vm_id) not in common.VM_TYPES.keys():
             key = "vm:id={},vuart:id=1,target_vm_id".format(vm_i)
             ERR_LIST[key] = "target_vm_id which specified does not exist"
+
+        idx = target_id_keys.index(vm_i)
+        i = idx
+        for j in range(idx + 1, len(target_id_keys)):
+            vm_j = target_id_keys[j]
+            if int(vm_target_id_dic[vm_i]) == vm_j and int(vm_target_id_dic[vm_j]) == vm_i:
+                connect_set = True
+
+    if not connect_set and len(target_id_keys) >= 2:
+        key = "vm:id={},vuart:id=1,target_vm_id".format(i)
+        ERR_LIST[key] = "Creating the wrong configuration for target_vm_id."
 
 
 def vcpu_clos_check(cpus_per_vm, clos_per_vm, prime_item, item):
 
-    if not board_cfg_lib.is_rdt_supported():
+    if not board_cfg_lib.is_rdt_enabled():
         return
 
-    common_clos_max = 0
-    cdp_enabled = cdp_enabled = common.get_hv_item_tag(common.SCENARIO_INFO_FILE, "FEATURES", "RDT", "CDP_ENABLED")
-    (rdt_resources, rdt_res_clos_max, _) = board_cfg_lib.clos_info_parser(common.BOARD_INFO_FILE)
-    if len(rdt_resources) != 0 and len(rdt_res_clos_max) != 0:
-        common_clos_max = min(rdt_res_clos_max)
-        if cdp_enabled == 'y':
-            common_clos_max //= 2
+    common_clos_max = board_cfg_lib.get_common_clos_max()
 
     for vm_i,vcpus in cpus_per_vm.items():
         clos_per_vm_len = 0
@@ -610,7 +682,7 @@ def vcpu_clos_check(cpus_per_vm, clos_per_vm, prime_item, item):
             ERR_LIST[key] = "'vcpu_clos' number should be equal 'pcpu_id' number for VM{}".format(vm_i)
             return
 
-        if cdp_enabled == 'y' and common_clos_max != 0:
+        if board_cfg_lib.is_cdp_enabled() and common_clos_max != 0:
             for clos_val in clos_per_vm[vm_i]:
                 if not clos_val or clos_val == None:
                     key = "vm:id={},{},{}".format(vm_i, prime_item, item)
@@ -621,3 +693,265 @@ def vcpu_clos_check(cpus_per_vm, clos_per_vm, prime_item, item):
                     key = "vm:id={},{},{}".format(vm_i, prime_item, item)
                     ERR_LIST[key] = "CDP_ENABLED=y, the clos value should not be greater than {} for VM{}".format(common_clos_max - 1, vm_i)
                     return
+
+
+def share_mem_check(shmem_regions, raw_shmem_regions, vm_type_info, prime_item, item, sub_item):
+
+    shmem_names = {}
+
+    MAX_SHMEM_REGION_NUM = 8
+    shmem_region_num = 0
+    for raw_shmem_region in raw_shmem_regions:
+        if raw_shmem_region is not None and  raw_shmem_region.strip() != '':
+            shmem_region_num += 1
+    if shmem_region_num > MAX_SHMEM_REGION_NUM:
+        key = "hv,{},{},{},{}".format(prime_item, item, sub_item, MAX_SHMEM_REGION_NUM)
+        ERR_LIST[key] = "The number of hv-land shmem regions should not be greater than {}.".format(MAX_SHMEM_REGION_NUM)
+        return
+
+    for shm_i, shm_list in shmem_regions.items():
+        for shm_str in shm_list:
+            index = -1
+            if shm_i == 'err':
+                for i in range(len(raw_shmem_regions)):
+                    if raw_shmem_regions[i] == shm_str:
+                        index = i
+                        break
+            if index == -1:
+                try:
+                    for i in range(len(raw_shmem_regions)):
+                        if raw_shmem_regions[i].split(',')[0].strip() == shm_str.split(',')[0].strip():
+                            index = i
+                            break
+                except:
+                    index = 0
+            key = "hv,{},{},{},{}".format(prime_item, item, sub_item, index)
+
+            shm_str_splited = shm_str.split(',')
+            if len(shm_str_splited) < 3:
+                ERR_LIST[key] = "The name, size, communication VM IDs of the share memory should be separated " \
+                                "by comma and not be empty."
+                return
+            try:
+                curr_vm_id = int(shm_i)
+            except:
+                ERR_LIST[key] = "The shared memory region should be configured with format like this: hv:/shm_region_0, 2, 0:2"
+                return
+            name = shm_str_splited[0].strip()
+            size = shm_str_splited[1].strip()
+            vmid_list = shm_str_splited[2].split(':')
+            int_vmid_list = []
+            for vmid in vmid_list:
+                try:
+                    int_vmid = int(vmid)
+                    int_vmid_list.append(int_vmid)
+                except:
+                    ERR_LIST[key] = "The communication VM IDs of the share memory should be decimal and separated by comma."
+                    return
+            if not int_vmid_list:
+                ERR_LIST[key] = "The communication VM IDs of the share memory should be decimal and separated by comma."
+                return
+            if curr_vm_id in int_vmid_list or len(set(int_vmid_list)) != len(int_vmid_list):
+                ERR_LIST[key] = "The communication VM IDs of the share memory should not be duplicated."
+                return
+            for target_vm_id in int_vmid_list:
+                if curr_vm_id not in vm_type_info.keys() or target_vm_id not in vm_type_info.keys() \
+                        or vm_type_info[curr_vm_id] in ['SOS_VM'] or vm_type_info[target_vm_id] in ['SOS_VM']:
+                    ERR_LIST[key] = "Shared Memory can be only configured for existed Pre-launched VMs and Post-launched VMs."
+                    return
+
+            if name =='' or size == '':
+                ERR_LIST[key] = "The name, size of the share memory should not be empty."
+                return
+            name_len = len(name)
+            if name_len > 32 or name_len == 0:
+                ERR_LIST[key] = "The size of share Memory name should be in range [1,32] bytes."
+                return
+
+            int_size = 0
+            try:
+                int_size = int(size) * 0x100000
+            except:
+                ERR_LIST[key] = "The size of the shared memory region should be a decimal number."
+                return
+            if int_size < 0x200000 or int_size > 0x20000000:
+                ERR_LIST[key] = "The size of the shared memory region should be in the range of [2MB, 512MB]."
+                return
+            if not ((int_size & (int_size-1) == 0) and int_size != 0):
+                ERR_LIST[key] = "The size of share Memory region should be a power of 2."
+                return
+
+            if name in shmem_names.keys():
+                shmem_names[name] += 1
+            else:
+                shmem_names[name] = 1
+            if shmem_names[name] > len(vmid_list)+1:
+                ERR_LIST[key] = "The names of share memory regions should not be duplicated: {}".format(name)
+                return
+
+    board_cfg_lib.parse_mem()
+    for shm_i, shm_list in shmem_regions.items():
+        for shm_str in shm_list:
+            shm_str_splited = shm_str.split(',')
+            name = shm_str_splited[0].strip()
+            index = 0
+            try:
+                for i in range(len(raw_shmem_regions)):
+                    if raw_shmem_regions[i].split(',')[0].strip() == shm_str.split(',')[0].strip():
+                        index = i
+                        break
+            except:
+                index = 0
+            key = "hv,{},{},{},{}".format(prime_item, item, sub_item, index)
+            if 'IVSHMEM_'+name in board_cfg_lib.PCI_DEV_BAR_DESC.shm_bar_dic.keys():
+                bar_attr_dic = board_cfg_lib.PCI_DEV_BAR_DESC.shm_bar_dic['IVSHMEM_'+name]
+                if (0 in bar_attr_dic.keys() and int(bar_attr_dic[0].addr, 16) < 0x80000000) \
+                    or (2 in bar_attr_dic.keys() and int(bar_attr_dic[2].addr, 16) < 0x100000000):
+                    ERR_LIST[key] = "Failed to get the start address of the shared memory, please check the size of it."
+                    return
+
+
+def check_p2sb(enable_p2sb):
+
+    for vm_i,p2sb in enable_p2sb.items():
+        if vm_i != 0:
+            key = "vm:id={},p2sb".format(vm_i)
+            ERR_LIST[key] = "Can only specify p2sb passthru for VM0"
+            return
+
+        if p2sb and not VM_DB[common.VM_TYPES[0]]['load_type'] == "PRE_LAUNCHED_VM":
+            ERR_LIST["vm:id=0,p2sb"] = "p2sb passthru can only be enabled for Pre-launched VM"
+            return
+
+        if p2sb and not board_cfg_lib.is_p2sb_passthru_possible():
+            ERR_LIST["vm:id=0,p2sb"] = "p2sb passthru is not allowed for this board"
+            return
+
+        if p2sb and board_cfg_lib.is_tpm_passthru():
+            ERR_LIST["vm:id=0,p2sb"] = "Cannot enable p2sb and tpm passthru at the same time"
+            return
+
+
+def check_pt_intx(phys_gsi, virt_gsi):
+
+    if not phys_gsi and not virt_gsi:
+        return
+
+    if not board_cfg_lib.is_matched_board(('ehl-crb-b')):
+        ERR_LIST["pt_intx"] = "only board ehl-crb-b is supported"
+        return
+
+    if not VM_DB[common.VM_TYPES[0]]['load_type'] == "PRE_LAUNCHED_VM":
+       ERR_LIST["pt_intx"] = "pt_intx can only be specified for pre-launched VM"
+       return
+
+    for (id1,p), (id2,v) in zip(phys_gsi.items(), virt_gsi.items()):
+        if id1 != 0 or id2 != 0:
+            ERR_LIST["pt_intx"] = "virt_gsi and phys_gsi can only be specified for VM0"
+            return
+
+        if len(p) != len(v):
+            ERR_LIST["vm:id=0,pt_intx"] = "virt_gsi and phys_gsi must have same length"
+            return
+
+        if len(p) != len(set(p)):
+            ERR_LIST["vm:id=0,pt_intx"] = "phys_gsi contains duplicates"
+            return
+
+        if len(v) != len(set(v)):
+            ERR_LIST["vm:id=0,pt_intx"] = "virt_gsi contains duplicates"
+            return
+
+        if len(p) > 120:
+            ERR_LIST["vm:id=0,pt_intx"] = "# of phys_gsi and virt_gsi pairs must not be greater than 120"
+            return
+
+        if not all(pin < 120 for pin in v):
+            ERR_LIST["vm:id=0,pt_intx"] = "virt_gsi must be less than 120"
+            return
+
+
+def get_valid_ttys_for_sos_vuart(ttys_n):
+    """
+    Get available ttysn list for vuart0/vuart1
+    :param ttys_n: the serial port was chosen as hv console
+     """
+    vuart0_valid = []
+    vuart1_valid = ['ttyS0', 'ttyS1', 'ttyS2', 'ttyS3']
+    ttys_lines = board_cfg_lib.get_info(common.BOARD_INFO_FILE, "<TTYS_INFO>", "</TTYS_INFO>")
+    if ttys_lines:
+        vuart0_valid.clear()
+        for tty_line in ttys_lines:
+            tmp_dic = {}
+            #seri:/dev/ttySx type:mmio base:0x91526000 irq:4 [bdf:"00:18.0"]
+            #seri:/dev/ttySy type:portio base:0x2f8 irq:5
+            tty = tty_line.split('/')[2].split()[0]
+            ttys_irq = tty_line.split()[3].split(':')[1].strip()
+            ttys_type = tty_line.split()[1].split(':')[1].strip()
+            tmp_dic['irq'] = int(ttys_irq)
+            tmp_dic['type'] = ttys_type
+            NATIVE_TTYS_DIC[tty] = tmp_dic
+            vuart0_valid.append(tty)
+            if tty and tty in vuart1_valid:
+                vuart1_valid.remove(tty)
+
+    if not vuart1_valid:
+        common.print_yel("ttyS are fully used. ttyS0 is used for hv_console, ttyS1 is used for vuart1!", warn=True)
+        vuart1_valid = ['ttyS0', 'ttyS1', 'ttyS2', 'ttyS3']
+        if ttys_n in vuart1_valid:
+            vuart1_valid.remove(ttys_n)
+
+    return (vuart0_valid, vuart1_valid)
+
+
+def get_sos_vuart_settings(launch_flag=True):
+    """
+    Get vuart setting from scenario setting
+    :return: vuart0/vuart1 setting dictionary
+    """
+    global SOS_UART1_VALID_NUM
+    err_dic = {}
+    vuart0_setting = {}
+    vuart1_setting = {}
+
+    (err_dic, ttys_n) = board_cfg_lib.parser_hv_console()
+    if err_dic:
+        if launch_flag:
+            SOS_UART1_VALID_NUM += "ttyS1"
+            return
+        return err_dic
+
+    if ttys_n:
+        (vuart0_valid, vuart1_valid) = get_valid_ttys_for_sos_vuart(ttys_n)
+
+        # VUART0 setting
+        if not launch_flag:
+            if ttys_n not in list(NATIVE_TTYS_DIC.keys()):
+                vuart0_setting['ttyS0'] = board_cfg_lib.alloc_irq()
+            else:
+                if int(NATIVE_TTYS_DIC[ttys_n]['irq']) >= 16:
+                    vuart0_setting[ttys_n] = board_cfg_lib.alloc_irq()
+                else:
+                    vuart0_setting[ttys_n] = NATIVE_TTYS_DIC[ttys_n]['irq']
+    else:
+        vuart1_valid = ['ttyS1']
+
+    if launch_flag:
+        SOS_UART1_VALID_NUM += vuart1_valid[0]
+        return
+
+    # VUART1 setting
+    # The IRQ of vUART1(COM2) might be hard-coded by SOS ACPI table(i.e. host ACPI),
+    # so we had better follow native COM2 IRQ assignment for vUART1 if COM2 is a legacy ttyS,
+    # otherwise function of vUART1 would be failed. If host COM2 does not exist or it is a PCI ttyS,
+    # then we could allocate a free IRQ for vUART1.
+
+    if 'ttyS1' in NATIVE_TTYS_DIC.keys() \
+        and NATIVE_TTYS_DIC['ttyS1']['type'] == "portio" \
+        and 'irq' in list(NATIVE_TTYS_DIC['ttyS1'].keys()) \
+        and NATIVE_TTYS_DIC['ttyS1']['irq'] < 16:
+        vuart1_setting['ttyS1'] = NATIVE_TTYS_DIC['ttyS1']['irq']
+    else:
+        vuart1_setting[vuart1_valid[0]] = board_cfg_lib.alloc_irq()
+
+    return (err_dic, vuart0_setting, vuart1_setting)

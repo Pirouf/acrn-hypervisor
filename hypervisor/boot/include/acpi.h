@@ -7,8 +7,7 @@
 #ifndef ACPI_H
 #define ACPI_H
 
-#include <vm_configurations.h>
-
+#include <board_info.h>
 
 #define ACPI_RSDP_CHECKSUM_LENGTH   20U
 #define ACPI_RSDP_XCHECKSUM_LENGTH  36U
@@ -57,6 +56,7 @@
 #define ACPI_SIG_DMAR            "DMAR"
 #define ACPI_SIG_MCFG            "MCFG" /* Memory Mapped Configuration table */
 #define ACPI_SIG_DSDT            "DSDT" /* Differentiated System Description Table */
+#define ACPI_SIG_TPM2            "TPM2" /* Trusted Platform Module hardware interface table */
 
 struct packed_gas {
 	uint8_t 	space_id;
@@ -225,6 +225,14 @@ struct acpi_dmar_device_scope {
 	uint16_t                  reserved;
 	uint8_t                   enumeration_id;
 	uint8_t                   bus;
+} __packed;
+
+struct acpi_table_tpm2 {
+	struct acpi_table_header header;
+	uint16_t platform_class;
+	uint16_t reserved;
+	uint64_t control_address;
+	uint32_t start_method;
 } __packed;
 
 void *get_acpi_tbl(const char *signature);

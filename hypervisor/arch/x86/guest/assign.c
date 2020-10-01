@@ -71,15 +71,16 @@ static void ptirq_free_irte(const struct ptirq_remapping_info *entry)
 {
 	struct intr_source intr_src;
 
-	if (entry->intr_type == PTDEV_INTR_MSI) {
-		intr_src.is_msi = true;
-		intr_src.src.msi.value = entry->phys_sid.msi_id.bdf;
-	} else {
-		intr_src.is_msi = false;
-		intr_src.src.ioapic_id = ioapic_irq_to_ioapic_id(entry->allocated_pirq);
+	if (entry->irte_idx < CONFIG_MAX_IR_ENTRIES) {
+		if (entry->intr_type == PTDEV_INTR_MSI) {
+			intr_src.is_msi = true;
+			intr_src.src.msi.value = entry->phys_sid.msi_id.bdf;
+		} else {
+			intr_src.is_msi = false;
+			intr_src.src.ioapic_id = ioapic_irq_to_ioapic_id(entry->allocated_pirq);
+		}
+		dmar_free_irte(&intr_src, entry->irte_idx);
 	}
-
-	dmar_free_irte(&intr_src, (uint16_t)entry->allocated_pirq);
 }
 
 /*
@@ -89,7 +90,7 @@ static void ptirq_free_irte(const struct ptirq_remapping_info *entry)
  * that posted mode shall be used
  */
 static void ptirq_build_physical_msi(struct acrn_vm *vm,
-	struct ptirq_remapping_info *entry, uint32_t vector, uint64_t pid_paddr)
+	struct ptirq_remapping_info *entry, uint32_t vector, uint64_t pid_paddr, uint16_t irte_idx)
 {
 	uint64_t vdmask, pdmask;
 	uint32_t dest, delmode, dest_mask;
@@ -126,23 +127,27 @@ static void ptirq_build_physical_msi(struct acrn_vm *vm,
 	intr_src.is_msi = true;
 	intr_src.pid_paddr = pid_paddr;
 	intr_src.src.msi.value = entry->phys_sid.msi_id.bdf;
-	ret = dmar_assign_irte(&intr_src, &irte, (uint16_t)entry->allocated_pirq);
+	if (entry->irte_idx == INVALID_IRTE_ID) {
+		entry->irte_idx = irte_idx;
+	}
+	ret = dmar_assign_irte(&intr_src, &irte, entry->irte_idx, &ir_index.index);
 
 	if (ret == 0) {
-		/*
-		 * Update the MSI interrupt source to point to the IRTE
-		 * SHV is set to 0 as ACRN disables MMC (Multi-Message Capable
-		 * for MSI devices.
-		 */
 		entry->pmsi.data.full = 0U;
-		ir_index.index = (uint16_t)entry->allocated_pirq;
-
 		entry->pmsi.addr.full = 0UL;
-		entry->pmsi.addr.ir_bits.intr_index_high = ir_index.bits.index_high;
-		entry->pmsi.addr.ir_bits.shv = 0U;
-		entry->pmsi.addr.ir_bits.intr_format = 0x1U;
-		entry->pmsi.addr.ir_bits.intr_index_low = ir_index.bits.index_low;
-		entry->pmsi.addr.ir_bits.constant = 0xFEEU;
+		entry->irte_idx = ir_index.index;
+		if (ir_index.index != INVALID_IRTE_ID) {
+			/*
+			 * Update the MSI interrupt source to point to the IRTE
+			 * SHV is set to 0 as ACRN disables MMC (Multi-Message Capable
+			 * for MSI devices.
+			 */
+			entry->pmsi.addr.ir_bits.intr_index_high = ir_index.bits.index_high;
+			entry->pmsi.addr.ir_bits.shv = 0U;
+			entry->pmsi.addr.ir_bits.intr_format = 0x1U;
+			entry->pmsi.addr.ir_bits.intr_index_low = ir_index.bits.index_low;
+			entry->pmsi.addr.ir_bits.constant = 0xFEEU;
+		}
 	} else {
 		/* In case there is no corresponding IOMMU, for example, if the
 		 * IOMMU is ignored, pass the MSI info in Compatibility Format
@@ -223,15 +228,19 @@ ptirq_build_physical_rte(struct acrn_vm *vm, struct ptirq_remapping_info *entry)
 		intr_src.is_msi = false;
 		intr_src.pid_paddr = 0UL;
 		intr_src.src.ioapic_id = ioapic_irq_to_ioapic_id(phys_irq);
-		ret = dmar_assign_irte(&intr_src, &irte, (uint16_t)phys_irq);
+		ret = dmar_assign_irte(&intr_src, &irte, entry->irte_idx, &ir_index.index);
 
 		if (ret == 0) {
-			ir_index.index = (uint16_t)phys_irq;
-			rte.ir_bits.vector = vector;
-			rte.ir_bits.constant = 0U;
-			rte.ir_bits.intr_index_high = ir_index.bits.index_high;
-			rte.ir_bits.intr_format = 1U;
-			rte.ir_bits.intr_index_low = ir_index.bits.index_low;
+			entry->irte_idx = ir_index.index;
+			if (ir_index.index != INVALID_IRTE_ID) {
+				rte.ir_bits.vector = vector;
+				rte.ir_bits.constant = 0U;
+				rte.ir_bits.intr_index_high = ir_index.bits.index_high;
+				rte.ir_bits.intr_format = 1U;
+				rte.ir_bits.intr_index_low = ir_index.bits.index_low;
+			} else {
+				rte.bits.intr_mask = 1;
+			}
 		} else {
 			rte.bits.dest_mode = IOAPIC_RTE_DESTMODE_LOGICAL;
 			rte.bits.delivery_mode = delmode;
@@ -316,7 +325,7 @@ remove_msix_remapping(const struct acrn_vm *vm, uint16_t phys_bdf, uint32_t entr
 
 		intr_src.is_msi = true;
 		intr_src.src.msi.value = entry->phys_sid.msi_id.bdf;
-		dmar_free_irte(&intr_src, (uint16_t)entry->allocated_pirq);
+		dmar_free_irte(&intr_src, entry->irte_idx);
 
 		dev_dbg(DBG_LEVEL_IRQ, "VM%d MSIX remove vector mapping vbdf-pbdf:0x%x-0x%x idx=%d",
 			vm->vm_id, entry->virt_sid.msi_id.bdf, phys_bdf, entry_nr);
@@ -405,7 +414,7 @@ static void remove_intx_remapping(const struct acrn_vm *vm, uint32_t virt_gsi, e
 			intr_src.is_msi = false;
 			intr_src.src.ioapic_id = ioapic_irq_to_ioapic_id(phys_irq);
 
-			dmar_free_irte(&intr_src, (uint16_t)phys_irq);
+			dmar_free_irte(&intr_src, entry->irte_idx);
 			dev_dbg(DBG_LEVEL_IRQ,
 				"deactive %s intx entry:pgsi=%d, pirq=%d ",
 				(vgsi_ctlr == INTX_CTLR_PIC) ? "vPIC" : "vIOAPIC",
@@ -560,7 +569,7 @@ void ptirq_intx_ack(struct acrn_vm *vm, uint32_t virt_gsi, enum intx_ctlr vgsi_c
  * user must provide bdf and entry_nr
  */
 int32_t ptirq_prepare_msix_remap(struct acrn_vm *vm, uint16_t virt_bdf, uint16_t phys_bdf,
-				uint16_t entry_nr, struct msi_info *info)
+				uint16_t entry_nr, struct msi_info *info, uint16_t irte_idx)
 {
 	struct ptirq_remapping_info *entry;
 	int32_t ret = -ENODEV;
@@ -580,21 +589,21 @@ int32_t ptirq_prepare_msix_remap(struct acrn_vm *vm, uint16_t virt_bdf, uint16_t
 
 		/* build physical config MSI, update to info->pmsi_xxx */
 		if (is_lapic_pt_configured(vm)) {
-			enum vm_vlapic_state vlapic_state = check_vm_vlapic_state(vm);
+			enum vm_vlapic_mode vlapic_mode = check_vm_vlapic_mode(vm);
 
-			if (vlapic_state == VM_VLAPIC_X2APIC) {
+			if (vlapic_mode == VM_VLAPIC_X2APIC) {
 				/*
 				 * All the vCPUs are in x2APIC mode and LAPIC is Pass-through
 				 * Use guest vector to program the interrupt source
 				 */
-				ptirq_build_physical_msi(vm, entry, (uint32_t)info->data.bits.vector, 0UL);
-			} else if (vlapic_state == VM_VLAPIC_XAPIC) {
+				ptirq_build_physical_msi(vm, entry, (uint32_t)info->data.bits.vector, 0UL, irte_idx);
+			} else if (vlapic_mode == VM_VLAPIC_XAPIC) {
 				/*
 				 * All the vCPUs are in xAPIC mode and LAPIC is emulated
 				 * Use host vector to program the interrupt source
 				 */
-				ptirq_build_physical_msi(vm, entry, irq_to_vector(entry->allocated_pirq), 0UL);
-			} else if (vlapic_state == VM_VLAPIC_TRANSITION) {
+				ptirq_build_physical_msi(vm, entry, irq_to_vector(entry->allocated_pirq), 0UL, irte_idx);
+			} else if (vlapic_mode == VM_VLAPIC_TRANSITION) {
 				/*
 				 * vCPUs are in middle of transition, so do not program interrupt source
 				 * TODO: Devices programmed during transistion do not work after transition
@@ -611,10 +620,10 @@ int32_t ptirq_prepare_msix_remap(struct acrn_vm *vm, uint16_t virt_bdf, uint16_t
 
 			if (is_pi_capable(vm) && (vcpu != NULL)) {
 				ptirq_build_physical_msi(vm, entry,
-					(uint32_t)info->data.bits.vector, hva2hpa(get_pi_desc(vcpu)));
+					(uint32_t)info->data.bits.vector, hva2hpa(get_pi_desc(vcpu)), irte_idx);
 			} else {
 				/* Go with remapped mode if we cannot handle it in posted mode */
-				ptirq_build_physical_msi(vm, entry, irq_to_vector(entry->allocated_pirq), 0UL);
+				ptirq_build_physical_msi(vm, entry, irq_to_vector(entry->allocated_pirq), 0UL, irte_idx);
 			}
 		}
 
@@ -671,7 +680,7 @@ int32_t ptirq_intx_pin_remap(struct acrn_vm *vm, uint32_t virt_gsi, enum intx_ct
 	DEFINE_INTX_SID(alt_virt_sid, virt_gsi, vgsi_ctlr);
 
 	/*
-	 * virt pin could come from vpic master, vpic slave or vioapic
+	 * virt pin could come from primary vPIC, secondary vPIC or vIOAPIC
 	 * while phys pin is always means for physical IOAPIC.
 	 *
 	 * Device Model should pre-hold the mapping entries by calling
@@ -792,5 +801,18 @@ void ptirq_remove_msix_remapping(const struct acrn_vm *vm, uint16_t phys_bdf,
 		spinlock_obtain(&ptdev_lock);
 		remove_msix_remapping(vm, phys_bdf, i);
 		spinlock_release(&ptdev_lock);
+	}
+}
+
+/*
+ * @pre vm != NULL
+ */
+void ptirq_remove_configured_intx_remappings(const struct acrn_vm *vm)
+{
+	const struct acrn_vm_config *vm_config = get_vm_config(vm->vm_id);
+	uint32_t i;
+
+	for (i = 0; i < vm_config->pt_intx_num; i++) {
+		ptirq_remove_intx_remapping(vm, vm_config->pt_intx[i].virt_gsi, false);
 	}
 }

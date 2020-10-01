@@ -1,4 +1,3 @@
-From bd3354107f653895ee55808816f0d5cd2366f535 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Sun, 5 Apr 2020 09:56:29 +0200
 Subject: Makefile: Make builds reproducible
@@ -16,7 +15,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  4 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/devicemodel/Makefile b/devicemodel/Makefile
-index 3cfae455..ed53a3fb 100644
+index 3cfae45..ed53a3f 100644
 --- a/devicemodel/Makefile
 +++ b/devicemodel/Makefile
 @@ -208,8 +208,8 @@ $(VERSION_H):
@@ -31,10 +30,10 @@ index 3cfae455..ed53a3fb 100644
  	sed 's/^/ * /' ../LICENSE >> $(VERSION_H);\
  	echo " */" >> $(VERSION_H);\
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index 068e20c2..a12835ff 100644
+index dcc2527..440548e 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -510,8 +510,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
+@@ -502,8 +502,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
  	DIRTY=`git diff-index --name-only HEAD`;\
  	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
  	DAILY_TAG=`git tag --merged HEAD|grep "acrn"|tail -n 1`;\
@@ -46,7 +45,7 @@ index 068e20c2..a12835ff 100644
  	echo "/*" > $(VERSION); \
  	sed 's/^/ * /' ../LICENSE >> $(VERSION); \
 diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
-index 7bc25674..7b692935 100644
+index 7bc2567..7b69293 100644
 --- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
 +++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
 @@ -65,8 +65,8 @@ $(VERSION_H):
@@ -61,7 +60,7 @@ index 7bc25674..7b692935 100644
  	echo "#define AP_MAJOR_VERSION $(MAJOR_VERSION)" >> $(VERSION_H);\
  	echo "#define AP_MINOR_VERSION $(MINOR_VERSION)" >> $(VERSION_H);\
 diff --git a/misc/tools/acrn-crashlog/usercrash/Makefile b/misc/tools/acrn-crashlog/usercrash/Makefile
-index dec5a0f9..a7e5471c 100644
+index dec5a0f..a7e5471 100644
 --- a/misc/tools/acrn-crashlog/usercrash/Makefile
 +++ b/misc/tools/acrn-crashlog/usercrash/Makefile
 @@ -45,8 +45,8 @@ $(VERSION_H):
@@ -75,6 +74,3 @@ index dec5a0f9..a7e5471c 100644
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
  	echo "#define UC_MAJOR_VERSION $(MAJOR_VERSION)" >> $(VERSION_H);\
  	echo "#define UC_MINOR_VERSION $(MINOR_VERSION)" >> $(VERSION_H);\
--- 
-2.20.1
-

@@ -31,6 +31,7 @@
 #include <ptdev.h>
 #include <assign.h>
 #include <vpci.h>
+#include <vtd.h>
 #include "vpci_priv.h"
 
 
@@ -78,7 +79,7 @@ static void remap_vmsi(const struct pci_vdev *vdev)
 	info.addr.full = (uint64_t)vmsi_addrlo | ((uint64_t)vmsi_addrhi << 32U);
 	info.data.full = vmsi_msgdata;
 
-	if (ptirq_prepare_msix_remap(vm, vdev->bdf.value, pbdf.value, 0U, &info) == 0) {
+	if (ptirq_prepare_msix_remap(vm, vdev->bdf.value, pbdf.value, 0U, &info, INVALID_IRTE_ID) == 0) {
 		pci_pdev_write_cfg(pbdf, capoff + PCIR_MSI_ADDR, 0x4U, (uint32_t)info.addr.full);
 		if (vdev->msi.is_64bit) {
 			pci_pdev_write_cfg(pbdf, capoff + PCIR_MSI_ADDR_HIGH, 0x4U,
@@ -112,7 +113,7 @@ void write_vmsi_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, 
 {
 	/* Capability ID, Next Capability Pointer and Message Control
 	 * (Except MSI Enable bit and Multiple Message Enable) are RO */
-	static const uint8_t msi_ro_mask[0xEU] = { 0xffU, 0xffU, 0x1eU, 0xffU };
+	static const uint8_t msi_ro_mask[0xEU] = { 0xffU, 0xffU, 0x8eU, 0xffU };
 	uint32_t msgctrl, old, ro_mask = ~0U;
 
 	enable_disable_msi(vdev, false);
@@ -133,11 +134,10 @@ void write_vmsi_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, 
  * @pre vdev != NULL
  * @pre vdev->vpci != NULL
  */
-void deinit_vmsi(struct pci_vdev *vdev)
+void deinit_vmsi(const struct pci_vdev *vdev)
 {
 	if (has_msi_cap(vdev)) {
 		ptirq_remove_msix_remapping(vpci2vm(vdev->vpci), vdev->pdev->bdf.value, 1U);
-		(void)memset((void *)&vdev->msi, 0U, sizeof(struct pci_msi));
 	}
 }
 

@@ -54,10 +54,9 @@
  */
 
 struct acrn_single_vioapic {
-	spinlock_t	mtx;
+	spinlock_t	lock;
 	struct acrn_vm  *vm;
 	struct ioapic_info chipinfo;
-	bool		ready;
 	uint32_t	ioregsel;
 	union ioapic_rte rtbl[REDIR_ENTRIES_HW];
 	/* pin_state status bitmap: 1 - high, 0 - low */
@@ -120,6 +119,7 @@ uint32_t get_vm_gsicount(const struct acrn_vm *vm);
 void	vioapic_broadcast_eoi(const struct acrn_vm *vm, uint32_t vector);
 void	vioapic_get_rte(const struct acrn_vm *vm, uint32_t vgsi, union ioapic_rte *rte);
 int32_t	vioapic_mmio_access_handler(struct io_request *io_req, void *handler_private_data);
+struct acrn_single_vioapic *vgsi_to_vioapic_and_vpin(const struct acrn_vm *vm, uint32_t vgsi, uint32_t *vpin);
 
 /**
  * @}

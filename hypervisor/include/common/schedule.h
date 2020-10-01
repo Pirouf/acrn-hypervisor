@@ -37,6 +37,7 @@ struct thread_object {
 	struct sched_control *sched_ctl;
 	thread_entry_t thread_entry;
 	volatile enum thread_object_state status;
+	bool be_blocking;
 	enum sched_notify_mode notify_mode;
 
 	uint64_t host_sp;
@@ -113,8 +114,8 @@ bool need_reschedule(uint16_t pcpu_id);
 
 void run_thread(struct thread_object *obj);
 void sleep_thread(struct thread_object *obj);
+void sleep_thread_sync(struct thread_object *obj);
 void wake_thread(struct thread_object *obj);
-void kick_thread(const struct thread_object *obj);
 void yield_current(void);
 void schedule(void);
 

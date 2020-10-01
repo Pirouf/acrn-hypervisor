@@ -22,8 +22,7 @@ or use Git clone and checkout commands::
 The project's online technical documentation is also tagged to correspond
 with a specific release: generated v1.6 documents can be found at https://projectacrn.github.io/1.6/.
 Documentation for the latest (master) branch is found at https://projectacrn.github.io/latest/.
-ACRN v1.6 requires Clear Linux OS version 32680. Follow the
-instructions in the :ref:`rt_industry_setup`.
+ACRN v1.6 requires Clear Linux OS version 32680.
 
 Version 1.6 major features
 **************************
@@ -40,7 +39,7 @@ What's New in v1.6
 
   - The ACRN hypervisor allows a SRIOV-capable PCI device's Virtual Functions (VFs) to be allocated to any VM.
 
-  - The ACRN Service VM supports the SRIOV ethernet device (through the PF driver), and ensures that the SRIOV VF device is able to be assigned (passthrough) to a post-launched VM (launched by ACRN-DM).
+  - The ACRN Service VM supports the SRIOV Ethernet device (through the PF driver), and ensures that the SRIOV VF device is able to be assigned (passthrough) to a post-launched VM (launched by ACRN-DM).
 
 * CPU sharing enhancement -  Halt/Pause emulation
 

@@ -11,6 +11,7 @@
 #include <ptdev.h>
 #include <irq.h>
 #include <logmsg.h>
+#include <vtd.h>
 
 #define PTIRQ_ENTRY_HASHBITS	9U
 #define PTIRQ_ENTRY_HASHSIZE	(1U << PTIRQ_ENTRY_HASHBITS)
@@ -18,7 +19,7 @@
 #define PTIRQ_BITMAP_ARRAY_SIZE	INT_DIV_ROUNDUP(CONFIG_MAX_PT_IRQ_ENTRIES, 64U)
 struct ptirq_remapping_info ptirq_entries[CONFIG_MAX_PT_IRQ_ENTRIES];
 static uint64_t ptirq_entry_bitmaps[PTIRQ_BITMAP_ARRAY_SIZE];
-spinlock_t ptdev_lock;
+spinlock_t ptdev_lock = { .head = 0U, .tail = 0U, };
 
 static struct ptirq_entry_head {
 	struct hlist_head list;
@@ -127,6 +128,7 @@ struct ptirq_remapping_info *ptirq_alloc_entry(struct acrn_vm *vm, uint32_t intr
 		entry->intr_type = intr_type;
 		entry->vm = vm;
 		entry->intr_count = 0UL;
+		entry->irte_idx = INVALID_IRTE_ID;
 
 		INIT_LIST_HEAD(&entry->softirq_node);
 
@@ -221,7 +223,6 @@ void ptirq_deactivate_entry(struct ptirq_remapping_info *entry)
 void ptdev_init(void)
 {
 	if (get_pcpu_id() == BSP_CPU_ID) {
-		spinlock_init(&ptdev_lock);
 		register_softirq(SOFTIRQ_PTDEV, ptirq_softirq);
 	}
 	INIT_LIST_HEAD(&get_cpu_var(softirq_dev_entry_list));

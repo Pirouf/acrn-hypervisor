@@ -128,6 +128,8 @@ struct dmar_drhd_rt {
 
 	uint64_t root_table_addr;
 	uint64_t ir_table_addr;
+	uint64_t irte_alloc_bitmap[CONFIG_MAX_IR_ENTRIES / 64U];
+	uint64_t irte_reserved_bitmap[CONFIG_MAX_IR_ENTRIES / 64U];
 	uint64_t qi_queue;
 	uint16_t qi_tail;
 
@@ -549,6 +551,8 @@ static void dmar_issue_qi_request(struct dmar_drhd_rt *dmar_unit, struct dmar_en
 	uint32_t qi_status = 0U;
 	uint64_t start;
 
+	spinlock_obtain(&(dmar_unit->lock));
+
 	invalidate_desc_ptr = (struct dmar_entry *)(dmar_unit->qi_queue + dmar_unit->qi_tail);
 
 	invalidate_desc_ptr->hi_64 = invalidate_desc.hi_64;
@@ -572,6 +576,8 @@ static void dmar_issue_qi_request(struct dmar_drhd_rt *dmar_unit, struct dmar_en
 		}
 		asm_pause();
 	}
+
+	spinlock_release(&(dmar_unit->lock));
 }
 
 /*
@@ -604,11 +610,7 @@ static void dmar_invalid_context_cache(struct dmar_drhd_rt *dmar_unit,
 	}
 
 	if (invalidate_desc.lo_64 != 0UL) {
-		spinlock_obtain(&(dmar_unit->lock));
-
 		dmar_issue_qi_request(dmar_unit, invalidate_desc);
-
-		spinlock_release(&(dmar_unit->lock));
 	}
 }
 
@@ -651,11 +653,7 @@ static void dmar_invalid_iotlb(struct dmar_drhd_rt *dmar_unit, uint16_t did, uin
 	}
 
 	if (invalidate_desc.lo_64 != 0UL) {
-		spinlock_obtain(&(dmar_unit->lock));
-
 		dmar_issue_qi_request(dmar_unit, invalidate_desc);
-
-		spinlock_release(&(dmar_unit->lock));
 	}
 }
 
@@ -706,11 +704,7 @@ static void dmar_invalid_iec(struct dmar_drhd_rt *dmar_unit, uint16_t intr_index
 	}
 
 	if (invalidate_desc.lo_64 != 0UL) {
-		spinlock_obtain(&(dmar_unit->lock));
-
 		dmar_issue_qi_request(dmar_unit, invalidate_desc);
-
-		spinlock_release(&(dmar_unit->lock));
 	}
 }
 
@@ -985,6 +979,17 @@ static void resume_dmar(struct dmar_drhd_rt *dmar_unit)
 	dmar_enable_intr_remapping(dmar_unit);
 }
 
+static inline bool is_dmar_unit_ignored(const struct dmar_drhd_rt *dmar_unit)
+{
+	bool ignored = false;
+
+	if ((dmar_unit != NULL) && (dmar_unit->drhd->ignore)) {
+		ignored = true;
+	}
+
+	return ignored;
+}
+
 static bool is_dmar_unit_valid(const struct dmar_drhd_rt *dmar_unit, union pci_bdf sid)
 {
 	bool valid = false;
@@ -1072,6 +1077,8 @@ static int32_t iommu_attach_device(const struct iommu_domain *domain, uint8_t bu
 			iommu_flush_cache(context_entry, sizeof(struct dmar_entry));
 			ret = 0;
 		}
+	} else if (is_dmar_unit_ignored(dmar_unit)) {
+	       ret = 0;
 	}
 
 	return ret;
@@ -1125,7 +1132,10 @@ static int32_t iommu_detach_device(const struct iommu_domain *domain, uint8_t bu
 			dmar_invalid_iotlb(dmar_unit, vmid_to_domainid(domain->vm_id), 0UL, 0U, false,
 							DMAR_IIRG_DOMAIN);
 		}
+	} else if (is_dmar_unit_ignored(dmar_unit)) {
+	       ret = 0;
 	}
+
 	return ret;
 }
 
@@ -1261,7 +1271,62 @@ int32_t init_iommu(void)
 	return ret;
 }
 
-int32_t dmar_assign_irte(const struct intr_source *intr_src, union dmar_ir_entry *irte, uint16_t index)
+/* Allocate continuous IRTEs specified by num, num can be 1, 2, 4, 8, 16, 32 */
+static uint16_t alloc_irtes(struct dmar_drhd_rt *dmar_unit, const uint16_t num)
+{
+	uint16_t irte_idx;
+	uint64_t mask = (1UL << num) - 1U;
+	uint64_t test_mask;
+
+	ASSERT((bitmap_weight(num) == 1U) && (num <= 32U));
+
+	spinlock_obtain(&dmar_unit->lock);
+	for (irte_idx = 0U; irte_idx < CONFIG_MAX_IR_ENTRIES; irte_idx += num) {
+		test_mask = mask << (irte_idx & 0x3FU);
+		if ((dmar_unit->irte_alloc_bitmap[irte_idx >> 6U] & test_mask) == 0UL) {
+			dmar_unit->irte_alloc_bitmap[irte_idx >> 6U] |= test_mask;
+			break;
+		}
+	}
+	spinlock_release(&dmar_unit->lock);
+
+	return (irte_idx < CONFIG_MAX_IR_ENTRIES) ? irte_idx: INVALID_IRTE_ID;
+}
+
+static bool is_irte_reserved(const struct dmar_drhd_rt *dmar_unit, uint16_t index)
+{
+	return ((dmar_unit->irte_reserved_bitmap[index >> 6U] & (1UL << (index & 0x3FU))) != 0UL);
+}
+
+int32_t dmar_reserve_irte(const struct intr_source *intr_src, uint16_t num, uint16_t *start_id)
+{
+	struct dmar_drhd_rt *dmar_unit;
+	union pci_bdf sid;
+	uint64_t mask = (1UL << num) - 1U;
+	int32_t ret = -EINVAL;
+
+	if (intr_src->is_msi) {
+		dmar_unit = device_to_dmaru((uint8_t)intr_src->src.msi.bits.b, intr_src->src.msi.fields.devfun);
+		sid.value = (uint16_t)(intr_src->src.msi.value);
+	} else {
+		dmar_unit = ioapic_to_dmaru(intr_src->src.ioapic_id, &sid);
+	}
+
+	if (is_dmar_unit_valid(dmar_unit, sid)) {
+		*start_id = alloc_irtes(dmar_unit, num);
+		if (*start_id < CONFIG_MAX_IR_ENTRIES) {
+			dmar_unit->irte_reserved_bitmap[*start_id >> 6U] |= mask << (*start_id & 0x3FU);
+		}
+		ret = 0;
+	}
+
+	pr_dbg("%s: for dev 0x%x:%x.%x, reserve %u entry for MSI(%d), start from %d",
+		__func__, sid.bits.b, sid.bits.d, sid.bits.f, num, intr_src->is_msi, *start_id);
+	return ret;
+}
+
+int32_t dmar_assign_irte(const struct intr_source *intr_src, union dmar_ir_entry *irte,
+	uint16_t idx_in, uint16_t *idx_out)
 {
 	struct dmar_drhd_rt *dmar_unit;
 	union dmar_ir_entry *ir_table, *ir_entry;
@@ -1279,42 +1344,49 @@ int32_t dmar_assign_irte(const struct intr_source *intr_src, union dmar_ir_entry
 	}
 
 	if (is_dmar_unit_valid(dmar_unit, sid)) {
-		ret = 0;
 		dmar_enable_intr_remapping(dmar_unit);
 
 		ir_table = (union dmar_ir_entry *)hpa2hva(dmar_unit->ir_table_addr);
-		ir_entry = ir_table + index;
-
-		if (intr_src->pid_paddr != 0UL) {
-			union dmar_ir_entry irte_pi;
-
-			/* irte is in remapped mode format, convert to posted mode format */
-			irte_pi.value.lo_64 = 0UL;
-			irte_pi.value.hi_64 = 0UL;
-
-			irte_pi.bits.post.vector = irte->bits.remap.vector;
-
-			irte_pi.bits.post.svt = 0x1UL;
-			irte_pi.bits.post.sid = sid.value;
-			irte_pi.bits.post.present = 0x1UL;
-			irte_pi.bits.post.mode = 0x1UL;
-
-			irte_pi.bits.post.pda_l = (intr_src->pid_paddr) >> 6U;
-			irte_pi.bits.post.pda_h = (intr_src->pid_paddr) >> 32U;
-
-			*ir_entry = irte_pi;
-		} else {
-			/* Fields that have not been initialized explicitly default to 0 */
-			irte->bits.remap.svt = 0x1UL;
-			irte->bits.remap.sid = sid.value;
-			irte->bits.remap.present = 0x1UL;
-			irte->bits.remap.trigger_mode = trigger_mode;
-
-			*ir_entry = *irte;
+		*idx_out = idx_in;
+		if (idx_in == INVALID_IRTE_ID) {
+			*idx_out = alloc_irtes(dmar_unit, 1U);
 		}
-		iommu_flush_cache(ir_entry, sizeof(union dmar_ir_entry));
-		dmar_invalid_iec(dmar_unit, index, 0U, false);
+		if (*idx_out < CONFIG_MAX_IR_ENTRIES) {
+			ir_entry = ir_table + *idx_out;
+
+			if (intr_src->pid_paddr != 0UL) {
+				union dmar_ir_entry irte_pi;
+
+				/* irte is in remapped mode format, convert to posted mode format */
+				irte_pi.value.lo_64 = 0UL;
+				irte_pi.value.hi_64 = 0UL;
+
+				irte_pi.bits.post.vector = irte->bits.remap.vector;
+
+				irte_pi.bits.post.svt = 0x1UL;
+				irte_pi.bits.post.sid = sid.value;
+				irte_pi.bits.post.present = 0x1UL;
+				irte_pi.bits.post.mode = 0x1UL;
+
+				irte_pi.bits.post.pda_l = (intr_src->pid_paddr) >> 6U;
+				irte_pi.bits.post.pda_h = (intr_src->pid_paddr) >> 32U;
+
+				*ir_entry = irte_pi;
+			} else {
+				/* Fields that have not been initialized explicitly default to 0 */
+				irte->bits.remap.svt = 0x1UL;
+				irte->bits.remap.sid = sid.value;
+				irte->bits.remap.present = 0x1UL;
+				irte->bits.remap.trigger_mode = trigger_mode;
+
+				*ir_entry = *irte;
+			}
+			iommu_flush_cache(ir_entry, sizeof(union dmar_ir_entry));
+			dmar_invalid_iec(dmar_unit, *idx_out, 0U, false);
+		}
+		ret = 0;
 	}
+
 	return ret;
 }
 
@@ -1337,5 +1409,12 @@ void dmar_free_irte(const struct intr_source *intr_src, uint16_t index)
 
 		iommu_flush_cache(ir_entry, sizeof(union dmar_ir_entry));
 		dmar_invalid_iec(dmar_unit, index, 0U, false);
+
+		if (!is_irte_reserved(dmar_unit, index)) {
+			spinlock_obtain(&dmar_unit->lock);
+			bitmap_clear_nolock(index & 0x3FU, &dmar_unit->irte_alloc_bitmap[index >> 6U]);
+			spinlock_release(&dmar_unit->lock);
+		}
 	}
+
 }

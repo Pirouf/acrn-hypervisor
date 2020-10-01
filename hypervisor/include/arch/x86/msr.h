@@ -278,6 +278,13 @@
 #define MSR_IA32_RTIT_ADDR3_A			0x00000586U
 #define MSR_IA32_RTIT_ADDR3_B			0x00000587U
 #define MSR_IA32_DS_AREA			0x00000600U
+#define MSR_IA32_U_CET				0x000006A0U
+#define MSR_IA32_S_CET				0x000006A2U
+#define MSR_IA32_PL0_SSP			0x000006A4U
+#define MSR_IA32_PL1_SSP			0x000006A5U
+#define MSR_IA32_PL2_SSP			0x000006A6U
+#define MSR_IA32_PL3_SSP			0x000006A7U
+#define MSR_IA32_INTERRUPT_SSP_TABLE_ADDR	0x000006A8U
 #define MSR_IA32_TSC_DEADLINE			0x000006E0U
 #define MSR_IA32_PM_ENABLE			0x00000770U
 #define MSR_IA32_HWP_CAPABILITIES		0x00000771U
@@ -568,8 +575,17 @@
 #define MSR_IA32_MISC_ENABLE_xTPR		(1UL << 23U)
 #define MSR_IA32_MISC_ENABLE_XD_DISABLE		(1UL << 34U)
 
+/* MSR_IA32_XSS bits */
+#define MSR_IA32_XSS_PT				(1UL << 8U)
+#define MSR_IA32_XSS_CET_U			(1UL << 11U)
+#define MSR_IA32_XSS_CET_S			(1UL << 12U)
+#define MSR_IA32_XSS_HDC			(1UL << 13U)
+
 /* Miscellaneous data */
 #define MSR_IA32_MISC_UNRESTRICTED_GUEST	(1U<<5U)
+
+/* Width of physical address used by VMX related region */
+#define MSR_IA32_VMX_BASIC_ADDR_WIDTH		(1UL << 48U)
 
 /* 5 high-order bits in every field are reserved */
 #define PAT_FIELD_RSV_BITS			(0xF8UL)

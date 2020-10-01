@@ -13,7 +13,7 @@ Introduction
 ************
 
 ACRN includes three types of configurations: Hypervisor, Board, and VM. Each
-are discussed in the following sections.
+is discussed in the following sections.
 
 Hypervisor configuration
 ========================
@@ -26,7 +26,7 @@ The hypervisor configuration uses the ``Kconfig`` mechanism.  The configuration
 file is located at ``acrn-hypervisor/hypervisor/arch/x86/Kconfig``.
 
 A board-specific ``defconfig`` file, for example
-``acrn-hypervisor/hypervisor/arch/x86/configs/$(BOARD).config``
+``misc/vm_configs/scenarios/$(SCENARIO)/$(BOARD)/$(BOARD).config``
 is loaded first; it is the default ``Kconfig`` for the specified board.
 
 Board configuration
@@ -38,7 +38,7 @@ board settings, root device selection, and the kernel cmdline. It also includes
 **scenario-irrelevant** hardware-specific information such as ACPI/PCI
 and BDF information. The reference board configuration is organized as
 ``*.c/*.h`` files located in the
-``acrn-hypervisor/hypervisor/arch/x86/configs/$(BOARD)/`` folder.
+``misc/vm_configs/boards/$(BOARD)/`` folder.
 
 VM configuration
 =================
@@ -51,10 +51,12 @@ to launch post-launched User VMs.
 
 Scenario based VM configurations are organized as ``*.c/*.h`` files. The
 reference scenarios are located in the
-``acrn-hypervisor/hypervisor/scenarios/$(SCENARIO)/`` folder.
+``misc/vm_configs/scenarios/$(SCENARIO)/`` folder.
+The board-specific configurations on this scenario are stored in the
+``misc/vm_configs/scenarios/$(SCENARIO)/$(BOARD)/`` folder.
 
 User VM launch script samples are located in the
-``acrn-hypervisor/devicemodel/samples/`` folder.
+``misc/vm_configs/sample_launch_scripts/`` folder.
 
 ACRN configuration XMLs
 ***********************
@@ -77,7 +79,7 @@ Board XML format
 ================
 
 The board XMLs are located in the
-``acrn-hypervisor/misc/acrn-config/xmls/board-xmls/`` folder.
+``misc/vm_configs/xmls/board-xmls/`` folder.
 The board XML has an ``acrn-config`` root element and a ``board`` attribute:
 
 .. code-block:: xml
@@ -90,7 +92,7 @@ about the format of board XML and should not modify it.
 Scenario XML format
 ===================
 The scenario XMLs are located in the
-``acrn-hypervisor/misc/acrn-config/xmls/config-xmls/`` folder.  The
+``misc/vm_configs/xmls/config-xmls/`` folder.  The
 scenario XML has an ``acrn-config`` root element as well as ``board``
 and ``scenario`` attributes:
 
@@ -166,6 +168,24 @@ Additional scenario XML elements:
   Specify whether force to disable software workaround for Machine Check
   Error on Page Size Change is enabled.
 
+``IVSHMEM`` (a child node of ``FEATURE``):
+  Specify the inter-VM shared memory configuration
+
+``IVSHMEM_ENABLED`` (a child node of ``FEATURE/IVSHMEM``):
+  Specify if the inter-VM shared memory feature is enabled.
+
+``IVSHMEM_REGION`` (a child node of ``FEATURE/IVSHMEM``):
+  Specify a comma-separated list of the inter-VM shared memory region name,
+  size, and VM IDs that may communicate using this shared region.
+
+  * Prefix the region ``name`` with ``hv:/`` (for an hv-land solution).
+    (See :ref:`ivshmem-hld` for details.)
+  * Specify the region ``size`` in MB, and a power of 2 (e.g., 2, 4, 8, 16)
+    up to 512.
+  * Specify all VM IDs that may use this shared memory area,
+    separated by a ``:``, for example, ``0:2`` (to share this area between
+    VMs 0 and 2), or ``0:1:2`` (to let VMs 0, 1, and 2 share this area).
+
 ``STACK_SIZE`` (a child node of ``MEMORY``):
   Specify the size of stacks used by physical cores. Each core uses one stack
   for normal operations and another three for specific exceptions.
@@ -212,9 +232,6 @@ Additional scenario XML elements:
 ``GPU_SBDF`` (a child node of ``MISC_CFG``):
   Specify the Segment, Bus, Device, and function of the GPU.
 
-``UEFI_OS_LOADER_NAME`` (a child node of ``MISC_CFG``):
-  Specify the UEFI OS loader name.
-
 ``vm``:
   Specify the VM with VMID by its "id" attribute.
 
@@ -225,7 +242,7 @@ Additional scenario XML elements:
   - ``PRE_STD_VM`` pre-launched Standard VM
   - ``SOS_VM`` pre-launched Service VM
   - ``POST_STD_VM`` post-launched Standard VM
-  - ``POST_RT_VM`` post-launched realtime capable VM
+  - ``POST_RT_VM`` post-launched real-time capable VM
   - ``KATA_VM`` post-launched Kata Container VM
 
 ``name`` (a child node of ``vm``):
@@ -240,7 +257,7 @@ Additional scenario XML elements:
   - ``GUEST_FLAG_IO_COMPLETION_POLLING`` specify whether the hypervisor needs
     IO polling to completion
   - ``GUEST_FLAG_HIDE_MTRR`` specify whether to hide MTRR from the VM
-  - ``GUEST_FLAG_RT`` specify whether the VM is RT-VM (realtime)
+  - ``GUEST_FLAG_RT`` specify whether the VM is RT-VM (real-time)
 
 ``cpu_affinity``:
   List of pCPU: the guest VM is allowed to create vCPU from all or a subset of this list.
@@ -272,7 +289,7 @@ Additional scenario XML elements:
   exactly match the module tag in the GRUB multiboot cmdline.
 
 ``ramdisk_mod`` (a child node of ``os_config``):
-  The tag for the ramdisk image which acts as a multiboot module; it
+  The tag for the ramdisk image, which acts as a multiboot module; it
   must exactly match the module tag in the GRUB multiboot cmdline.
 
 ``bootargs`` (a child node of ``os_config``):
@@ -314,6 +331,18 @@ Additional scenario XML elements:
   PCI devices list of the VM; it is hard-coded for each scenario so it
   is not configurable for now.
 
+``mmio_resources``:
+  MMIO resources to passthrough.
+
+``TPM2`` (a child node of ``mmio_resources``):
+  TPM2 device to passthrough.
+
+``p2sb`` (a child node of ``mmio_resources``):
+  Exposing the P2SB (Primary-to-Sideband) bridge to the pre-launched VM.
+
+``pt_intx``:
+  Forward specific IOAPIC interrupts (with interrupt line remapping) to the pre-launched VM.
+
 ``board_private``:
   Stores scenario-relevant board configuration.
 
@@ -326,7 +355,7 @@ Additional scenario XML elements:
 Launch XML format
 =================
 The launch XMLs are located in the
-``acrn-hypervisor/misc/acrn-config/xmls/config-xmls/`` folder.
+``misc/vm_configs/xmls/config-xmls/`` folder.
 The launch XML has an ``acrn-config`` root element as well as
 ``board``, ``scenario`` and ``uos_launcher`` attributes:
 
@@ -346,7 +375,7 @@ current scenario has:
   ``ZEPHYR`` or ``VXWORKS``.
 
 ``rtos_type``:
-  Specify the User VM Realtime capability: Soft RT, Hard RT, or none of them.
+  Specify the User VM Real-time capability: Soft RT, Hard RT, or none of them.
 
 ``mem_size``:
   Specify the User VM memory size in Mbyte.
@@ -374,10 +403,17 @@ current scenario has:
   ``bus#-port#[:bus#-port#: ...]``, e.g.: ``1-2:2-4``.
   Refer to :ref:`usb_virtualization` for details.
 
+``shm_regions``:
+  List of shared memory regions for inter-VM communication.
+
+``shm_region`` (a child node of ``shm_regions``):
+  configure the shm regions for current VM, input format: hv:/<;shm name>;,
+  <;shm size in MB>;. Refer to :ref:`ivshmem-hld` for details.
+
 ``passthrough_devices``:
   Select the passthrough device from the lspci list. Currently we support:
   usb_xdci, audio, audio_codec, ipu, ipu_i2c, cse, wifi, Bluetooth, sd_card,
-  ethernet, wifi, sata, and nvme.
+  Ethernet, wifi, sata, and nvme.
 
 ``network`` (a child node of ``virtio_devices``):
   The virtio network device setting.
@@ -395,7 +431,7 @@ current scenario has:
 .. note::
 
    The ``configurable`` and ``readonly`` attributes are used to mark
-   whether the items is configurable for users. When ``configurable="0"``
+   whether the item is configurable for users. When ``configurable="0"``
    and ``readonly="true"``, the item is not configurable from the web
    interface. When ``configurable="0"``, the item does not appear on the
    interface.
@@ -435,7 +471,7 @@ Board and VM configuration workflow
 ===================================
 
 Python offline tools are provided to configure Board and VM configurations.
-The tool source folder is ``acrn-hypervisor/misc/acrn-config/``.
+The tool source folder is ``misc/acrn-config/``.
 
 Here is the offline configuration tool workflow:
 
@@ -563,7 +599,7 @@ Instructions
    because the app needs to download some JavaScript files.
 
    .. note:: The ACRN configuration app is supported on Chrome, Firefox,
-      and MS Edge. Do not use IE.
+      and Microsoft Edge. Do not use Internet Explorer.
 
    The website is shown below:
 
@@ -588,7 +624,7 @@ Instructions
 
 #. Load or create the scenario setting by selecting among the following:
 
-   - Choose a scenario from the **Scenario Setting** menu which lists all
+   - Choose a scenario from the **Scenario Setting** menu that lists all
      user-defined scenarios for the board you selected in the previous step.
 
    - Click the **Create a new scenario** from the **Scenario Setting**
@@ -599,7 +635,7 @@ Instructions
      scenario setting for the current board.
 
    The default scenario configuration xmls are located at
-   ``acrn-hypervisor/misc/acrn-config/xmls/config-xmls/[board]/``.
+   ``misc/vm_configs/xmls/config-xmls/[board]/``.
    We can edit the scenario name when creating or loading a scenario. If the
    current scenario name is duplicated with an existing scenario setting
    name, rename the current scenario name or overwrite the existing one
@@ -608,9 +644,9 @@ Instructions
    .. figure:: images/choose_scenario.png
       :align: center
 
-   Note that you can also use a customized scenario xml by clicking **Import
+   Note that you can also use a customized scenario XML by clicking **Import
    XML**. The configuration app automatically directs to the new scenario
-   xml once the import is complete.
+   XML once the import is complete.
 
 #. The configurable items display after one scenario is created/loaded/
    selected. Following is an industry scenario:
@@ -619,9 +655,9 @@ Instructions
       :align: center
 
    - You can edit these items directly in the text boxes, or you can choose
-     single or even multiple items from the drop down list.
+     single or even multiple items from the drop-down list.
 
-   - Read-only items are marked as grey.
+   - Read-only items are marked as gray.
 
    - Hover the mouse pointer over the item to display the description.
 
@@ -643,8 +679,8 @@ Instructions
    pop-up model.
 
    .. note::
-      All customized scenario xmls will be in user-defined groups which are
-      located in ``acrn-hypervisor/misc/acrn-config/xmls/config-xmls/[board]/user_defined/``.
+      All customized scenario xmls will be in user-defined groups, which are
+      located in ``misc/vm_configs/xmls/config-xmls/[board]/user_defined/``.
 
    Before saving the scenario xml, the configuration app validates the
    configurable items. If errors exist, the configuration app lists all
@@ -662,12 +698,12 @@ Instructions
 
    If **Source Path** in the pop-up model is edited, the source code is
    generated into the edited Source Path relative to ``acrn-hypervisor``;
-   otherwise, the source code is generated into default folders and
-   overwrite the old ones. The board-related configuration source
+   otherwise, source code is generated into default folders and
+   overwrites the old ones. The board-related configuration source
    code is located at
-   ``acrn-hypervisor/hypervisor/arch/x86/configs/[board]/`` and the
+   ``misc/vm_configs/boards/[board]/`` and the
    scenario-based VM configuration source code is located at
-   ``acrn-hypervisor/hypervisor/scenarios/[scenario]/``.
+   ``misc/vm_configs/scenarios/[scenario]/``.
 
 The **Launch Setting** is quite similar to the **Scenario Setting**:
 
@@ -679,11 +715,11 @@ The **Launch Setting** is quite similar to the **Scenario Setting**:
 
    - Click **Load a default launch script** from the **Launch Setting** menu.
 
-   - Select one launch setting xml from the menu.
+   - Select one launch setting XML file from the menu.
 
-   - Import the local launch setting xml by clicking **Import XML**.
+   - Import the local launch setting XML file by clicking **Import XML**.
 
-#. Select one scenario for the current launch setting from the **Select Scenario** drop down box.
+#. Select one scenario for the current launch setting from the **Select Scenario** drop-down box.
 
 #. Configure the items for the current launch setting.
 
@@ -695,7 +731,7 @@ The **Launch Setting** is quite similar to the **Scenario Setting**:
    - Remove a UOS launch script by clicking **Remove this VM** for the
      current launch setting.
 
-#. Save the current launch setting to the user-defined xml files by
+#. Save the current launch setting to the user-defined XML files by
    clicking **Export XML**. The configuration app validates the current
    configuration and lists all incorrect configurable items and shows errors.
 

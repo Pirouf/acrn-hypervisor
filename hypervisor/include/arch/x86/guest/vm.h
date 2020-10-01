@@ -65,6 +65,7 @@ struct vm_sw_info {
 	struct sw_kernel_info kernel_info;
 	struct sw_module_info bootargs_info;
 	struct sw_module_info ramdisk_info;
+	struct sw_module_info acpi_info;
 	/* HVA to IO shared page */
 	void *io_shared_page;
 	/* If enable IO completion polling mode */
@@ -81,14 +82,14 @@ struct vm_pm_info {
 
 /* Enumerated type for VM states */
 enum vm_state {
-	VM_POWERED_OFF = 0,
+	VM_POWERED_OFF = 0,   /* MUST set 0 because vm_state's initialization depends on clear BSS section */
 	VM_CREATED,	/* VM created / awaiting start (boot) */
 	VM_RUNNING,	/* VM running */
 	VM_READY_TO_POWEROFF,     /* RTVM only, it is trying to poweroff by itself */
 	VM_PAUSED,	/* VM paused */
 };
 
-enum vm_vlapic_state {
+enum vm_vlapic_mode {
 	VM_VLAPIC_DISABLED = 0U,
 	VM_VLAPIC_XAPIC,
 	VM_VLAPIC_X2APIC,
@@ -113,7 +114,7 @@ struct vm_arch {
 #ifdef CONFIG_HYPERV_ENABLED
 	struct acrn_hyperv hyperv;
 #endif
-	enum vm_vlapic_state vlapic_state; /* Represents vLAPIC state across vCPUs*/
+	enum vm_vlapic_mode vlapic_mode; /* Represents vLAPIC mode across vCPUs*/
 
 	/* reference to virtual platform to come here (as needed) */
 } __aligned(PAGE_SIZE);
@@ -130,11 +131,14 @@ struct acrn_vm {
 	struct acrn_vuart vuart[MAX_VUART_NUM_PER_VM];		/* Virtual UART */
 	enum vpic_wire_mode wire_mode;
 	struct iommu_domain *iommu;	/* iommu domain of this VM */
-	spinlock_t vm_lock;	/* Spin-lock used to protect vlapic_state modifications for a VM */
+	/* vm_state_lock used to protect vm/vcpu state transition,
+	 * the initialization depends on the clear BSS section
+	 */
+	spinlock_t vm_state_lock;
+	spinlock_t vlapic_mode_lock;	/* Spin-lock used to protect vlapic_mode modifications for a VM */
 	spinlock_t ept_lock;	/* Spin-lock used to protect ept add/modify/remove for a VM */
-
 	spinlock_t emul_mmio_lock;	/* Used to protect emulation mmio_node concurrent access for a VM */
-	uint16_t max_emul_mmio_regions;	/* max index of the emulated mmio_region */
+	uint16_t nr_emul_mmio_regions;	/* the emulated mmio_region number */
 	struct mem_io_node emul_mmio[CONFIG_MAX_EMULATED_MMIO_REGIONS];
 
 	struct vm_io_handler_desc emul_pio[EMUL_PIO_IDX_MAX];
@@ -152,7 +156,6 @@ struct acrn_vm {
 	uint32_t vcpuid_entry_nr, vcpuid_level, vcpuid_xlevel;
 	struct vcpuid_entry vcpuid_entries[MAX_VM_VCPUID_ENTRIES];
 	struct acrn_vpci vpci;
-
 	uint8_t vrtc_offset;
 
 	uint64_t intr_inject_delay_delta; /* delay of intr injection */
@@ -208,18 +211,6 @@ static inline uint16_t vmid_2_rel_vmid(uint16_t sos_vmid, uint16_t vmid) {
 	return (vmid - sos_vmid);
 }
 
-/**
- * @brief Check if the specified vdev is a zombie VF instance
- *
- * @param vdev Pointer to vdev instance
- *
- * @return If the vdev is a zombie VF instance return true, otherwise return false
- */
-static inline bool is_zombie_vf(const struct pci_vdev *vdev)
-{
-	return (vdev->vpci == NULL);
-}
-
 void make_shutdown_vm_request(uint16_t pcpu_id);
 bool need_shutdown_vm(uint16_t pcpu_id);
 int32_t shutdown_vm(struct acrn_vm *vm);
@@ -257,7 +248,16 @@ bool has_rt_vm(void);
 struct acrn_vm *get_highest_severity_vm(bool runtime);
 bool vm_hide_mtrr(const struct acrn_vm *vm);
 void update_vm_vlapic_state(struct acrn_vm *vm);
-enum vm_vlapic_state check_vm_vlapic_state(const struct acrn_vm *vm);
+enum vm_vlapic_mode check_vm_vlapic_mode(const struct acrn_vm *vm);
+/*
+ * @pre vm != NULL
+ */
+void get_vm_lock(struct acrn_vm *vm);
+
+/*
+ * @pre vm != NULL
+ */
+void put_vm_lock(struct acrn_vm *vm);
 #endif /* !ASSEMBLER */
 
 #endif /* VM_H_ */

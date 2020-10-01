@@ -189,13 +189,13 @@ else:
 html_context = {
    'current_version': current_version,
    'versions': ( ("latest", "/latest/"),
+                 ("2.2", "/2.2/"),
+                 ("2.1", "/2.1/"),
+                 ("2.0", "/2.0/"),
                  ("1.6.1", "/1.6.1/"),
                  ("1.6", "/1.6/"),
                  ("1.5", "/1.5/"),
                  ("1.4", "/1.4/"),
-                 ("1.3", "/1.3/"),
-                 ("1.2", "/1.2/"),
-                 ("1.1", "/1.1/"),
                  ("1.0", "/1.0/"),   # keep 1.0
                )
     }
@@ -239,6 +239,10 @@ html_show_sourcelink = False
 # bottom,
 # using the given strftime format.
 html_last_updated_fmt = '%b %d, %Y'
+
+# The name of a javascript file (relative to the configuration directory) that
+# implements a search results scorer. If empty, the default will be used.
+html_search_scorer = 'scorer.js'
 
 # -- Options for HTMLHelp output ------------------------------------------
 
@@ -322,5 +326,22 @@ html_redirect_pages = [
    ('user-guides/index', 'develop'),
    ('hardware', 'reference/hardware'),
    ('release_notes', 'release_notes/index'),
-   ('getting-started/rt_industry', 'tutorials/cl_servicevm')
+   ('getting-started/rt_industry', 'tutorials/cl_servicevm'),
+   ('tutorials/acrn-dm_QoS', 'nocl'),
+   ('tutorials/acrn_ootb', 'nocl'),
+   ('tutorials/agl-vms', 'nocl'),
+   ('tutorials/building_acrn_in_docker', 'nocl'),
+   ('tutorials/building_uos_from_clearlinux', 'nocl'),
+   ('tutorials/cl_servicevm', 'nocl'),
+   ('tutorials/enable_laag_secure_boot', 'nocl'),
+   ('tutorials/increase_uos_disk_size', 'nocl'),
+   ('tutorials/kbl-nuc-sdc', 'nocl'),
+   ('tutorials/open_vswitch', 'nocl'),
+   ('tutorials/running_deb_as_serv_vm', 'nocl'),
+   ('tutorials/sign_clear_linux_image', 'nocl'),
+   ('tutorials/static-ip', 'nocl'),
+   ('tutorials/up2', 'nocl'),
+   ('tutorials/using_celadon_as_uos', 'nocl'),
+   ('tutorials/using_sbl_on_up2', 'nocl'),
+   ('tutorials/using_ubuntu_as_sos', 'nocl'),
    ]

@@ -1,6 +1,6 @@
 .. _rtvm_workload_guideline:
 
-Real-Time VM Application Design Guidelines
+Real-time VM Application Design Guidelines
 ##########################################
 
 An RTOS developer must be aware of the differences between running applications on a native
@@ -16,10 +16,10 @@ Run RTVM with dedicated resources/devices
 
 For best practice, ACRN allocates dedicated CPU, memory resources, and cache resources (using Intel
 Resource Directory allocation Technology such as CAT, MBA) to RTVMs. For best real time performance
-of I/O devices, we recommend using dedicated (pass-thru) PCIe devices to avoid VM-Exit at run time.
+of I/O devices, we recommend using dedicated (passthrough) PCIe devices to avoid VM-Exit at run time.
 
 .. note::
-   The configuration space for pass-thru PCI devices is still emulated and accessing it will
+   The configuration space for passthrough PCI devices is still emulated and accessing it will
    trigger a VM-Exit.
 
 RTVM with virtio PMD (Polling Mode Driver) for I/O sharing

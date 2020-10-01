@@ -19,8 +19,30 @@
 #include <errno.h>
 #include <logmsg.h>
 #include <ioapic.h>
+#include <mmio_dev.h>
+#include <ivshmem.h>
 
 #define DBG_LEVEL_HYCALL	6U
+
+typedef int32_t (*emul_dev_op) (struct acrn_vm *vm, struct acrn_emul_dev *dev);
+struct emul_dev_ops {
+	/*
+	 * The low 32 bits represent the vendor id and device id of PCI device,
+	 * and the high 32 bits represent the device number of the legacy device
+	 */
+	uint64_t dev_id;
+	emul_dev_op create;
+	emul_dev_op destroy;
+
+};
+
+static struct emul_dev_ops emul_dev_ops_tbl[] = {
+#ifdef CONFIG_IVSHMEM_ENABLED
+	{(IVSHMEM_VENDOR_ID | (IVSHMEM_DEVICE_ID << 16U)), create_ivshmem_vdev , destroy_ivshmem_vdev},
+#else
+	{(IVSHMEM_VENDOR_ID | (IVSHMEM_DEVICE_ID << 16U)), NULL, NULL},
+#endif
+};
 
 bool is_hypercall_from_ring0(void)
 {
@@ -38,22 +60,29 @@ bool is_hypercall_from_ring0(void)
 	return ret;
 }
 
+inline static bool is_severity_pass(uint16_t target_vmid)
+{
+	return SEVERITY_SOS >= get_vm_severity(target_vmid);
+}
+
 /**
  * @brief offline vcpu from SOS
  *
  * The function offline specific vcpu from SOS.
  *
  * @param vm Pointer to VM data structure
- * @param lapicid lapic id of the vcpu which wants to offline
+ * @param param1 lapic id of the vcpu which wants to offline
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_sos_offline_cpu(struct acrn_vm *vm, uint64_t lapicid)
+int32_t hcall_sos_offline_cpu(struct acrn_vm *vm, __unused struct acrn_vm *target_vm,
+		uint64_t param1, __unused uint64_t param2)
 {
 	struct acrn_vcpu *vcpu;
 	uint16_t i;
 	int32_t ret = 0;
+	uint64_t lapicid = param1;
 
 	pr_info("sos offline cpu with lapicid %ld", lapicid);
 
@@ -78,20 +107,21 @@ int32_t hcall_sos_offline_cpu(struct acrn_vm *vm, uint64_t lapicid)
  * The function only return api version information when VM is SOS_VM.
  *
  * @param vm Pointer to VM data structure
- * @param param guest physical memory address. The api version returned
+ * @param param1 guest physical memory address. The api version returned
  *              will be copied to this gpa
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_get_api_version(struct acrn_vm *vm, uint64_t param)
+int32_t hcall_get_api_version(struct acrn_vm *vm, __unused struct acrn_vm *target_vm,
+		uint64_t param1, __unused uint64_t param2)
 {
 	struct hc_api_version version;
 
 	version.major_version = HV_API_MAJOR_VERSION;
 	version.minor_version = HV_API_MINOR_VERSION;
 
-	return copy_to_gpa(vm, &version, param, sizeof(version));
+	return copy_to_gpa(vm, &version, param1, sizeof(version));
 }
 
 /**
@@ -101,19 +131,20 @@ int32_t hcall_get_api_version(struct acrn_vm *vm, uint64_t param)
  * for the current platform.
  *
  * @param vm Pointer to VM data structure.
- * @param param GPA pointer to struct hc_platform_info.
+ * @param param1 GPA pointer to struct hc_platform_info.
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non zero in case of error.
  */
-int32_t hcall_get_platform_info(struct acrn_vm *vm, uint64_t param)
+int32_t hcall_get_platform_info(struct acrn_vm *vm, __unused struct acrn_vm *target_vm,
+		uint64_t param1, __unused uint64_t param2)
 {
 	struct hc_platform_info pi = { 0 };
 	uint32_t entry_size = sizeof(struct acrn_vm_config);
 	int32_t ret;
 
 	/* to get the vm_config_info pointer */
-	ret = copy_from_gpa(vm, &pi, param, sizeof(pi));
+	ret = copy_from_gpa(vm, &pi, param1, sizeof(pi));
 	if (ret == 0) {
 		pi.cpu_num = get_pcpu_nums();
 		pi.version = 0x100;  /* version 1.0; byte[1:0] = major:minor version */
@@ -128,7 +159,7 @@ int32_t hcall_get_platform_info(struct acrn_vm *vm, uint64_t param)
 		}
 
 		if (ret == 0) {
-			ret = copy_to_gpa(vm, &pi, param, sizeof(pi));
+			ret = copy_to_gpa(vm, &pi, param1, sizeof(pi));
 		}
 	}
 
@@ -143,25 +174,25 @@ int32_t hcall_get_platform_info(struct acrn_vm *vm, uint64_t param)
  * support later.
  *
  * @param vm Pointer to VM data structure
- * @param param guest physical memory address. This gpa points to
+ * @param target_vm Pointer to target VM data structure
+ * @param param1 guest physical memory address. This gpa points to
  *              struct acrn_create_vm
  *
  * @pre Pointer vm shall point to SOS_VM, vm_config != NULL
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_create_vm(struct acrn_vm *vm, uint64_t param)
+int32_t hcall_create_vm(struct acrn_vm *vm, struct acrn_vm *target_vm, uint64_t param1, __unused uint64_t param2)
 {
-	uint16_t vm_id;
+	uint16_t vmid = target_vm->vm_id;
 	int32_t ret = -1;
-	struct acrn_vm *target_vm = NULL;
+	struct acrn_vm *tgt_vm = NULL;
 	struct acrn_create_vm cv;
 	struct acrn_vm_config* vm_config = NULL;
 
-	if (copy_from_gpa(vm, &cv, param, sizeof(cv)) == 0) {
-		vm_id = get_vmid_by_uuid(&cv.uuid[0]);
-		if ((vm_id > vm->vm_id) && (vm_id < CONFIG_MAX_VM_NUM)
-			&& (is_poweroff_vm(get_vm_from_vmid(vm_id)))) {
-			vm_config = get_vm_config(vm_id);
+	if (copy_from_gpa(vm, &cv, param1, sizeof(cv)) == 0) {
+		if (is_poweroff_vm(get_vm_from_vmid(vmid))) {
+
+			vm_config = get_vm_config(vmid);
 
 			/* Filter out the bits should not set by DM and then assign it to guest_flags */
 			vm_config->guest_flags |= (cv.vm_flag & DM_OWNED_GUEST_FLAG_MASK);
@@ -181,24 +212,26 @@ int32_t hcall_create_vm(struct acrn_vm *vm, uint64_t param)
 				 * set in guest_flags
 				 */
 				if (((vm_config->guest_flags & GUEST_FLAG_LAPIC_PASSTHROUGH) != 0UL)
-					&& ((vm_config->guest_flags & GUEST_FLAG_RT) == 0UL)) {
+						&& ((vm_config->guest_flags & GUEST_FLAG_RT) == 0UL)) {
 					pr_err("Wrong guest flags 0x%lx\n", vm_config->guest_flags);
 				} else {
-					if (create_vm(vm_id, pcpu_bitmap, vm_config, &target_vm) == 0) {
+					if (create_vm(vmid, pcpu_bitmap, vm_config, &tgt_vm) == 0) {
 						/* return a relative vm_id from SOS view */
-						cv.vmid = vmid_2_rel_vmid(vm->vm_id, vm_id);
-						cv.vcpu_num = target_vm->hw.created_vcpus;
+						cv.vmid = vmid_2_rel_vmid(vm->vm_id, vmid);
+						cv.vcpu_num = tgt_vm->hw.created_vcpus;
 					} else {
 						dev_dbg(DBG_LEVEL_HYCALL, "HCALL: Create VM failed");
 						cv.vmid = ACRN_INVALID_VMID;
 					}
 
-					ret = copy_to_gpa(vm, &cv, param, sizeof(cv));
+					ret = copy_to_gpa(vm, &cv, param1, sizeof(cv));
 				}
 			} else {
-				pr_err("Post-launched VM%u chooses invalid pCPUs(0x%llx).", vm_id, cv.cpu_affinity);
+				pr_err("Post-launched VM%u chooses invalid pCPUs(0x%llx).",
+						vmid, cv.cpu_affinity);
 			}
 		}
+
 	}
 
 	return ret;
@@ -210,20 +243,19 @@ int32_t hcall_create_vm(struct acrn_vm *vm, uint64_t param)
  * Destroy a virtual machine, it will pause target VM then shutdown it.
  * The function will return -1 if the target VM does not exist.
  *
- * @param vmid ID of the VM
+ * @param target_vm Pointer to target VM data structure
  *
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_destroy_vm(uint16_t vmid)
+int32_t hcall_destroy_vm(__unused struct acrn_vm *vm, struct acrn_vm *target_vm,
+		__unused uint64_t param1, __unused uint64_t param2)
 {
 	int32_t ret = -1;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
-	if (is_paused_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (is_paused_vm(target_vm)) {
 		/* TODO: check target_vm guest_flags */
 		ret = shutdown_vm(target_vm);
 	}
-
 	return ret;
 }
 
@@ -234,16 +266,16 @@ int32_t hcall_destroy_vm(uint16_t vmid)
  * The function will return -1 if the target VM does not exist or the
  * IOReq buffer page for the VM is not ready.
  *
- * @param vmid ID of the VM
+ * @param target_vm Pointer to target VM data structure
  *
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_start_vm(uint16_t vmid)
+int32_t hcall_start_vm(__unused struct acrn_vm *vm, struct acrn_vm *target_vm,
+		__unused uint64_t param1, __unused uint64_t param2)
 {
 	int32_t ret = -1;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
-	if ((is_created_vm(target_vm)) && (is_postlaunched_vm(target_vm)) && (target_vm->sw.io_shared_page != NULL)) {
+	if ((is_created_vm(target_vm)) && (target_vm->sw.io_shared_page != NULL)) {
 		/* TODO: check target_vm guest_flags */
 		start_vm(target_vm);
 		ret = 0;
@@ -259,21 +291,20 @@ int32_t hcall_start_vm(uint16_t vmid)
  * will return 0 directly for success.
  * The function will return -1 if the target VM does not exist.
  *
- * @param vmid ID of the VM
+ * @param target_vm Pointer to target VM data structure
  *
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_pause_vm(uint16_t vmid)
+int32_t hcall_pause_vm(__unused struct acrn_vm *vm, struct acrn_vm *target_vm,
+		__unused uint64_t param1, __unused uint64_t param2)
 {
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 	int32_t ret = -1;
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (!is_poweroff_vm(target_vm)) {
 		/* TODO: check target_vm guest_flags */
 		pause_vm(target_vm);
 		ret = 0;
 	}
-
 	return ret;
 }
 
@@ -285,16 +316,16 @@ int32_t hcall_pause_vm(uint16_t vmid)
  * each vcpu state and do some initialization for guest.
  * The function will return -1 if the target VM does not exist.
  *
- * @param vmid ID of the VM
+ * @param target_vm Pointer to target VM data structure
  *
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_reset_vm(uint16_t vmid)
+int32_t hcall_reset_vm(__unused struct acrn_vm *vm, struct acrn_vm *target_vm,
+		__unused uint64_t param1, __unused uint64_t param2)
 {
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 	int32_t ret = -1;
 
-	if (is_paused_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (is_paused_vm(target_vm)) {
 		/* TODO: check target_vm guest_flags */
 		ret = reset_vm(target_vm);
 	}
@@ -309,24 +340,22 @@ int32_t hcall_reset_vm(uint16_t vmid)
  * The function will return -1 if the targat VM or BSP doesn't exist.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param param guest physical address. This gpa points to
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to
  *              struct acrn_vcpu_regs
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_set_vcpu_regs(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_set_vcpu_regs(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
 {
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 	struct acrn_set_vcpu_regs vcpu_regs;
 	struct acrn_vcpu *vcpu;
 	int32_t ret = -1;
 
 	/* Only allow setup init ctx while target_vm is inactive */
-	if ((!is_poweroff_vm(target_vm)) && (param != 0U) && (is_postlaunched_vm(target_vm)) &&
-			(target_vm->state != VM_RUNNING)) {
-		if (copy_from_gpa(vm, &vcpu_regs, param, sizeof(vcpu_regs)) != 0) {
+	if ((!is_poweroff_vm(target_vm)) && (param2 != 0U) && (target_vm->state != VM_RUNNING)) {
+		if (copy_from_gpa(vm, &vcpu_regs, param2, sizeof(vcpu_regs)) != 0) {
 		} else if (vcpu_regs.vcpu_id >= MAX_VCPUS_PER_VM) {
 			pr_err("%s: invalid vcpu_id for set_vcpu_regs\n", __func__);
 		} else {
@@ -341,6 +370,12 @@ int32_t hcall_set_vcpu_regs(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
 	return ret;
 }
 
+int32_t hcall_create_vcpu(__unused struct acrn_vm *vm, __unused struct acrn_vm *target_vm,
+		__unused uint64_t param1, __unused uint64_t param2)
+{
+	return 0;
+}
+
 /**
  * @brief set or clear IRQ line
  *
@@ -349,20 +384,19 @@ int32_t hcall_set_vcpu_regs(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
  * The function will return -1 if the target VM does not exist.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param ops request command for IRQ set or clear
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 info for irqline
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_set_irqline(const struct acrn_vm *vm, uint16_t vmid,
-				const struct acrn_irqline_ops *ops)
+int32_t hcall_set_irqline(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
 {
 	uint32_t irq_pic;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 	int32_t ret = -1;
+	struct acrn_irqline_ops *ops = (struct acrn_irqline_ops *)&param2;
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (is_severity_pass(target_vm->vm_id) && !is_poweroff_vm(target_vm)) {
 		if (ops->gsi < get_vm_gsicount(vm)) {
 			if (ops->gsi < vpic_pincount()) {
 				/*
@@ -440,32 +474,32 @@ static void inject_msi_lapic_pt(struct acrn_vm *vm, const struct acrn_msi_entry 
  * The function will return -1 if the target VM does not exist.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param param guest physical address. This gpa points to struct acrn_msi_entry
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to struct acrn_msi_entry
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_inject_msi(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_inject_msi(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
 {
 	int32_t ret = -1;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (is_severity_pass(target_vm->vm_id) && !is_poweroff_vm(target_vm)) {
 		struct acrn_msi_entry msi;
 
-		if (copy_from_gpa(vm, &msi, param, sizeof(msi)) == 0) {
+		if (copy_from_gpa(vm, &msi, param2, sizeof(msi)) == 0) {
 			/* For target cpu with lapic pt, send ipi instead of injection via vlapic */
 			if (is_lapic_pt_configured(target_vm)) {
-				enum vm_vlapic_state vlapic_state = check_vm_vlapic_state(target_vm);
-				if (vlapic_state == VM_VLAPIC_X2APIC) {
+				enum vm_vlapic_mode vlapic_mode = check_vm_vlapic_mode(target_vm);
+
+				if (vlapic_mode == VM_VLAPIC_X2APIC) {
 					/*
 					 * All the vCPUs of VM are in x2APIC mode and LAPIC is PT
 					 * Inject the vMSI as an IPI directly to VM
 					 */
 					inject_msi_lapic_pt(target_vm, &msi);
 					ret = 0;
-				} else if (vlapic_state == VM_VLAPIC_XAPIC) {
+				} else if (vlapic_mode == VM_VLAPIC_XAPIC) {
 					/*
 					 * All the vCPUs of VM are in xAPIC and use vLAPIC
 					 * Inject using vLAPIC
@@ -493,26 +527,25 @@ int32_t hcall_inject_msi(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
  * The function will return -1 if the target VM does not exist.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param param guest physical address. This gpa points to
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to
  *              struct acrn_set_ioreq_buffer
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_set_ioreq_buffer(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_set_ioreq_buffer(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
 {
 	uint64_t hpa;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 	uint16_t i;
 	int32_t ret = -1;
 
-	if (is_created_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (is_created_vm(target_vm)) {
 		struct acrn_set_ioreq_buffer iobuf;
 
-		if (copy_from_gpa(vm, &iobuf, param, sizeof(iobuf)) == 0) {
+		if (copy_from_gpa(vm, &iobuf, param2, sizeof(iobuf)) == 0) {
 			dev_dbg(DBG_LEVEL_HYCALL, "[%d] SET BUFFER=0x%p",
-					vmid, iobuf.req_buf);
+					target_vm->vm_id, iobuf.req_buf);
 
 			hpa = gpa2hpa(vm, iobuf.req_buf);
 			if (hpa == INVALID_HPA) {
@@ -538,21 +571,23 @@ int32_t hcall_set_ioreq_buffer(struct acrn_vm *vm, uint16_t vmid, uint64_t param
  * Notify the requestor VCPU for the completion of an ioreq.
  * The function will return -1 if the target VM does not exist.
  *
- * @param vmid ID of the VM
- * @param vcpu_id vcpu ID of the requestor
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 vcpu ID of the requestor
  *
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_notify_ioreq_finish(uint16_t vmid, uint16_t vcpu_id)
+int32_t hcall_notify_ioreq_finish(__unused struct acrn_vm *vm, struct acrn_vm *target_vm,
+		__unused uint64_t param1, uint64_t param2)
 {
 	struct acrn_vcpu *vcpu;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 	int32_t ret = -1;
+	uint16_t vcpu_id = (uint16_t)param2;
 
 	/* make sure we have set req_buf */
-	if ((!is_poweroff_vm(target_vm)) && (is_postlaunched_vm(target_vm)) && (target_vm->sw.io_shared_page != NULL)) {
+	if (is_severity_pass(target_vm->vm_id) &&
+	    (!is_poweroff_vm(target_vm)) && (target_vm->sw.io_shared_page != NULL)) {
 		dev_dbg(DBG_LEVEL_HYCALL, "[%d] NOTIFY_FINISH for vcpu %d",
-			vmid, vcpu_id);
+			target_vm->vm_id, vcpu_id);
 
 		if (vcpu_id >= target_vm->hw.created_vcpus) {
 			pr_err("%s, failed to get VCPU %d context from VM %d\n",
@@ -667,28 +702,25 @@ static int32_t set_vm_memory_region(struct acrn_vm *vm,
  * @brief setup ept memory mapping for multi regions
  *
  * @param vm Pointer to VM data structure
- * @param param guest physical address. This gpa points to
+ * @param target_vm Pointer to target VM data structure
+ * @param param1 guest physical address. This gpa points to
  *              struct set_memmaps
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_set_vm_memory_regions(struct acrn_vm *vm, uint64_t param)
+int32_t hcall_set_vm_memory_regions(struct acrn_vm *vm, struct acrn_vm *target_vm,
+		uint64_t param1, __unused uint64_t param2)
 {
 	struct set_regions regions;
 	struct vm_memory_region mr;
-	struct acrn_vm *target_vm = NULL;
 	uint32_t idx;
 	int32_t ret = -1;
 
-	if (copy_from_gpa(vm, &regions, param, sizeof(regions)) == 0) {
-		/* the vmid in regions is a relative vm id, need to convert to absolute vm id */
-		uint16_t target_vmid = rel_vmid_2_vmid(vm->vm_id, regions.vmid);
+	if (copy_from_gpa(vm, &regions, param1, sizeof(regions)) == 0) {
 
-		if (target_vmid < CONFIG_MAX_VM_NUM) {
-			target_vm = get_vm_from_vmid(target_vmid);
-		}
-		if ((target_vm != NULL) && !is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+		if (!is_poweroff_vm(target_vm) &&
+		    (is_severity_pass(target_vm->vm_id) || (target_vm->state != VM_RUNNING))) {
 			idx = 0U;
 			while (idx < regions.mr_num) {
 				if (copy_from_gpa(vm, &mr, regions.regions_gpa + idx * sizeof(mr), sizeof(mr)) != 0) {
@@ -720,31 +752,33 @@ static int32_t write_protect_page(struct acrn_vm *vm,const struct wp_data *wp)
 	uint64_t prot_clr;
 	int32_t ret = -EINVAL;
 
-	if ((!mem_aligned_check(wp->gpa, PAGE_SIZE)) ||
-		(!ept_is_mr_valid(vm, wp->gpa, PAGE_SIZE))) {
-		pr_err("%s,vm[%hu] gpa 0x%lx,GPA is invalid or not page size aligned.",
-			__func__, vm->vm_id, wp->gpa);
-	} else {
-		hpa = gpa2hpa(vm, wp->gpa);
-		if (hpa == INVALID_HPA) {
-			pr_err("%s,vm[%hu] gpa 0x%lx,GPA is unmapping.",
-				__func__, vm->vm_id, wp->gpa);
+	if (is_severity_pass(vm->vm_id)) {
+		if ((!mem_aligned_check(wp->gpa, PAGE_SIZE)) ||
+				(!ept_is_mr_valid(vm, wp->gpa, PAGE_SIZE))) {
+			pr_err("%s,vm[%hu] gpa 0x%lx,GPA is invalid or not page size aligned.",
+					__func__, vm->vm_id, wp->gpa);
 		} else {
-			dev_dbg(DBG_LEVEL_HYCALL, "[vm%d] gpa=0x%x hpa=0x%x",
-				vm->vm_id, wp->gpa, hpa);
-
-			base_paddr = hva2hpa((void *)(get_hv_image_base()));
-			if (((hpa <= base_paddr) && ((hpa + PAGE_SIZE) > base_paddr)) ||
-				((hpa >= base_paddr) &&
-				(hpa < (base_paddr + CONFIG_HV_RAM_SIZE)))) {
-				pr_err("%s: overlap the HV memory region.", __func__);
+			hpa = gpa2hpa(vm, wp->gpa);
+			if (hpa == INVALID_HPA) {
+				pr_err("%s,vm[%hu] gpa 0x%lx,GPA is unmapping.",
+						__func__, vm->vm_id, wp->gpa);
 			} else {
-				prot_set = (wp->set != 0U) ? 0UL : EPT_WR;
-				prot_clr = (wp->set != 0U) ? EPT_WR : 0UL;
+				dev_dbg(DBG_LEVEL_HYCALL, "[vm%d] gpa=0x%x hpa=0x%x",
+						vm->vm_id, wp->gpa, hpa);
 
-				ept_modify_mr(vm, (uint64_t *)vm->arch_vm.nworld_eptp,
-					wp->gpa, PAGE_SIZE, prot_set, prot_clr);
-				ret = 0;
+				base_paddr = hva2hpa((void *)(get_hv_image_base()));
+				if (((hpa <= base_paddr) && ((hpa + PAGE_SIZE) > base_paddr)) ||
+						((hpa >= base_paddr) &&
+						 (hpa < (base_paddr + CONFIG_HV_RAM_SIZE)))) {
+					pr_err("%s: overlap the HV memory region.", __func__);
+				} else {
+					prot_set = (wp->set != 0U) ? 0UL : EPT_WR;
+					prot_clr = (wp->set != 0U) ? EPT_WR : 0UL;
+
+					ept_modify_mr(vm, (uint64_t *)vm->arch_vm.nworld_eptp,
+							wp->gpa, PAGE_SIZE, prot_set, prot_clr);
+					ret = 0;
+				}
 			}
 		}
 	}
@@ -756,19 +790,20 @@ static int32_t write_protect_page(struct acrn_vm *vm,const struct wp_data *wp)
  * @brief change guest memory page write permission
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param wp_gpa guest physical address. This gpa points to
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to
  *              struct wp_data
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_write_protect_page(struct acrn_vm *vm, uint16_t vmid, uint64_t wp_gpa)
+int32_t hcall_write_protect_page(struct acrn_vm *vm, struct acrn_vm *target_vm,
+		__unused uint64_t param1, uint64_t param2)
 {
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 	int32_t ret = -1;
+	uint64_t wp_gpa = param2;
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (!is_poweroff_vm(target_vm)) {
 		struct wp_data wp;
 
 		if (copy_from_gpa(vm, &wp, wp_gpa, sizeof(wp)) == 0) {
@@ -788,27 +823,26 @@ int32_t hcall_write_protect_page(struct acrn_vm *vm, uint16_t vmid, uint64_t wp_
  * The function will return -1 if the target VM does not exist.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param param guest physical address. This gpa points to struct vm_gpa2hpa
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to struct vm_gpa2hpa
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_gpa_to_hpa(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_gpa_to_hpa(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
 {
 	int32_t ret = -1;
 	struct vm_gpa2hpa v_gpa2hpa;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
 	(void)memset((void *)&v_gpa2hpa, 0U, sizeof(v_gpa2hpa));
-	if (!is_poweroff_vm(target_vm) && (!is_prelaunched_vm(target_vm))
-			&& (copy_from_gpa(vm, &v_gpa2hpa, param, sizeof(v_gpa2hpa)) == 0)) {
+	if (!is_poweroff_vm(target_vm) &&
+			(copy_from_gpa(vm, &v_gpa2hpa, param2, sizeof(v_gpa2hpa)) == 0)) {
 		v_gpa2hpa.hpa = gpa2hpa(target_vm, v_gpa2hpa.gpa);
 		if (v_gpa2hpa.hpa == INVALID_HPA) {
 			pr_err("%s,vm[%hu] gpa 0x%lx,GPA is unmapping.",
 				__func__, target_vm->vm_id, v_gpa2hpa.gpa);
 		} else {
-			ret = copy_to_gpa(vm, &v_gpa2hpa, param, sizeof(v_gpa2hpa));
+			ret = copy_to_gpa(vm, &v_gpa2hpa, param2, sizeof(v_gpa2hpa));
 		}
 	} else {
 		pr_err("target_vm is invalid or HCALL gpa2hpa: Unable copy param from vm\n");
@@ -821,25 +855,25 @@ int32_t hcall_gpa_to_hpa(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
  * @brief Assign one PCI dev to a VM.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param param guest physical address. This gpa points to data structure of
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to data structure of
  *              acrn_assign_pcidev including assign PCI device info
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_assign_pcidev(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_assign_pcidev(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
 {
 	int32_t ret = -EINVAL;
 	struct acrn_assign_pcidev pcidev;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
-		if (copy_from_gpa(vm, &pcidev, param, sizeof(pcidev)) == 0) {
+	/* We should only assign a device to a post-launched VM at creating time for safety, not runtime or other cases*/
+	if (is_created_vm(target_vm)) {
+		if (copy_from_gpa(vm, &pcidev, param2, sizeof(pcidev)) == 0) {
 			ret = vpci_assign_pcidev(target_vm, &pcidev);
 		}
 	} else {
-		pr_err("%s, vm[%d] is invalid\n", __func__, vm->vm_id);
+		pr_err("%s, vm[%d] is not a postlaunched VM, or not in CREATED status to be assigned with a pcidev\n", __func__, vm->vm_id);
 	}
 
 	return ret;
@@ -849,25 +883,87 @@ int32_t hcall_assign_pcidev(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
  * @brief Deassign one PCI dev from a VM.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param param guest physical address. This gpa points to data structure of
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to data structure of
  *              acrn_assign_pcidev including deassign PCI device info
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_deassign_pcidev(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_deassign_pcidev(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
 {
 	int32_t ret = -EINVAL;
 	struct acrn_assign_pcidev pcidev;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
-		if (copy_from_gpa(vm, &pcidev, param, sizeof(pcidev)) == 0) {
+	/* We should only de-assign a device from a post-launched VM at creating/shutdown/reset time */
+	if ((is_paused_vm(target_vm) || is_created_vm(target_vm))) {
+		if (copy_from_gpa(vm, &pcidev, param2, sizeof(pcidev)) == 0) {
 			ret = vpci_deassign_pcidev(target_vm, &pcidev);
 		}
 	} else {
-		pr_err("%s, vm[%d] is invalid\n", __func__, vm->vm_id);
+		pr_err("%s, vm[%d] is not a postlaunched VM, or not in PAUSED/CREATED status to be deassigned from a pcidev\n", __func__, vm->vm_id);
+	}
+
+	return ret;
+}
+
+/**
+ * @brief Assign one MMIO dev to a VM.
+ *
+ * @param vm Pointer to VM data structure
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to data structure of
+ *              acrn_mmiodev including assign MMIO device info
+ *
+ * @pre Pointer vm shall point to SOS_VM
+ * @return 0 on success, non-zero on error.
+ */
+int32_t hcall_assign_mmiodev(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
+{
+	int32_t ret = -EINVAL;
+	struct acrn_mmiodev mmiodev;
+
+	/* We should only assign a device to a post-launched VM at creating time for safety, not runtime or other cases*/
+	if (is_created_vm(target_vm)) {
+		if (copy_from_gpa(vm, &mmiodev, param2, sizeof(mmiodev)) == 0) {
+			ret = deassign_mmio_dev(vm, &mmiodev);
+			if (ret == 0) {
+				ret = assign_mmio_dev(target_vm, &mmiodev);
+			}
+		}
+	} else {
+		pr_err("vm[%d] %s failed!\n",target_vm->vm_id,  __func__);
+	}
+
+	return ret;
+}
+
+/**
+ * @brief Deassign one MMIO dev from a VM.
+ *
+ * @param vm Pointer to VM data structure
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to data structure of
+ *              acrn_mmiodev including deassign MMIO device info
+ *
+ * @pre Pointer vm shall point to SOS_VM
+ * @return 0 on success, non-zero on error.
+ */
+int32_t hcall_deassign_mmiodev(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
+{
+	int32_t ret = -EINVAL;
+	struct acrn_mmiodev mmiodev;
+
+	/* We should only de-assign a device from a post-launched VM at creating/shutdown/reset time */
+	if ((is_paused_vm(target_vm) || is_created_vm(target_vm))) {
+		if (copy_from_gpa(vm, &mmiodev, param2, sizeof(mmiodev)) == 0) {
+			ret = deassign_mmio_dev(target_vm, &mmiodev);
+			if (ret == 0) {
+				ret = assign_mmio_dev(vm, &mmiodev);
+			}
+		}
+	} else {
+		pr_err("vm[%d] %s failed!\n",target_vm->vm_id,  __func__);
 	}
 
 	return ret;
@@ -877,22 +973,22 @@ int32_t hcall_deassign_pcidev(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
  * @brief Set interrupt mapping info of ptdev.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param param guest physical address. This gpa points to data structure of
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to data structure of
  *              hc_ptdev_irq including intr remapping info
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_set_ptdev_intr_info(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_set_ptdev_intr_info(struct acrn_vm *vm, struct acrn_vm *target_vm,
+	       __unused uint64_t param1, uint64_t param2)
 {
 	int32_t ret = -1;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (is_created_vm(target_vm)) {
 		struct hc_ptdev_irq irq;
 
-		if (copy_from_gpa(vm, &irq, param, sizeof(irq)) == 0) {
+		if (copy_from_gpa(vm, &irq, param2, sizeof(irq)) == 0) {
 			if (irq.type == IRQ_INTX) {
 				struct pci_vdev *vdev;
 				union pci_bdf bdf = {.value = irq.virt_bdf};
@@ -907,11 +1003,11 @@ int32_t hcall_set_ptdev_intr_info(struct acrn_vm *vm, uint16_t vmid, uint64_t pa
 				 * phys_pin to phys_gsi
 				 */
 				if ((vdev != NULL) && (vdev->pdev->bdf.value == irq.phys_bdf)) {
-					if ((((!irq.intx.pic_pin) && (irq.intx.virt_pin < get_vm_gsicount(target_vm))) ||
-							((irq.intx.pic_pin) && (irq.intx.virt_pin < vpic_pincount()))) &&
-							is_gsi_valid(irq.intx.phys_pin)) {
+					if ((((!irq.intx.pic_pin) && (irq.intx.virt_pin < get_vm_gsicount(target_vm)))
+						|| ((irq.intx.pic_pin) && (irq.intx.virt_pin < vpic_pincount())))
+							&& is_gsi_valid(irq.intx.phys_pin)) {
 						ret = ptirq_add_intx_remapping(target_vm, irq.intx.virt_pin,
-							irq.intx.phys_pin, irq.intx.pic_pin);
+								irq.intx.phys_pin, irq.intx.pic_pin);
 					} else {
 						pr_err("%s: Invalid phys pin or virt pin\n", __func__);
 					}
@@ -928,23 +1024,22 @@ int32_t hcall_set_ptdev_intr_info(struct acrn_vm *vm, uint16_t vmid, uint64_t pa
  * @brief Clear interrupt mapping info of ptdev.
  *
  * @param vm Pointer to VM data structure
- * @param vmid ID of the VM
- * @param param guest physical address. This gpa points to data structure of
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to data structure of
  *              hc_ptdev_irq including intr remapping info
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t
-hcall_reset_ptdev_intr_info(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_reset_ptdev_intr_info(struct acrn_vm *vm, struct acrn_vm *target_vm,
+		__unused uint64_t param1, uint64_t param2)
 {
 	int32_t ret = -1;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (is_created_vm(target_vm) || is_paused_vm(target_vm)) {
 		struct hc_ptdev_irq irq;
 
-		if (copy_from_gpa(vm, &irq, param, sizeof(irq)) == 0) {
+		if (copy_from_gpa(vm, &irq, param2, sizeof(irq)) == 0) {
 			if (irq.type == IRQ_INTX) {
 				struct pci_vdev *vdev;
 				union pci_bdf bdf = {.value = irq.virt_bdf};
@@ -980,28 +1075,23 @@ hcall_reset_ptdev_intr_info(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
  * @brief Get VCPU Power state.
  *
  * @param vm pointer to VM data structure
- * @param cmd cmd to show get which VCPU power state data
- * @param param VCPU power state data
+ * @param target_vm Pointer to target VM data structure
+ * @param param1 cmd to show get which VCPU power state data
+ * @param param2 VCPU power state data
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, uint64_t cmd, uint64_t param)
+int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, struct acrn_vm *target_vm, uint64_t param1, uint64_t param2)
 {
-	uint16_t target_vm_id;
-	struct acrn_vm *target_vm = NULL;
 	int32_t ret = -1;
+	uint64_t cmd = param1;
 
-	/* the vmid in cmd is a relative vm id, need to convert to absolute vm id */
-	target_vm_id = rel_vmid_2_vmid(vm->vm_id, (uint16_t)((cmd & PMCMD_VMID_MASK) >> PMCMD_VMID_SHIFT));
-	if (target_vm_id < CONFIG_MAX_VM_NUM) {
-		target_vm = get_vm_from_vmid(target_vm_id);
-	}
-	if ((target_vm != NULL) && (!is_poweroff_vm(target_vm)) && (is_postlaunched_vm(target_vm))) {
+	if (is_created_vm(target_vm)) {
 		switch (cmd & PMCMD_TYPE_MASK) {
 		case PMCMD_GET_PX_CNT: {
 			if (target_vm->pm.px_cnt != 0U) {
-				ret = copy_to_gpa(vm, &(target_vm->pm.px_cnt), param, sizeof(target_vm->pm.px_cnt));
+				ret = copy_to_gpa(vm, &(target_vm->pm.px_cnt), param2, sizeof(target_vm->pm.px_cnt));
 			}
 			break;
 		}
@@ -1023,12 +1113,12 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, uint64_t cmd, uint64_t param)
 			}
 
 			px_data = target_vm->pm.px_data + pn;
-			ret = copy_to_gpa(vm, px_data, param, sizeof(struct cpu_px_data));
+			ret = copy_to_gpa(vm, px_data, param2, sizeof(struct cpu_px_data));
 			break;
 		}
 		case PMCMD_GET_CX_CNT: {
 			if (target_vm->pm.cx_cnt != 0U) {
-				ret = copy_to_gpa(vm, &(target_vm->pm.cx_cnt), param, sizeof(target_vm->pm.cx_cnt));
+				ret = copy_to_gpa(vm, &(target_vm->pm.cx_cnt), param2, sizeof(target_vm->pm.cx_cnt));
 			}
 			break;
 		}
@@ -1047,7 +1137,7 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, uint64_t cmd, uint64_t param)
 			}
 
 			cx_data = target_vm->pm.cx_data + cx_idx;
-			ret = copy_to_gpa(vm, cx_data, param, sizeof(struct cpu_cx_data));
+			ret = copy_to_gpa(vm, cx_data, param2, sizeof(struct cpu_cx_data));
 			break;
 		}
 		default:
@@ -1063,23 +1153,22 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, uint64_t cmd, uint64_t param)
  * @brief Get VCPU a VM's interrupt count data.
  *
  * @param vm pointer to VM data structure
- * @param vmid id of the VM
- * @param param guest physical address. This gpa points to data structure of
+ * @param target_vm Pointer to target VM data structure
+ * @param param2 guest physical address. This gpa points to data structure of
  *              acrn_intr_monitor
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_vm_intr_monitor(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
+int32_t hcall_vm_intr_monitor(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
 {
 	int32_t status = -EINVAL;
 	struct acrn_intr_monitor *intr_hdr;
 	uint64_t hpa;
-	struct acrn_vm *target_vm = get_vm_from_vmid(vmid);
 
-	if (!is_poweroff_vm(target_vm) && is_postlaunched_vm(target_vm)) {
+	if (!is_poweroff_vm(target_vm)) {
 		/* the param for this hypercall is page aligned */
-		hpa = gpa2hpa(vm, param);
+		hpa = gpa2hpa(vm, param2);
 		if (hpa != INVALID_HPA) {
 			intr_hdr = (struct acrn_intr_monitor *)hpa2hva(hpa);
 			stac();
@@ -1118,25 +1207,102 @@ int32_t hcall_vm_intr_monitor(struct acrn_vm *vm, uint16_t vmid, uint64_t param)
  * to notify the SOS kernel.
  *
  * @param vm Pointer to VM data structure
- * @param param the expected notifier vector from guest
+ * @param param1 the expected notifier vector from guest
  *
  * @pre Pointer vm shall point to SOS_VM
  * @return 0 on success, non-zero on error.
  */
-int32_t hcall_set_callback_vector(const struct acrn_vm *vm, uint64_t param)
+int32_t hcall_set_callback_vector(__unused struct acrn_vm *vm, __unused struct acrn_vm *target_vm,
+		uint64_t param1, __unused uint64_t param2)
 {
 	int32_t ret;
 
-	if (!is_sos_vm(vm)) {
-		pr_err("%s: Targeting to service vm", __func__);
-		ret = -EPERM;
-	} else if ((param > NR_MAX_VECTOR) || (param < VECTOR_DYNAMIC_START)) {
+	if ((param1 > NR_MAX_VECTOR) || (param1 < VECTOR_DYNAMIC_START)) {
 		pr_err("%s: Invalid passed vector\n", __func__);
 		ret = -EINVAL;
 	} else {
-		set_vhm_notification_vector((uint32_t)param);
+		set_vhm_notification_vector((uint32_t)param1);
 		ret = 0;
 	}
 
+	return ret;
+}
+
+/*
+ * @pre dev != NULL
+ */
+static struct emul_dev_ops *find_emul_dev_ops(struct acrn_emul_dev *dev)
+{
+	struct emul_dev_ops *op = NULL;
+	uint32_t i;
+
+	for (i = 0U; i < ARRAY_SIZE(emul_dev_ops_tbl); i++) {
+		if (emul_dev_ops_tbl[i].dev_id == dev->dev_id.value) {
+			op = &emul_dev_ops_tbl[i];
+			break;
+		}
+	}
+	return op;
+}
+
+/**
+ * @brief Create an emulated device in hypervisor.
+ *
+ * @param vm pointer to VM data structure
+ * @param vmid ID of the VM
+ * @param param guest physical address. This gpa points to data structure of
+ *              acrn_emul_dev including information about PCI or legacy devices
+ *
+ * @pre Pointer vm shall point to SOS_VM
+ * @return 0 on success, non-zero on error.
+ */
+int32_t hcall_create_vdev(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
+{
+	int32_t ret = -EINVAL;
+	struct acrn_emul_dev dev;
+	struct emul_dev_ops *op;
+
+	/* We should only create a device to a post-launched VM at creating time for safety, not runtime or other cases*/
+	if (is_created_vm(target_vm)) {
+		if (copy_from_gpa(vm, &dev, param2, sizeof(dev)) == 0) {
+			op = find_emul_dev_ops(&dev);
+			if ((op != NULL) && (op->create != NULL)) {
+				ret = op->create(target_vm, &dev);
+			}
+		}
+	} else {
+		pr_err("%s, vm[%d] is not a postlaunched VM, or not in CREATED status to create a vdev\n", __func__, target_vm->vm_id);
+	}
+	return ret;
+}
+
+/**
+ * @brief Destroy an emulated device in hypervisor.
+ *
+ * @param vm pointer to VM data structure
+ * @param vmid ID of the VM
+ * @param param guest physical address. This gpa points to data structure of
+ *              acrn_emul_dev including information about PCI or legacy devices
+ *
+ * @pre Pointer vm shall point to SOS_VM
+ * @return 0 on success, non-zero on error.
+ */
+int32_t hcall_destroy_vdev(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused uint64_t param1, uint64_t param2)
+{
+	int32_t ret = -EINVAL;
+	struct acrn_emul_dev dev;
+	struct emul_dev_ops *op;
+
+	/* We should only destroy a device to a post-launched VM at creating or pausing time for safety, not runtime or other cases*/
+	if (is_created_vm(target_vm) || is_paused_vm(target_vm)) {
+		if (copy_from_gpa(vm, &dev, param2, sizeof(dev)) == 0) {
+		op = find_emul_dev_ops(&dev);
+		if ((op != NULL) && (op->destroy != NULL)) {
+			ret = op->destroy(target_vm, &dev);
+		}
+	}
+	} else {
+		pr_err("%s, vm[%d] is not a postlaunched VM, or not in CREATED/PAUSED status to destroy a vdev\n", __func__, target_vm->vm_id);
+	}
 	return ret;
 }

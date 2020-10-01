@@ -23,7 +23,7 @@ Here are descriptions for each of these ``acrn-dm`` command line parameters:
        default value.
 
    * - :kbd:`-B, --bootargs <bootargs>`
-     - Set the User VM kernel command line arguments.
+     - Set the User VM kernel command-line arguments.
        The maximum length is 1023.
        The bootargs string will be passed to the kernel as its cmdline.
 
@@ -93,7 +93,7 @@ Here are descriptions for each of these ``acrn-dm`` command line parameters:
          mediator and UART DM.
        - ``lpc_port`` is com1 or com2. IOC mediator needs one unassigned lpc
          port for data transfer between User OS and Service OS.
-       - ``wakeup_reason`` is IOC mediator boot up reason, where each bit represents
+       - ``wakeup_reason`` is IOC mediator boot reason, where each bit represents
          one wakeup reason.
 
          Currently the wakeup reason bits supported by IOC firmware are:
@@ -276,6 +276,31 @@ Here are descriptions for each of these ``acrn-dm`` command line parameters:
 
        enable virtio poll mode with poll interval 1ms.
 
+   * - :kbd:`--acpidev_pt <HID>`
+     - This option is to enable ACPI device passthrough support. The ``HID`` is a
+       mandatory parameter for this option which is the Hardware ID of the ACPI
+       device.
+
+       Example::
+
+          --acpidev_pt MSFT0101
+
+       To pass through a TPM (which HID is MSFT0101) ACPI device to a User VM.
+
+   * - :kbd:`--mmiodev_pt <MMIO_Region>`
+     - This option is to enable MMIO device passthrough support. The ``MMIO_Region``
+       is a mandatory parameter for this option which is the MMIO resource of the
+       MMIO device. The ``MMIO_Region`` needs to be the base address followed by
+       the length of the region, both separated by a comma.
+
+       Example::
+
+          --mmiodev_pt 0xFED40000,0x00005000
+
+       To pass through a MMIO device to a User VM. The MMIO device has a MMIO region.
+       The base address of this region is 0xFED40000 and the size of the region
+       is 0x00005000.
+
    * - :kbd:`--vtpm2 <sock_path>`
      - This option is to enable virtual TPM support. The sock_path is a mandatory
        parameter for this option which is the path of swtpm socket fd.
@@ -301,16 +326,16 @@ Here are descriptions for each of these ``acrn-dm`` command line parameters:
      - This option is to create a VM with the local APIC (LAPIC) passed-through.
        With this option, a VM is created with ``LAPIC_PASSTHROUGH`` and
        ``IO_COMPLETION_POLLING`` mode. This option is typically used for hard
-       realtime scenarios.
+       real-time scenarios.
 
        By default, this option is not enabled.
 
    * - :kbd:`--rtvm`
-     - This option is used to create a VM with realtime attributes.
+     - This option is used to create a VM with real-time attributes.
        With this option, a VM is created with ``GUEST_FLAG_RT`` and
        ``GUEST_FLAG_IO_COMPLETION_POLLING`` mode. This kind of VM is
-       generally used for soft realtime scenarios (without ``--lapic_pt``) or
-       hard realtime scenarios (with ``--lapic_pt``). With ``GUEST_FLAG_RT``,
+       generally used for soft real-time scenarios (without ``--lapic_pt``) or
+       hard real-time scenarios (with ``--lapic_pt``). With ``GUEST_FLAG_RT``,
        the Service VM cannot interfere with this kind of VM when it is
        running. It can only be powered off from inside the VM itself.
 

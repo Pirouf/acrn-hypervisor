@@ -24,11 +24,6 @@ static inline bool is_blocked(const struct thread_object *obj)
 	return obj->status == THREAD_STS_BLOCKED;
 }
 
-static inline bool is_runnable(const struct thread_object *obj)
-{
-	return obj->status == THREAD_STS_RUNNABLE;
-}
-
 static inline bool is_running(const struct thread_object *obj)
 {
 	return obj->status == THREAD_STS_RUNNING;
@@ -169,25 +164,26 @@ void schedule(void)
 	}
 	bitmap_clear_lock(NEED_RESCHEDULE, &ctl->flags);
 
-	/* Don't change prev object's status if it's not running */
-	if (is_running(prev)) {
-		set_thread_status(prev, THREAD_STS_RUNNABLE);
-	}
-	set_thread_status(next, THREAD_STS_RUNNING);
-	ctl->curr_obj = next;
-	release_schedule_lock(pcpu_id, rflag);
-
 	/* If we picked different sched object, switch context */
 	if (prev != next) {
-		if ((prev != NULL) && (prev->switch_out != NULL)) {
-			prev->switch_out(prev);
+		if (prev != NULL) {
+			if (prev->switch_out != NULL) {
+				prev->switch_out(prev);
+			}
+			set_thread_status(prev, prev->be_blocking ? THREAD_STS_BLOCKED : THREAD_STS_RUNNABLE);
+			prev->be_blocking = false;
 		}
 
-		if ((next != NULL) && (next->switch_in != NULL)) {
+		if (next->switch_in != NULL) {
 			next->switch_in(next);
 		}
+		set_thread_status(next, THREAD_STS_RUNNING);
 
+		ctl->curr_obj = next;
+		release_schedule_lock(pcpu_id, rflag);
 		arch_switch_to(&prev->host_sp, &next->host_sp);
+	} else {
+		release_schedule_lock(pcpu_id, rflag);
 	}
 }
 
@@ -207,9 +203,19 @@ void sleep_thread(struct thread_object *obj)
 		} else {
 			make_reschedule_request(pcpu_id, DEL_MODE_IPI);
 		}
+		obj->be_blocking = true;
+	} else {
+		set_thread_status(obj, THREAD_STS_BLOCKED);
 	}
-	set_thread_status(obj, THREAD_STS_BLOCKED);
 	release_schedule_lock(pcpu_id, rflag);
+}
+
+void sleep_thread_sync(struct thread_object *obj)
+{
+	sleep_thread(obj);
+	while (!is_blocked(obj)) {
+		asm_pause();
+	}
 }
 
 void wake_thread(struct thread_object *obj)
@@ -219,41 +225,16 @@ void wake_thread(struct thread_object *obj)
 	uint64_t rflag;
 
 	obtain_schedule_lock(pcpu_id, &rflag);
-	if (is_blocked(obj)) {
+	if (is_blocked(obj) || obj->be_blocking) {
 		scheduler = get_scheduler(pcpu_id);
 		if (scheduler->wake != NULL) {
 			scheduler->wake(obj);
 		}
-		set_thread_status(obj, THREAD_STS_RUNNABLE);
-		make_reschedule_request(pcpu_id, DEL_MODE_IPI);
-	}
-	release_schedule_lock(pcpu_id, rflag);
-}
-
-void kick_thread(const struct thread_object *obj)
-{
-	uint16_t pcpu_id = obj->pcpu_id;
-	uint64_t rflag;
-
-	obtain_schedule_lock(pcpu_id, &rflag);
-	if (is_running(obj)) {
-		if (get_pcpu_id() != pcpu_id) {
-			if (obj->notify_mode == SCHED_NOTIFY_IPI) {
-				send_single_ipi(pcpu_id, NOTIFY_VCPU_VECTOR);
-			} else {
-				/* For lapic-pt vCPUs */
-				send_single_nmi(pcpu_id);
-			}
-		}
-	} else if (is_runnable(obj)) {
-		if (obj->notify_mode == SCHED_NOTIFY_IPI) {
+		if (is_blocked(obj)) {
+			set_thread_status(obj, THREAD_STS_RUNNABLE);
 			make_reschedule_request(pcpu_id, DEL_MODE_IPI);
-		} else {
-			/* For lapic-pt vCPUs */
-			make_reschedule_request(pcpu_id, DEL_MODE_NMI);
 		}
-	} else {
-		/* do nothing */
+		obj->be_blocking = false;
 	}
 	release_schedule_lock(pcpu_id, rflag);
 }

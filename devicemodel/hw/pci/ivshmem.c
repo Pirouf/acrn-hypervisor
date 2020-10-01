@@ -62,22 +62,28 @@
 #define	IVSHMEM_DOORBELL_REG	0x0c
 #define	IVSHMEM_RESERVED_REG	0x0f
 
+#define hv_land_prefix	"hv:/"
+#define dm_land_prefix	"dm:/"
+
 struct pci_ivshmem_vdev {
 	struct pci_vdev	*dev;
 	char		*name;
 	int		fd;
 	void		*addr;
 	uint32_t	size;
+	bool		is_hv_land;
 };
 
 static int
-create_shared_memory(struct vmctx *ctx, struct pci_ivshmem_vdev *vdev,
-		const char *name, uint32_t size, uint64_t bar_addr)
+create_ivshmem_from_dm(struct vmctx *ctx, struct pci_vdev *vdev,
+		const char *name, uint32_t size)
 {
 	struct stat st;
 	int fd = -1;
 	void *addr = NULL;
 	bool is_shm_creator = false;
+	struct pci_ivshmem_vdev *ivshmem_vdev = (struct pci_ivshmem_vdev *) vdev->arg;
+	uint64_t bar_addr;
 
 	fd = shm_open(name, O_CREAT | O_EXCL | O_RDWR, 0600);
 	if (fd > 0)
@@ -105,6 +111,9 @@ create_shared_memory(struct vmctx *ctx, struct pci_ivshmem_vdev *vdev,
 
 	addr = (void *)mmap(NULL, size, PROT_READ | PROT_WRITE,
 			MAP_SHARED, fd, 0);
+	bar_addr = pci_get_cfgdata32(vdev, PCIR_BAR(IVSHMEM_MEM_BAR));
+	bar_addr |= ((uint64_t)pci_get_cfgdata32(vdev, PCIR_BAR(IVSHMEM_MEM_BAR + 1)) << 32);
+	bar_addr &= PCIM_BAR_MEM_BASE;
 	pr_dbg("shm configuration, vma 0x%lx, ivshmem bar 0x%lx, size 0x%x\n",
 			(uint64_t)addr, bar_addr, size);
 	if (!addr || vm_map_memseg_vma(ctx, size, bar_addr,
@@ -113,14 +122,14 @@ create_shared_memory(struct vmctx *ctx, struct pci_ivshmem_vdev *vdev,
 		goto err;
 	}
 
-	vdev->name = strdup(name);
-	if (!vdev->name) {
+	ivshmem_vdev->name = strdup(name);
+	if (!ivshmem_vdev->name) {
 		pr_warn("No memory for shm_name\n");
 		goto err;
 	}
-	vdev->fd = fd;
-	vdev->addr = addr;
-	vdev->size = size;
+	ivshmem_vdev->fd = fd;
+	ivshmem_vdev->addr = addr;
+	ivshmem_vdev->size = size;
 	return 0;
 err:
 	if (addr)
@@ -128,6 +137,28 @@ err:
 	if (fd > 0)
 		close(fd);
 	return -1;
+}
+
+static int
+create_ivshmem_from_hv(struct vmctx *ctx, struct pci_vdev *vdev,
+		const char *shm_name, uint32_t shm_size)
+{
+	struct acrn_emul_dev dev = {};
+	uint64_t addr = 0;
+
+	dev.dev_id.fields.vendor_id = IVSHMEM_VENDOR_ID;
+	dev.dev_id.fields.device_id = IVSHMEM_DEVICE_ID;
+	dev.slot = PCI_BDF(vdev->bus, vdev->slot, vdev->func);
+	dev.io_addr[IVSHMEM_MMIO_BAR] = pci_get_cfgdata32(vdev,
+			PCIR_BAR(IVSHMEM_MMIO_BAR));
+	addr = pci_get_cfgdata32(vdev, PCIR_BAR(IVSHMEM_MEM_BAR));
+	addr |= 0x0c; /* 64bit, prefetchable */
+	dev.io_addr[IVSHMEM_MEM_BAR] = addr;
+	addr = pci_get_cfgdata32(vdev, PCIR_BAR(IVSHMEM_MEM_BAR + 1));
+	dev.io_addr[IVSHMEM_MEM_BAR + 1] = addr;
+	dev.io_size[IVSHMEM_MEM_BAR] = shm_size;
+	strncpy((char*)dev.args, shm_name, 32);
+	return vm_create_hv_vdev(ctx, &dev);
 }
 
 static void
@@ -210,9 +241,10 @@ static int
 pci_ivshmem_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
 {
 	uint32_t size;
-	uint64_t addr;
 	char *tmp, *name, *orig;
 	struct pci_ivshmem_vdev *ivshmem_vdev = NULL;
+	bool is_hv_land;
+	int rc;
 
 	/* ivshmem device usage: "-s N,ivshmem,shm_name,shm_size" */
 	tmp = orig = strdup(opts);
@@ -225,14 +257,26 @@ pci_ivshmem_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
 		pr_warn("the shared memory size is not set\n");
 		goto err;
 	}
+
+	if (!strncmp(name, hv_land_prefix, strlen(hv_land_prefix))) {
+		is_hv_land = true;
+	} else if (!strncmp(name, dm_land_prefix, strlen(dm_land_prefix))) {
+		is_hv_land = false;
+		name += strlen(dm_land_prefix);
+	} else {
+		pr_warn("the ivshmem memory prefix name is incorrect\n");
+		goto err;
+	}
+
 	if (dm_strtoui(tmp, &tmp, 10, &size) != 0) {
 		pr_warn("the shared memory size is incorrect, %s\n", tmp);
 		goto err;
 	}
-	if (size < 4096 || size > 128 * 1024 * 1024 ||
+	size *= 0x100000; /* convert to megabytes */
+	if (size < 0x200000 || size >= 0x40000000 ||
 			(size & (size - 1)) != 0) {
-		pr_warn("invalid shared memory size %u, the size range is [4K,128M] bytes and value must be a power of 2\n",
-			size);
+		pr_warn("Invalid shared memory size %u, the size range is [2MB,512MB], the unit is megabyte and the value must be a power of 2\n",
+			size/0x100000);
 		goto err;
 	}
 
@@ -243,6 +287,7 @@ pci_ivshmem_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
 	}
 
 	ivshmem_vdev->dev = dev;
+	ivshmem_vdev->is_hv_land = is_hv_land;
 	dev->arg = ivshmem_vdev;
 
 	/* initialize config space */
@@ -254,16 +299,17 @@ pci_ivshmem_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
 	pci_emul_alloc_bar(dev, IVSHMEM_MMIO_BAR, PCIBAR_MEM32, IVSHMEM_REG_SIZE);
 	pci_emul_alloc_bar(dev, IVSHMEM_MEM_BAR, PCIBAR_MEM64, size);
 
-	addr = pci_get_cfgdata32(dev, PCIR_BAR(IVSHMEM_MEM_BAR));
-	addr |= ((uint64_t)pci_get_cfgdata32(dev, PCIR_BAR(IVSHMEM_MEM_BAR + 1)) << 32);
-	addr &= PCIM_BAR_MEM_BASE;
-
-	/*
-	 * TODO: If UOS reprograms ivshmem BAR2, the shared memory will be
-	 * unavailable for UOS, so we need to remap GPA and HPA of shared
-	 * memory in this case.
-	 */
-	if (create_shared_memory(ctx, ivshmem_vdev, name, size, addr) < 0)
+	if (is_hv_land) {
+		rc = create_ivshmem_from_hv(ctx, dev, name, size);
+	} else {
+		/*
+		 * TODO: If UOS reprograms ivshmem BAR2, the shared memory will be
+		 * unavailable for UOS, so we need to remap GPA and HPA of shared
+		 * memory in this case.
+		 */
+		rc = create_ivshmem_from_dm(ctx, dev, name, size);
+	}
+	if (rc < 0)
 		goto err;
 
 	free(orig);
@@ -279,6 +325,27 @@ err:
 }
 
 static void
+destroy_ivshmem_from_dm(struct pci_ivshmem_vdev *vdev)
+{
+	if (vdev->addr && vdev->size)
+		munmap(vdev->addr, vdev->size);
+	if (vdev->fd > 0)
+		close(vdev->fd);
+}
+
+static void
+destroy_ivshmem_from_hv(struct vmctx *ctx, struct pci_vdev *vdev)
+{
+
+	struct acrn_emul_dev emul_dev = {};
+
+	emul_dev.dev_id.fields.vendor_id = IVSHMEM_VENDOR_ID;
+	emul_dev.dev_id.fields.device_id = IVSHMEM_DEVICE_ID;
+	emul_dev.slot = PCI_BDF(vdev->bus, vdev->slot, vdev->func);
+	vm_destroy_hv_vdev(ctx, &emul_dev);
+}
+
+static void
 pci_ivshmem_deinit(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
 {
 	struct pci_ivshmem_vdev *vdev;
@@ -288,19 +355,25 @@ pci_ivshmem_deinit(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
 		pr_warn("%s, invalid ivshmem instance\n", __func__);
 		return;
 	}
-	if (vdev->addr && vdev->size)
-		munmap(vdev->addr, vdev->size);
-	if (vdev->fd > 0)
-		close(vdev->fd);
+	if (vdev->is_hv_land)
+		destroy_ivshmem_from_hv(ctx, dev);
+	else
+		destroy_ivshmem_from_dm(vdev);
+
 	if (vdev->name) {
 		/*
-		 * unlink will only remove the shared memory file object,
+		 * shm_unlink will only remove the shared memory file object,
 		 * the shared memory will be released until all processes
-		 * which opened the shared memory file close the file.
+		 * which opened the shared memory close the file.
+		 *
+		 * Don't invoke shm_unlink(vdev->name) to remove file object now,
+		 * so that the acrn-dm can communicate with the peer again after
+		 * rebooting/shutdown, the side effect is that the shared memory
+		 * will not be released even if all peers exit.
 		 */
-		shm_unlink(vdev->name);
 		free(vdev->name);
 	}
+
 	free(vdev);
 	dev->arg = NULL;
 }

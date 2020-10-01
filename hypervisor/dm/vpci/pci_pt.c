@@ -170,20 +170,11 @@ static void vdev_pt_deny_io_vbar(struct pci_vdev *vdev, uint32_t idx)
  */
 void vdev_pt_write_vbar(struct pci_vdev *vdev, uint32_t idx, uint32_t val)
 {
-	uint32_t update_idx = idx;
-	uint32_t offset = pci_bar_offset(idx);
 	struct pci_vbar *vbar = &vdev->vbars[idx];
 
 	switch (vbar->type) {
 	case PCIBAR_IO_SPACE:
-		vdev_pt_deny_io_vbar(vdev, update_idx);
-		if (val != ~0U) {
-			pci_vdev_write_vbar(vdev, idx, val);
-			vdev_pt_allow_io_vbar(vdev, update_idx);
-		} else {
-			pci_vdev_write_vcfg(vdev, offset, 4U, val);
-			vdev->vbars[update_idx].base_gpa = 0UL;
-		}
+		vpci_update_one_vbar(vdev, idx, val, vdev_pt_allow_io_vbar, vdev_pt_deny_io_vbar);
 		break;
 
 	case PCIBAR_NONE:
@@ -191,17 +182,7 @@ void vdev_pt_write_vbar(struct pci_vdev *vdev, uint32_t idx, uint32_t val)
 		break;
 
 	default:
-		if (vbar->type == PCIBAR_MEM64HI) {
-			update_idx -= 1U;
-		}
-		vdev_pt_unmap_mem_vbar(vdev, update_idx);
-		if (val != ~0U) {
-			pci_vdev_write_vbar(vdev, idx, val);
-			vdev_pt_map_mem_vbar(vdev, update_idx);
-		} else {
-			pci_vdev_write_vcfg(vdev, offset, 4U, val);
-			vdev->vbars[update_idx].base_gpa = 0UL;
-		}
+		vpci_update_one_vbar(vdev, idx, val, vdev_pt_map_mem_vbar, vdev_pt_unmap_mem_vbar);
 		break;
 	}
 }
@@ -345,6 +326,21 @@ static void init_bars(struct pci_vdev *vdev, bool is_sriov_bar)
 	}
 }
 
+void vdev_pt_hide_sriov_cap(struct pci_vdev *vdev)
+{
+	uint32_t pre_pos = vdev->pdev->sriov.pre_pos;
+	uint32_t pre_hdr, hdr, vhdr;
+
+	pre_hdr = pci_pdev_read_cfg(vdev->pdev->bdf, pre_pos, 4U);
+	hdr = pci_pdev_read_cfg(vdev->pdev->bdf, vdev->pdev->sriov.capoff, 4U);
+
+	vhdr = pre_hdr & 0xfffffU;
+	vhdr |= hdr & 0xfff00000U;
+	pci_vdev_write_vcfg(vdev, pre_pos, 4U, vhdr);
+	vdev->pdev->sriov.hide_sriov = true;
+
+	pr_acrnlog("Hide sriov cap for %02x:%02x.%x", vdev->pdev->bdf.bits.b, vdev->pdev->bdf.bits.d, vdev->pdev->bdf.bits.f);
+}
 /*
  * @brief Initialize a specified passthrough vdev structure.
  *
@@ -374,6 +370,7 @@ void init_vdev_pt(struct pci_vdev *vdev, bool is_pf_vdev)
 	/* Initialize the vdev BARs except SRIOV VF, VF BARs are initialized directly from create_vf function */
 	if (vdev->phyfun == NULL) {
 		init_bars(vdev, is_pf_vdev);
+		init_vmsix_on_msi(vdev);
 		if (is_prelaunched_vm(vpci2vm(vdev->vpci)) && (!is_pf_vdev)) {
 			pci_command = (uint16_t)pci_pdev_read_cfg(vdev->pdev->bdf, PCIR_COMMAND, 2U);
 
@@ -402,6 +399,11 @@ void init_vdev_pt(struct pci_vdev *vdev, bool is_pf_vdev)
 			}
 		}
 	}
+
+	if (!is_sos_vm(vpci2vm(vdev->vpci)) && (has_sriov_cap(vdev))) {
+		vdev_pt_hide_sriov_cap(vdev);
+	}
+
 }
 
 /*

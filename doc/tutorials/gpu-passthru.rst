@@ -23,13 +23,14 @@ Verified version
 *****************
 
 - ACRN-hypervisor tag: **acrn-2020w17.4-140000p**
-- ACRN-Kernel (Service VM kernel): **master** branch, commit id **095509221660daf82584ebdd8c50ea0078da3c2d**
-- ACRN-EDK2 (OVMF): **ovmf-acrn** branch, commit id **0ff86f6b9a3500e4c7ea0c1064e77d98e9745947**
+- ACRN-Kernel (Service VM kernel): **master** branch, commit ID **095509221660daf82584ebdd8c50ea0078da3c2d**
+- ACRN-EDK2 (OVMF): **ovmf-acrn** branch, commit ID **0ff86f6b9a3500e4c7ea0c1064e77d98e9745947**
 
 Prerequisites
 *************
 
-Follow :ref:`these instructions <kbl-nuc-sdc>` to set up the ACRN Service VM.
+Follow :ref:`these instructions <rt_industry_ubuntu_setup>` to set up
+Ubuntu as the ACRN Service VM.
 
 Supported hardware platform
 ***************************
@@ -93,9 +94,6 @@ Passthrough the GPU to Guest
 
 4. Run ``launch_win.sh``.
 
-.. note:: If you want to passthrough the GPU to a Clear Linux User VM, the
-   steps are the same as above except your script.
-
 Enable the GVT-d GOP driver
 ***************************
 
@@ -119,12 +117,12 @@ Steps
 
      git clone https://github.com/projectacrn/acrn-edk2.git
 
-#. Fetch the vbt and gop drivers.
+#. Fetch the VBT and GOP drivers.
 
-   Fetch the **vbt** and **gop** drivers from the board manufacturer
+   Fetch the **VBT** and **GOP** drivers from the board manufacturer
    according to your CPU model name.
 
-#. Add the **vbt** and **gop** drivers to the OVMF:
+#. Add the **VBT** and **GOP** drivers to the OVMF:
 
    ::
 

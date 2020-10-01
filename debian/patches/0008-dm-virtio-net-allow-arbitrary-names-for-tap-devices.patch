@@ -1,4 +1,3 @@
-From 302a2ae8b97fe80821d1429e354d816d53f687b9 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 24 Mar 2020 15:17:04 +0100
 Subject: dm: virtio-net: allow arbitrary names for tap devices
@@ -9,11 +8,11 @@ allows arbitrary tap device names.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- devicemodel/hw/pci/virtio/virtio_net.c | 56 +++++++++++++++++++++++++-
+ devicemodel/hw/pci/virtio/virtio_net.c | 56 ++++++++++++++++++++++++++++++++--
  1 file changed, 54 insertions(+), 2 deletions(-)
 
 diff --git a/devicemodel/hw/pci/virtio/virtio_net.c b/devicemodel/hw/pci/virtio/virtio_net.c
-index 6d51eea1..6aebb383 100644
+index f42b7b1..5ae7639 100644
 --- a/devicemodel/hw/pci/virtio/virtio_net.c
 +++ b/devicemodel/hw/pci/virtio/virtio_net.c
 @@ -742,6 +742,59 @@ virtio_net_tap_setup(struct virtio_net *net, char *devname)
@@ -86,6 +85,3 @@ index 6d51eea1..6aebb383 100644
  		virtio_net_tap_setup(net, devname);
  
  	free(devname);
--- 
-2.20.1
-

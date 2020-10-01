@@ -1,0 +1,144 @@
+#!/bin/bash
+#* Copyright (c) 2020 Intel Corporation SPDX-License-Identifier: BSD-3-Clause
+# postinst script for acrn-hypervisor
+# please NOTE ！！！  scenario_info/board_info changed by python scripts, so do not add content there!!!
+# please NOTE ！！！  scenario_info/board_info please add in release.json if needed !!!
+set -e
+
+
+echo "please choose <scenario> ,<board> ,<disk type>"
+
+scenario_info=(industry hybrid logical_partition )
+
+board_info=(nuc7i7dnb whl-ipc-i5 )
+
+echo "Scenario is ->"
+
+scenario_num=${#scenario_info[@]}
+
+for ((i=0;i<scenario_num;i++))
+
+{
+    let s_num=i+1
+    echo  $s_num ${scenario_info[i]};
+
+}
+
+
+while :
+do
+    read num
+    if [ $num = 0 ] || [ $num -gt ${scenario_num} ]; then
+
+        echo "out of scenario scope,please retry"
+    else
+        c=$(($num-1))
+        echo "scenario is" ${scenario_info[c]};
+        SCENARIO="${scenario_info[c]}"
+        break
+    fi
+
+done
+
+echo "Board is ->"
+board_num=${#board_info[@]}
+
+for ((i=0;i<board_num;i++))
+
+{
+    let b_num=i+1
+    echo  $b_num ${board_info[i]};
+
+}
+
+
+while :
+do
+    read num2
+    if [ $num2 = 0 ] || [ $num2 -gt ${board_num} ]; then
+
+        echo "out of board scope,please retry"
+    else
+        c1=$(($num2-1))
+        echo "board is" ${board_info[c1]};
+        BOARD="${board_info[c1]}"
+        break
+    fi
+
+done
+
+
+ACRNBIN="/boot/acrn.${SCENARIO}.${BOARD}.bin"
+
+echo "Your acrn bin is ->"
+echo $ACRNBIN
+
+
+echo "disk type is ->"
+
+disk_info=(nvme sda)
+disk_num=${#disk_info[@]}
+
+for ((i=0;i<disk_num;i++))
+
+{
+    let d_num=i+1
+    echo  $d_num ${disk_info[i]};
+
+}
+
+
+while :
+do
+    read num3
+    if [ $num3 = 0 ] || [ $num3 -gt ${disk_num} ]; then
+
+        echo "out of disk scope,please retry"
+    else
+        c3=$(($num3-1))
+        echo "disk is" ${disk_info[c3]};
+        type="${disk_info[c3]}"
+        break
+    fi
+
+done
+
+str=$(blkid |grep ext4 |grep ${type})
+
+uuid=$(echo $str |cut -d " " -f 2|cut -d "=" -f 2)
+
+str=$(blkid |grep ext4 |grep ${type})
+
+partuuid=$(echo ${str##*PARTUUID=})
+
+filename="/etc/grub.d/40_custom"
+
+kernelimg=$(grep module ${filename}|| true)
+
+cat>"${filename}"<<EOF
+#!/bin/sh
+exec tail -n +3 \$0
+menuentry 'ACRN multiboot2 ' --id ACRN_deb_multiboot2 {
+    load_video
+    insmod gzio
+    insmod part_gpt
+    insmod ext2
+    search --no-floppy --fs-uuid  --set $uuid
+multiboot2 $ACRNBIN root=PARTUUID=$partuuid i915.modeset=0 video=efifb:off
+$kernelimg
+
+}
+
+EOF
+
+filename='/etc/default/grub'
+sed -i '/GRUB_DEFAULT/d' ${filename}
+sed -i '/GRUB_TIMEOUT/d' ${filename}
+sed -i '/GRUB_HIDDEN_TIMEOUT/d' ${filename}
+sed -i '$a GRUB_DEFAULT=ACRN_deb_multiboot2' ${filename}
+sed -i '$a GRUB_TIMEOUT=20' ${filename}
+
+sync
+update-grub
+
+exit 0

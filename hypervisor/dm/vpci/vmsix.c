@@ -36,6 +36,7 @@
 #include <ept.h>
 #include <mmu.h>
 #include <logmsg.h>
+#include <vtd.h>
 #include "vpci_priv.h"
 
 /**
@@ -87,7 +88,8 @@ static void remap_one_vmsix_entry(const struct pci_vdev *vdev, uint32_t index)
 		info.addr.full = vdev->msix.table_entries[index].addr;
 		info.data.full = vdev->msix.table_entries[index].data;
 
-		ret = ptirq_prepare_msix_remap(vpci2vm(vdev->vpci), vdev->bdf.value, vdev->pdev->bdf.value, (uint16_t)index, &info);
+		ret = ptirq_prepare_msix_remap(vpci2vm(vdev->vpci), vdev->bdf.value, vdev->pdev->bdf.value,
+					       (uint16_t)index, &info, INVALID_IRTE_ID);
 		if (ret == 0) {
 			/* Write the table entry to the physical structure */
 			pentry = get_msix_table_entry(vdev, index);
@@ -172,7 +174,11 @@ static void rw_vmsix_table(struct pci_vdev *vdev, struct mmio_request *mmio, uin
 				/* Write to pci_vdev */
 				(void)memcpy_s((void *)entry + entry_offset, (size_t)mmio->size,
 						&mmio->value, (size_t)mmio->size);
-				remap_one_vmsix_entry(vdev, index);
+				if (vdev->msix.is_vmsix_on_msi) {
+					remap_one_vmsix_entry_on_msi(vdev, index);
+				} else {
+					remap_one_vmsix_entry(vdev, index);
+				}
 			} else {
 				pr_err("%s, Only DWORD and QWORD are permitted", __func__);
 			}
@@ -203,6 +209,15 @@ int32_t vmsix_handle_table_mmio_access(struct io_request *io_req, void *handler_
 
 		if (msixtable_access(vdev, (uint32_t)offset)) {
 			rw_vmsix_table(vdev, mmio, (uint32_t)offset);
+		} else if (vdev->msix.is_vmsix_on_msi) {
+			/* According to PCI spec, PBA is read-only.
+			 * Don't emulate PBA according to the device status, just return 0.
+			 */
+			if (mmio->direction == REQUEST_READ) {
+				mmio->value = 0UL;
+			} else {
+				ret = -EINVAL;
+			}
 		} else {
 			hva = hpa2hva(vdev->msix.mmio_hpa + offset);
 
@@ -269,7 +284,8 @@ void deinit_vmsix(struct pci_vdev *vdev)
 	if (has_msix_cap(vdev)) {
 		if (vdev->msix.table_count != 0U) {
 			ptirq_remove_msix_remapping(vpci2vm(vdev->vpci), vdev->pdev->bdf.value, vdev->msix.table_count);
-			(void)memset((void *)&vdev->msix, 0U, sizeof(struct pci_msix));
+			(void)memset((void *)&vdev->msix.table_entries, 0U, sizeof(vdev->msix.table_entries));
+			vdev->msix.is_vmsix_on_msi_programmed = false;
 		}
 	}
 }

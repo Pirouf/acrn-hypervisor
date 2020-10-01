@@ -37,6 +37,7 @@
 #include <logmsg.h>
 #include "vpci_priv.h"
 #include "pci_dev.h"
+#include <hash.h>
 
 static void vpci_init_vdevs(struct acrn_vm *vm);
 static int32_t vpci_read_cfg(struct acrn_vpci *vpci, union pci_bdf bdf, uint32_t offset, uint32_t bytes, uint32_t *val);
@@ -99,21 +100,6 @@ static bool vpci_pio_cfgaddr_write(struct acrn_vcpu *vcpu, uint16_t addr, size_t
 	return ret;
 }
 
-static inline bool vpci_is_valid_access_offset(uint32_t offset, uint32_t bytes)
-{
-	return ((offset & (bytes - 1U)) == 0U);
-}
-
-static inline bool vpci_is_valid_access_byte(uint32_t bytes)
-{
-	return ((bytes == 1U) || (bytes == 2U) || (bytes == 4U));
-}
-
-static inline bool vpci_is_valid_access(uint32_t offset, uint32_t bytes)
-{
-	return (vpci_is_valid_access_byte(bytes) && vpci_is_valid_access_offset(offset, bytes));
-}
-
 /**
  * @pre vcpu != NULL
  * @pre vcpu->vm != NULL
@@ -137,7 +123,7 @@ static bool vpci_pio_cfgdata_read(struct acrn_vcpu *vcpu, uint16_t addr, size_t 
 
 	cfg_addr.value = atomic_readandclear32(&vpci->addr.value);
 	if (cfg_addr.bits.enable != 0U) {
-		if (vpci_is_valid_access(cfg_addr.bits.reg_num + offset, bytes)) {
+		if (pci_is_valid_access(cfg_addr.bits.reg_num + offset, bytes)) {
 			bdf.value = cfg_addr.bits.bdf;
 			ret = vpci_read_cfg(vpci, bdf, cfg_addr.bits.reg_num + offset, bytes, &val);
 		}
@@ -168,7 +154,7 @@ static bool vpci_pio_cfgdata_write(struct acrn_vcpu *vcpu, uint16_t addr, size_t
 
 	cfg_addr.value = atomic_readandclear32(&vpci->addr.value);
 	if (cfg_addr.bits.enable != 0U) {
-		if (vpci_is_valid_access(cfg_addr.bits.reg_num + offset, bytes)) {
+		if (pci_is_valid_access(cfg_addr.bits.reg_num + offset, bytes)) {
 			bdf.value = cfg_addr.bits.bdf;
 			ret = vpci_write_cfg(vpci, bdf, cfg_addr.bits.reg_num + offset, bytes, val);
 		}
@@ -188,7 +174,7 @@ static int32_t vpci_mmio_cfg_access(struct io_request *io_req, void *private_dat
 	int32_t ret = 0;
 	struct mmio_request *mmio = &io_req->reqs.mmio;
 	struct acrn_vpci *vpci = (struct acrn_vpci *)private_data;
-	uint64_t pci_mmcofg_base = vpci->pci_mmcfg_base;
+	uint64_t pci_mmcofg_base = vpci->pci_mmcfg.address;
 	uint64_t address = mmio->address;
 	uint32_t reg_num = (uint32_t)(address & 0xfffUL);
 	union pci_bdf bdf;
@@ -205,19 +191,9 @@ static int32_t vpci_mmio_cfg_access(struct io_request *io_req, void *private_dat
 	bdf.value = (uint16_t)((address - pci_mmcofg_base) >> 12U);
 
 	if (mmio->direction == REQUEST_READ) {
-		if (!is_plat_hidden_pdev(bdf)) {
-			ret = vpci_read_cfg(vpci, bdf, reg_num, (uint32_t)mmio->size, (uint32_t *)&mmio->value);
-		} else {
-			/* expose and pass through platform hidden devices to SOS */
-			mmio->value = (uint64_t)pci_pdev_read_cfg(bdf, reg_num, (uint32_t)mmio->size);
-		}
+		ret = vpci_read_cfg(vpci, bdf, reg_num, (uint32_t)mmio->size, (uint32_t *)&mmio->value);
 	} else {
-		if (!is_plat_hidden_pdev(bdf)) {
-			ret = vpci_write_cfg(vpci, bdf, reg_num, (uint32_t)mmio->size, (uint32_t)mmio->value);
-		} else {
-			/* expose and pass through platform hidden devices to SOS */
-			pci_pdev_write_cfg(bdf, reg_num, (uint32_t)mmio->size, (uint32_t)mmio->value);
-		}
+		ret = vpci_write_cfg(vpci, bdf, reg_num, (uint32_t)mmio->size, (uint32_t)mmio->value);
 	}
 
 	return ret;
@@ -240,7 +216,7 @@ void init_vpci(struct acrn_vm *vm)
 	};
 
 	struct acrn_vm_config *vm_config;
-	uint64_t pci_mmcfg_base;
+	struct pci_mmcfg_region *pci_mmcfg;
 
 	vm->iommu = create_iommu_domain(vm->vm_id, hva2hpa(vm->arch_vm.nworld_eptp), 48U);
 	/* Build up vdev list for vm */
@@ -248,10 +224,17 @@ void init_vpci(struct acrn_vm *vm)
 
 	vm_config = get_vm_config(vm->vm_id);
 	/* virtual PCI MMCONFIG for SOS is same with the physical value */
-	pci_mmcfg_base = (vm_config->load_order == SOS_VM) ? get_mmcfg_base() : VIRT_PCI_MMCFG_BASE;
-	vm->vpci.pci_mmcfg_base = pci_mmcfg_base;
-	register_mmio_emulation_handler(vm, vpci_mmio_cfg_access,
-			pci_mmcfg_base, pci_mmcfg_base + PCI_MMCONFIG_SIZE, &vm->vpci, false);
+	if (vm_config->load_order == SOS_VM) {
+		pci_mmcfg = get_mmcfg_region();
+		vm->vpci.pci_mmcfg = *pci_mmcfg;
+	} else {
+		vm->vpci.pci_mmcfg.address = UOS_VIRT_PCI_MMCFG_BASE;
+		vm->vpci.pci_mmcfg.start_bus = UOS_VIRT_PCI_MMCFG_START_BUS;
+		vm->vpci.pci_mmcfg.end_bus = UOS_VIRT_PCI_MMCFG_END_BUS;
+	}
+
+	register_mmio_emulation_handler(vm, vpci_mmio_cfg_access, vm->vpci.pci_mmcfg.address,
+		vm->vpci.pci_mmcfg.address + get_pci_mmcfg_size(&vm->vpci.pci_mmcfg), &vm->vpci, false);
 
 	/* Intercept and handle I/O ports CF8h */
 	register_pio_emulation_handler(vm, PCI_CFGADDR_PIO_IDX, &pci_cfgaddr_range,
@@ -500,15 +483,21 @@ static int32_t write_pt_dev_cfg(struct pci_vdev *vdev, uint32_t offset,
 	} else if (msicap_access(vdev, offset)) {
 		write_vmsi_cap_reg(vdev, offset, bytes, val);
 	} else if (msixcap_access(vdev, offset)) {
-		write_vmsix_cap_reg(vdev, offset, bytes, val);
+		if (vdev->msix.is_vmsix_on_msi) {
+			write_vmsix_cap_reg_on_msi(vdev, offset, bytes, val);
+		} else {
+			write_vmsix_cap_reg(vdev, offset, bytes, val);
+		}
 	} else if (sriovcap_access(vdev, offset)) {
 		write_sriov_cap_reg(vdev, offset, bytes, val);
 	} else {
-		if (!is_quirk_ptdev(vdev)) {
-			/* passthru to physical device */
-			pci_pdev_write_cfg(vdev->pdev->bdf, offset, bytes, val);
-		} else {
-			ret = -ENODEV;
+		if (offset != vdev->pdev->sriov.pre_pos) {
+			if (!is_quirk_ptdev(vdev)) {
+				/* passthru to physical device */
+				pci_pdev_write_cfg(vdev->pdev->bdf, offset, bytes, val);
+			} else {
+				ret = -ENODEV;
+			}
 		}
 	}
 
@@ -529,7 +518,9 @@ static int32_t read_pt_dev_cfg(const struct pci_vdev *vdev, uint32_t offset,
 	} else if (sriovcap_access(vdev, offset)) {
 		read_sriov_cap_reg(vdev, offset, bytes, val);
 	} else {
-		if (!is_quirk_ptdev(vdev)) {
+		if ((offset == vdev->pdev->sriov.pre_pos) && (vdev->pdev->sriov.hide_sriov)) {
+			*val = pci_vdev_read_vcfg(vdev, offset, bytes);
+		} else if (!is_quirk_ptdev(vdev)) {
 			/* passthru to physical device */
 			*val = pci_pdev_read_cfg(vdev->pdev->bdf, offset, bytes);
 		} else {
@@ -563,6 +554,11 @@ static int32_t vpci_read_cfg(struct acrn_vpci *vpci, union pci_bdf bdf,
 	} else {
 		if (is_postlaunched_vm(vpci2vm(vpci))) {
 			ret = -ENODEV;
+		} else if (is_plat_hidden_pdev(bdf)) {
+			/* expose and pass through platform hidden devices */
+			*val = pci_pdev_read_cfg(bdf, offset, bytes);
+		} else {
+			/* no action: e.g., PCI scan */
 		}
 	}
 	spinlock_release(&vpci->lock);
@@ -583,11 +579,14 @@ static int32_t vpci_write_cfg(struct acrn_vpci *vpci, union pci_bdf bdf,
 	if (vdev != NULL) {
 		ret = vdev->vdev_ops->write_vdev_cfg(vdev, offset, bytes, val);
 	} else {
-		if (!is_postlaunched_vm(vpci2vm(vpci))) {
+		if (is_postlaunched_vm(vpci2vm(vpci))) {
+			ret = -ENODEV;
+		} else if (is_plat_hidden_pdev(bdf)) {
+			/* expose and pass through platform hidden devices */
+			pci_pdev_write_cfg(bdf, offset, bytes, val);
+		} else {
 			pr_acrnlog("%s %x:%x.%x not found! off: 0x%x, val: 0x%x\n", __func__,
 				bdf.bits.b, bdf.bits.d, bdf.bits.f, offset, val);
-		} else {
-			ret = -ENODEV;
 		}
 	}
 	spinlock_release(&vpci->lock);
@@ -623,6 +622,7 @@ struct pci_vdev *vpci_init_vdev(struct acrn_vpci *vpci, struct acrn_vm_pci_dev_c
 	vdev->pci_dev_config = dev_config;
 	vdev->phyfun = parent_pf_vdev;
 
+	hlist_add_head(&vdev->link, &vpci->vdevs_hlist_heads[hash64(dev_config->vbdf.value, VDEV_LIST_HASHBITS)]);
 	if (dev_config->vdev_ops != NULL) {
 		vdev->vdev_ops = dev_config->vdev_ops;
 	} else {
@@ -658,7 +658,10 @@ static void vpci_init_vdevs(struct acrn_vm *vm)
 	const struct acrn_vm_config *vm_config = get_vm_config(vpci2vm(vpci)->vm_id);
 
 	for (idx = 0U; idx < vm_config->pci_dev_num; idx++) {
-		(void)vpci_init_vdev(vpci, &vm_config->pci_devs[idx], NULL);
+		/* the vdev whose vBDF is unassigned will be created by hypercall */
+		if ((!is_postlaunched_vm(vm)) || (vm_config->pci_devs[idx].vbdf.value != UNASSIGNED_VBDF)) {
+			(void)vpci_init_vdev(vpci, &vm_config->pci_devs[idx], NULL);
+		}
 	}
 }
 
@@ -681,15 +684,10 @@ int32_t vpci_assign_pcidev(struct acrn_vm *tgt_vm, struct acrn_assign_pcidev *pc
 	sos_vm = get_sos_vm();
 	spinlock_obtain(&sos_vm->vpci.lock);
 	vdev_in_sos = pci_find_vdev(&sos_vm->vpci, bdf);
-	/*
-	 * TODO We didn't support SR-IOV capability of PF in UOS for now, we should
-	 * hide the SR-IOV capability if we pass through the PF to a UOS.
-	 *
-	 * For now, we don't support assignment of PF to a UOS.
-	 */
 	if ((vdev_in_sos != NULL) && (vdev_in_sos->user == vdev_in_sos) &&
-			(vdev_in_sos->pdev != NULL) && (!has_sriov_cap(vdev_in_sos)) &&
+			(vdev_in_sos->pdev != NULL) &&
 			!is_host_bridge(vdev_in_sos->pdev) && !is_bridge(vdev_in_sos->pdev)) {
+
 		/* ToDo: Each PT device must support one type reset */
 		if (!vdev_in_sos->pdev->has_pm_reset && !vdev_in_sos->pdev->has_flr &&
 				!vdev_in_sos->pdev->has_af_flr) {
@@ -722,6 +720,9 @@ int32_t vpci_assign_pcidev(struct acrn_vm *tgt_vm, struct acrn_assign_pcidev *pc
 
 		vdev->flags |= pcidev->type;
 		vdev->bdf.value = pcidev->virt_bdf;
+		/*We should re-add the vdev to hashlist since its vbdf has changed */
+		hlist_del(&vdev->link);
+		hlist_add_head(&vdev->link, &vpci->vdevs_hlist_heads[hash64(vdev->bdf.value, VDEV_LIST_HASHBITS)]);
 		vdev->parent_user = vdev_in_sos;
 		spinlock_release(&tgt_vm->vpci.lock);
 		vdev_in_sos->user = vdev;
@@ -771,4 +772,24 @@ int32_t vpci_deassign_pcidev(struct acrn_vm *tgt_vm, struct acrn_assign_pcidev *
 	}
 
 	return ret;
+}
+
+void vpci_update_one_vbar(struct pci_vdev *vdev, uint32_t bar_idx, uint32_t val,
+		map_pcibar map_cb, unmap_pcibar unmap_cb)
+{
+	struct pci_vbar *vbar = &vdev->vbars[bar_idx];
+	uint32_t offset = pci_bar_offset(bar_idx);
+	uint32_t update_idx = bar_idx;
+
+	if (vbar->type == PCIBAR_MEM64HI) {
+		update_idx -= 1U;
+	}
+	unmap_cb(vdev, update_idx);
+	if (val != ~0U) {
+		pci_vdev_write_vbar(vdev, bar_idx, val);
+		map_cb(vdev, update_idx);
+	} else {
+		pci_vdev_write_vcfg(vdev, offset, 4U, val);
+		vdev->vbars[update_idx].base_gpa = 0UL;
+	}
 }

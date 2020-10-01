@@ -13,7 +13,7 @@ include:
 * **Understandability** A modular design is easier to understand due to
   encapsulation.
 * **Testability** Modules can be integrated and tested in the reverse order of
-  dependencies among them. White-box integration tests help improve the coverage
+  dependencies among them. Modular integration tests help improve the coverage
   of tests and identify corner cases that are hard to trigger when testing the
   hypervisor as a whole.
 * **Configurability** Modular design makes it easy to configure certain
@@ -92,7 +92,7 @@ The components are listed as follows.
 * **Device Emulation** This component implements devices that are emulated in
   the hypervisor itself, such as the virtual programmable interrupt controllers
   including vPIC, vLAPIC and vIOAPIC.
-* **Passthru Management** This component manages devices that are passed-through
+* **Passthrough Management** This component manages devices that are passed-through
   to specific VMs.
 * **Extended Device Emulation** This component implements an I/O request
   mechanism that allow the hypervisor to forward I/O accesses from a User

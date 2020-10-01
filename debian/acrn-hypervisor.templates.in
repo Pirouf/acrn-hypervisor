@@ -7,7 +7,7 @@ Description: ACRN hypervisor board selection
 
 Template: acrn-hypervisor/scenario
 Type: select
-Choices: @scenariolist@
+Choices: ${scenariolist}
 Description: ACRN hypervisor scenario selection
  Define the appropriate VM configuration (aka scenario) for the ACRN
  hypervisor.

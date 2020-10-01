@@ -26,63 +26,20 @@ VM_NUM_MAP_TOTAL_HV_RAM_SIZE = {
     6:0xFA00000,
     # 280M
     7:0x11800000,
-    # 320M
-    8:0x14000000,
+    # 328M
+    8:0x14800000,
 }
 
+HV_RAM_SIZE_MAX = 0x40000000
+
 MEM_ALIGN = 2 * common.SIZE_M
-
-
-def find_avl_memory(ram_range, hpa_size, hv_start_offset):
-    """
-    This is get hv address from System RAM as host physical size
-    :param ram_range: System RAM mapping
-    :param hpa_size: fixed host physical size
-    :param hv_start_offset: base address of HV RAM start
-    :return: start host physical address
-    """
-    ret_start_addr = 0
-    tmp_order_key = 0
-
-    tmp_order_key = sorted(ram_range)
-    for start_addr in tmp_order_key:
-        mem_range = ram_range[start_addr]
-        if start_addr < hv_start_offset < start_addr +  ram_range[start_addr]:
-            # 256M address located in this start ram range
-            if start_addr + mem_range - hv_start_offset > int(hpa_size, 10):
-                ret_start_addr = hv_start_offset
-                break
-        elif start_addr > hv_start_offset:
-            # above 256M address, than return the start address of this ram range
-            ret_start_addr = start_addr
-            break
-
-    return hex(ret_start_addr)
-
-
-def get_ram_range():
-    """ Get System RAM range mapping """
-    # read system ram from board_info.xml
-    ram_range = {}
-
-    io_mem_lines = board_cfg_lib.get_info(
-        common.BOARD_INFO_FILE, "<IOMEM_INFO>", "</IOMEM_INFO>")
-
-    for line in io_mem_lines:
-        if 'System RAM' not in line:
-            continue
-        start_addr = int(line.split('-')[0], 16)
-        end_addr = int(line.split('-')[1].split(':')[0], 16)
-        mem_range = end_addr - start_addr
-        ram_range[start_addr] = mem_range
-
-    return ram_range
 
 
 def get_serial_type():
     """ Get serial console type specified by user """
     ttys_type = ''
     ttys_value = ''
+    pci_mmio = False
 
     # Get ttySx information from board config file
     ttys_lines = board_cfg_lib.get_info(common.BOARD_INFO_FILE, "<TTYS_INFO>", "</TTYS_INFO>")
@@ -104,11 +61,12 @@ def get_serial_type():
             elif ttys_type == "mmio":
                 if 'bdf' in line:
                     ttys_value = line.split()[-1].split('"')[1:-1][0]
+                    pci_mmio = True
                 else:
-                    common.print_yel("You have chosen a MMIO PCI serial that BDF does not existed for HV console.", warn=True)
+                    ttys_value = line.split()[2].split(':')[1]
             break
 
-    return (ttys_type, ttys_value)
+    return (ttys_type, ttys_value, pci_mmio)
 
 
 def get_memory(hv_info, config):
@@ -123,7 +81,29 @@ def get_memory(hv_info, config):
         err_dic["board config: total vm number error"] = "VM num should not be greater than 8"
         return err_dic
 
-    ram_range = get_ram_range()
+    ivshmem_enabled = common.get_hv_item_tag(common.SCENARIO_INFO_FILE, "FEATURES", "IVSHMEM", "IVSHMEM_ENABLED")
+    total_shm_size = 0
+    if ivshmem_enabled == 'y':
+        raw_shmem_regions = common.get_hv_item_tag(common.SCENARIO_INFO_FILE, "FEATURES", "IVSHMEM", "IVSHMEM_REGION")
+        for raw_shm in raw_shmem_regions:
+            if raw_shm is None or raw_shm.strip() == '':
+                continue
+            raw_shm_splited = raw_shm.split(',')
+            if len(raw_shm_splited) == 3 and raw_shm_splited[0].strip() != '' \
+                    and raw_shm_splited[1].strip() != '' and len(raw_shm_splited[2].strip().split(':')) >= 1:
+                try:
+                    size = raw_shm_splited[1].strip()
+                    int_size = int(size) * 0x100000
+                    total_shm_size += int_size
+                except Exception as e:
+                    print(e)
+
+    hv_ram_size += total_shm_size
+    if hv_ram_size > HV_RAM_SIZE_MAX:
+        common.print_red("requested RAM size should be smaller then {}".format(HV_RAM_SIZE_MAX), err=True)
+        err_dic["board config: total vm number error"] = \
+            "requested RAM size should be smaller then {}".format(HV_RAM_SIZE_MAX)
+        return err_dic
 
     # reseve 16M memory for hv sbuf, ramoops, etc.
     reserved_ram = 0x1000000
@@ -131,9 +111,14 @@ def get_memory(hv_info, config):
     # reduce memory conflict with GRUB/SOS Kernel.
     hv_start_offset = 0x10000000
     total_size = reserved_ram + hv_ram_size
-    avl_start_addr = find_avl_memory(ram_range, str(total_size), hv_start_offset)
+    for start_addr in list(board_cfg_lib.USED_RAM_RANGE):
+        if hv_start_offset <= start_addr < 0x80000000:
+            del board_cfg_lib.USED_RAM_RANGE[start_addr]
+    ram_range = board_cfg_lib.get_ram_range()
+    avl_start_addr = board_cfg_lib.find_avl_memory(ram_range, str(total_size), hv_start_offset)
     hv_start_addr = int(avl_start_addr, 16) + int(hex(reserved_ram), 16)
     hv_start_addr = common.round_up(hv_start_addr, MEM_ALIGN)
+    board_cfg_lib.USED_RAM_RANGE[hv_start_addr] = total_size
 
     if not hv_info.mem.hv_ram_start:
         print("CONFIG_HV_RAM_START={}".format(hex(hv_start_addr)), file=config)
@@ -149,18 +134,27 @@ def get_memory(hv_info, config):
     print("CONFIG_SOS_RAM_SIZE={}".format(hv_info.mem.sos_ram_size), file=config)
     print("CONFIG_UOS_RAM_SIZE={}".format(hv_info.mem.uos_ram_size), file=config)
     print("CONFIG_STACK_SIZE={}".format(hv_info.mem.stack_size), file=config)
+    print("CONFIG_IVSHMEM_ENABLED={}".format(hv_info.mem.ivshmem_enable), file=config)
 
 
 def get_serial_console(config):
 
-    (serial_type, serial_value) = get_serial_type()
+    (serial_type, serial_value, pci_mmio) = get_serial_type()
     if serial_type == "portio":
         print("CONFIG_SERIAL_LEGACY=y", file=config)
         print("CONFIG_SERIAL_PIO_BASE={}".format(serial_value), file=config)
-    if serial_type == "mmio":
+    elif serial_type == "mmio" and pci_mmio:
         print("CONFIG_SERIAL_PCI=y", file=config)
         if serial_value:
-            print('CONFIG_SERIAL_PCI_BDF="{}"'.format(serial_value), file=config)
+            bus = int(serial_value.strip("'").split(':')[0], 16)
+            dev = int(serial_value.strip("'").split(':')[1].split(".")[0], 16)
+            fun = int(serial_value.strip("'").split('.')[1], 16)
+            value = ((bus & 0xFF) << 8) | ((dev & 0x1F) << 3) | (fun & 0x7)
+            print('CONFIG_SERIAL_PCI_BDF={}'.format(hex(value)), file=config)
+    else:
+        print("CONFIG_SERIAL_MMIO=y", file=config)
+        if serial_value:
+            print('CONFIG_SERIAL_MMIO_BASE={}'.format(serial_value), file=config)
 
 
 def get_miscfg(hv_info, config):
@@ -194,7 +188,13 @@ def get_capacities(hv_info, config):
     print("CONFIG_MAX_PCI_DEV_NUM={}".format(hv_info.cap.max_pci_dev_num), file=config)
     print("CONFIG_MAX_IOAPIC_LINES={}".format(hv_info.cap.max_ioapic_lines), file=config)
     print("CONFIG_MAX_PT_IRQ_ENTRIES={}".format(hv_info.cap.max_pt_irq_entries), file=config)
-    print("CONFIG_MAX_MSIX_TABLE_NUM={}".format(hv_info.cap.max_msix_table_num), file=config)
+    max_msix_table_num = 0
+    if not hv_info.cap.max_msix_table_num:
+        native_max_msix_line = board_cfg_lib.get_info(common.BOARD_INFO_FILE, "<MAX_MSIX_TABLE_NUM>", "</MAX_MSIX_TABLE_NUM>")
+        max_msix_table_num = native_max_msix_line[0].strip()
+    else:
+        max_msix_table_num = hv_info.cap.max_msix_table_num
+    print("CONFIG_MAX_MSIX_TABLE_NUM={}".format(max_msix_table_num), file=config)
     print("CONFIG_MAX_EMULATED_MMIO_REGIONS={}".format(hv_info.cap.max_emu_mmio_regions), file=config)
 
 
@@ -228,7 +228,5 @@ def generate_file(hv_info, config):
     get_capacities(hv_info, config)
     get_serial_console(config)
     get_log_opt(hv_info, config)
-
-    print("CONFIG_ENFORCE_VALIDATED_ACPI_INFO=y", file=config)
 
     return err_dic

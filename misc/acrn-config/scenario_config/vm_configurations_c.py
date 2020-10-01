@@ -19,6 +19,9 @@ def get_pre_vm_type(vm_type, vm_i):
     if vm_type == "SAFETY_VM":
         return "CONFIG_SAFETY_VM(1)"
 
+    if vm_type == "PRE_RT_VM":
+        return "CONFIG_PRE_RT_VM(1)"
+
     i_cnt = 0
     for i,v_type in common.VM_TYPES.items():
         if v_type == "PRE_STD_VM" and i <= vm_i:
@@ -136,29 +139,6 @@ def vuart_output(vm_type, i, vm_info, config):
     print("\t\t},", file=config)
 
 
-def split_cmdline(cmd_str, config):
-
-    cmd_list = [i for i in cmd_str.strip('"').split() if i != '']
-
-    if cmd_list:
-        cmd_len = len(cmd_list)
-        i = 0
-        for cmd_arg in cmd_list:
-            if not cmd_arg.strip():
-                continue
-
-            if i == 0:
-                print('"', end="", file=config)
-
-            if i % 4 == 0 and i != 0:
-                print("\\\n\t\t\t\t", end="", file=config)
-
-            print('{} '.format(cmd_arg), end="", file=config)
-            i += 1
-            if i == cmd_len:
-                print('"', file=config)
-
-
 def is_need_epc(epc_section, i, config):
     """
     Check if it is need epc section
@@ -190,11 +170,11 @@ def cpu_affinity_output(vm_info, i, config):
     :param i: the index of vm id
     :param config: file pointor to store the information
     """
-    if "SOS_VM" == scenario_cfg_lib.VM_DB[vm_info.load_vm[i]]['load_type']:
-        return
 
-    cpu_bits = vm_info.get_cpu_bitmap(i)
-    print("\t\t.cpu_affinity = VM{}_CONFIG_CPU_AFFINITY,".format(i), file=config)
+    if "SOS_VM" == common.VM_TYPES[i]:
+        print("\t\t.cpu_affinity = SOS_VM_CONFIG_CPU_AFFINITY,", file=config)
+    else:
+        print("\t\t.cpu_affinity = VM{}_CONFIG_CPU_AFFINITY,".format(i), file=config)
 
 
 def clos_output(scenario_items, i, config):
@@ -207,8 +187,9 @@ def clos_output(scenario_items, i, config):
     """
     hv_info = scenario_items['hv']
 
-    if board_cfg_lib.is_rdt_supported() and hv_info.features.rdt_enabled == 'y':
-        print("\t\t.clos = VM{}_VCPU_CLOS,".format(i), file=config)
+    print("#ifdef CONFIG_RDT_ENABLED", file=config)
+    print("\t\t.clos = VM{}_VCPU_CLOS,".format(i), file=config)
+    print("#endif", file=config)
 
 def get_guest_flag(flags):
     """
@@ -329,17 +310,46 @@ def gen_pre_launch_vm(vm_type, vm_i, scenario_items, config):
         print("\t\t\t.kernel_entry_addr = {0},".format(vm_info.os_cfg.kern_entry_addr[vm_i]), file=config)
 
     if vm_i in vm_info.os_cfg.kern_args.keys() and vm_info.os_cfg.kern_args[vm_i]:
-        print("\t\t\t.bootargs = ", end="", file=config)
-        split_cmdline(vm_info.os_cfg.kern_args[vm_i].strip(), config)
+        print("\t\t\t.bootargs = VM{0}_BOOT_ARGS,".format(vm_i), file=config)
+
+    print("\t\t},", file=config)
+    print("\t\t.acpi_config = {", file=config)
+    print('\t\t\t.acpi_mod_tag = "ACPI_VM{}",'.format(vm_i), file=config)
     print("\t\t},", file=config)
     # VUART
     err_dic = vuart_output(vm_type, vm_i, vm_info, config)
     if err_dic:
         return err_dic
 
-    if vm_info.cfg_pci.pci_devs[vm_i] and vm_info.cfg_pci.pci_devs[vm_i] != None:
-        print("\t\t.pci_dev_num = {}U,".format(vm_info.cfg_pci.pci_dev_num[vm_i]), file=config)
+    if (vm_i in vm_info.cfg_pci.pci_devs.keys() and vm_info.cfg_pci.pci_devs[vm_i]) or \
+        (vm_info.shmem.shmem_enabled == 'y' and vm_i in vm_info.shmem.shmem_regions.keys() \
+                 and vm_info.shmem.shmem_regions[vm_i]):
+        print("\t\t.pci_dev_num = VM{}_CONFIG_PCI_DEV_NUM,".format(vm_i), file=config)
         print("\t\t.pci_devs = vm{}_pci_devs,".format(vm_i), file=config)
+
+    if vm_i == 0:
+        print("#ifdef VM0_PASSTHROUGH_TPM", file=config)
+        print("\t\t.pt_tpm2 = true,", file=config)
+        print("\t\t.mmiodevs[0] = {", file=config)
+        print("\t\t\t.base_gpa = VM0_TPM_BUFFER_BASE_ADDR_GPA,", file=config)
+        print("\t\t\t.base_hpa = VM0_TPM_BUFFER_BASE_ADDR,", file=config)
+        print("\t\t\t.size = VM0_TPM_BUFFER_SIZE,", file=config)
+        print("\t\t},", file=config)
+        print("#endif", file=config)
+
+    if vm_i == 0:
+        print("#ifdef P2SB_BAR_ADDR", file=config)
+        print("\t\t.pt_p2sb_bar = true,", file=config)
+        print("\t\t.mmiodevs[0] = {", file=config)
+        print("\t\t\t.base_gpa = P2SB_BAR_ADDR_GPA,", file=config)
+        print("\t\t\t.base_hpa = P2SB_BAR_ADDR,", file=config)
+        print("\t\t\t.size = P2SB_BAR_SIZE,", file=config)
+        print("\t\t},", file=config)
+        print("#endif", file=config)
+
+    if vm_i == 0:
+        print("\t\t.pt_intx_num = VM0_PT_INTX_NUM,", file=config)
+        print("\t\t.pt_intx = &vm0_pt_intx[0U],", file=config)
 
     print("\t},", file=config)
 
@@ -351,6 +361,11 @@ def gen_post_launch_vm(vm_type, vm_i, scenario_items, config):
     print("\t{{\t/* VM{} */".format(vm_i), file=config)
     print("\t\t{},".format(post_vm_type), file=config)
     clos_output(scenario_items, vm_i, config)
+    if vm_info.shmem.shmem_enabled == 'y' and vm_i in vm_info.shmem.shmem_regions.keys() \
+            and vm_info.shmem.shmem_regions[vm_i]:
+        print("\t\t/* The PCI device configuration is only for in-hypervisor vPCI devices. */", file=config)
+        print("\t\t.pci_dev_num = VM{}_CONFIG_PCI_DEV_NUM,".format(vm_i), file=config)
+        print("\t\t.pci_devs = vm{}_pci_devs,".format(vm_i), file=config)
     cpu_affinity_output(vm_info, vm_i, config)
     is_need_epc(vm_info.epc_section, vm_i, config)
     # VUART
@@ -361,13 +376,16 @@ def gen_post_launch_vm(vm_type, vm_i, scenario_items, config):
     print("\t},", file=config)
 
 
-def pre_launch_definiation(vm_info, config):
+def declare_pci_devs(vm_info, config):
 
     for vm_i,vm_type in common.VM_TYPES.items():
-        if "PRE_LAUNCHED_VM" != scenario_cfg_lib.VM_DB[vm_type]['load_type']:
+        if scenario_cfg_lib.VM_DB[vm_type]['load_type'] not in ["PRE_LAUNCHED_VM", "POST_LAUNCHED_VM"]:
             continue
-        print("extern struct acrn_vm_pci_dev_config " +
-              "vm{}_pci_devs[{}];".format(vm_i, vm_info.cfg_pci.pci_dev_num[vm_i]), file=config)
+        if (vm_i in vm_info.cfg_pci.pci_devs.keys() and vm_info.cfg_pci.pci_devs[vm_i]) \
+                or (vm_info.shmem.shmem_enabled == 'y' and vm_i in vm_info.shmem.shmem_regions.keys() \
+                    and vm_info.shmem.shmem_regions[vm_i]):
+            print("extern struct acrn_vm_pci_dev_config " +
+                "vm{}_pci_devs[VM{}_CONFIG_PCI_DEV_NUM];".format(vm_i, vm_i), file=config)
     print("", file=config)
 
 def generate_file(scenario_items, config):
@@ -378,10 +396,28 @@ def generate_file(scenario_items, config):
     err_dic = {}
     vm_info = scenario_items['vm']
     gen_source_header(config)
+
+    pci_dev_config_flag = False
     for vm_i,pci_dev_num in vm_info.cfg_pci.pci_dev_num.items():
         if pci_dev_num >= 2:
-            pre_launch_definiation(vm_info, config)
+            pci_dev_config_flag = True
             break
+    if vm_info.shmem.shmem_enabled == 'y':
+        for vm_id, shm_num in vm_info.shmem.shmem_num.items():
+            if shm_num > 0:
+                pci_dev_config_flag = True
+                break
+    if pci_dev_config_flag:
+        declare_pci_devs(vm_info, config)
+
+    if (board_cfg_lib.is_matched_board(("ehl-crb-b"))
+        and vm_info.pt_intx_info.phys_gsi.get(0) is not None
+        and len(vm_info.pt_intx_info.phys_gsi[0]) > 0):
+        print("extern struct pt_intx_config vm0_pt_intx[{}U];".format(len(vm_info.pt_intx_info.phys_gsi[0])), file=config)
+    else:
+        print("extern struct pt_intx_config vm0_pt_intx[1U];", file=config)
+
+    print("", file=config)
 
     print("struct acrn_vm_config vm_configs[CONFIG_MAX_VM_NUM] = {", file=config)
     for vm_i, vm_type in common.VM_TYPES.items():

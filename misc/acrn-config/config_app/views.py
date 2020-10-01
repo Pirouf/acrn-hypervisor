@@ -119,9 +119,20 @@ def launch(launch_name):
     launch_config.set_curr(launch_name)
 
     launch_item_values = {}
-    if board_info is not None:
+    scenario_name = launch_config.get_curr_root().attrib['scenario']
+    current_app.config.update(SCENARIO=scenario_name)
+    scenario_name = current_app.config.get('SCENARIO')
+    scenario_file = None
+    if board_info is not None and scenario_name is not None:
+        scenario_file = os.path.join(current_app.config.get('CONFIG_PATH'), board_type, 'user_defined',
+                                     scenario_name+'.xml')
+        if not os.path.isfile(scenario_file):
+            scenario_file = os.path.join(current_app.config.get('CONFIG_PATH'), board_type,
+                                         scenario_name + '.xml')
+            if not os.path.isfile(scenario_file):
+                scenario_file = None
         launch_item_values = get_launch_item_values(
-            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'res', board_info + '.xml'))
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), 'res', board_info + '.xml'), scenario_file)
 
     scenario_name = None
     launch_config_root = launch_config.get_curr_root()
@@ -159,6 +170,8 @@ def save_scenario():
     old_scenario_name = scenario_config_data['old_scenario_name']
     scenario_config.set_curr(old_scenario_name)
     for key in scenario_config_data:
+        if scenario_config_data[key] in [None, 'None']:
+            scenario_config_data[key] = ''
         if key not in ['old_scenario_name', 'new_scenario_name', 'generator', 'add_vm_type']:
             if isinstance(scenario_config_data[key], list):
                 scenario_config.set_curr_list(scenario_config_data[key], *tuple(key.split(',')))
@@ -285,6 +298,8 @@ def save_launch():
                                       'user_defined', scenario_name + '.xml')
 
     for key in launch_config_data:
+        if launch_config_data[key] in [None, 'None']:
+            launch_config_data[key] = ''
         if key not in ['old_launch_name', 'new_launch_name', 'generator', 'add_launch_type', 'scenario_name']:
             if isinstance(launch_config_data[key], list):
                 launch_config.set_curr_list(launch_config_data[key], *tuple(key.split(',')))
@@ -373,7 +388,8 @@ def save_launch():
     if not error_list:
         launch_config.save(launch_config_data['new_launch_name'])
         if old_launch_name != launch_config_data['new_launch_name']:
-            os.remove(os.path.join(current_app.config.get('CONFIG_PATH'), xml_configs[1], old_launch_name + '.xml'))
+            os.remove(os.path.join(current_app.config.get('CONFIG_PATH'), xml_configs[1], 'user_defined',
+                                   old_launch_name + '.xml'))
 
     if os.path.isfile(tmp_launch_file):
         os.remove(tmp_launch_file)
@@ -473,13 +489,16 @@ def create_setting():
         if mode == 'create':
             # update RDT->CLOS_MASK according to board xml
             scenario_config.set_curr(create_name)
-            rdt_clos_max = get_board_rdt_clos_max(board_info)
             elem_clos_max = scenario_config.get_curr_elem('hv', 'FEATURES', 'RDT', 'CLOS_MASK')
-            if rdt_clos_max > 0:
-                for i in range(rdt_clos_max - 1):
-                    scenario_config.clone_curr_elem(elem_clos_max, 'hv', 'FEATURES', 'RDT')
-            else:
-                scenario_config.delete_curr_elem('hv', 'FEATURES', 'RDT', 'CLOS_MASK')
+            elem_mba_delay = scenario_config.get_curr_elem('hv', 'FEATURES', 'RDT', 'MBA_DELAY')
+            scenario_config.delete_curr_elem('hv', 'FEATURES', 'RDT', 'CLOS_MASK')
+            scenario_config.delete_curr_elem('hv', 'FEATURES', 'RDT', 'MBA_DELAY')
+            cdp_enabled = scenario_config.get_curr_value('hv', 'FEATURES', 'RDT', 'CDP_ENABLED')
+            (num_clos_mask, num_mba_delay) = get_num_of_rdt_res(board_info, cdp_enabled)
+            for i in range(num_clos_mask):
+                scenario_config.clone_curr_elem(elem_clos_max, 'hv', 'FEATURES', 'RDT')
+            for i in range(num_mba_delay):
+                scenario_config.clone_curr_elem(elem_mba_delay, 'hv', 'FEATURES', 'RDT')
         scenario_config.save(create_name)
         return {'status': 'success', 'setting': create_name, 'error_list': {}}
 
@@ -623,20 +642,24 @@ def upload_board_info():
                         copyfile(generic_file, new_file)
                         xml_config = XmlConfig(os.path.join(current_app.config.get('CONFIG_PATH'),
                                                             board_type))
-                        xml_config.set_curr(generic_name[:-4])
+                        xml_config.set_curr(generic_name.rsplit('.', 1)[0])
                         xml_config.set_curr_attr('board', board_type)
                         # update RDT->CLOS_MASK according to board xml
                         xml_config_root = xml_config.get_curr_root()
                         if 'board' in xml_config_root.attrib and 'scenario' in xml_config_root.attrib \
                                 and 'uos_launcher' not in xml_config_root.attrib:
-                            rdt_clos_max = get_board_rdt_clos_max(filename.rsplit('.', 1)[0])
+                            cdp_enabled = xml_config.get_curr_value('hv', 'FEATURES', 'RDT', 'CDP_ENABLED')
+                            (num_clos_mask, num_mba_delay) = \
+                                get_num_of_rdt_res(filename.rsplit('.', 1)[0], cdp_enabled)
                             elem_clos_max = xml_config.get_curr_elem('hv', 'FEATURES', 'RDT', 'CLOS_MASK')
-                            if rdt_clos_max > 0:
-                                for i in range(rdt_clos_max-1):
-                                    xml_config.clone_curr_elem(elem_clos_max, 'hv', 'FEATURES', 'RDT')
-                            else:
-                                xml_config.delete_curr_elem('hv', 'FEATURES', 'RDT', 'CLOS_MASK')
-                        xml_config.save(generic_name[:-4], user_defined=False)
+                            elem_mba_delay = xml_config.get_curr_elem('hv', 'FEATURES', 'RDT', 'MBA_DELAY')
+                            xml_config.delete_curr_elem('hv', 'FEATURES', 'RDT', 'CLOS_MASK')
+                            xml_config.delete_curr_elem('hv', 'FEATURES', 'RDT', 'MBA_DELAY')
+                            for i in range(num_clos_mask):
+                                xml_config.clone_curr_elem(elem_clos_max, 'hv', 'FEATURES', 'RDT')
+                            for i in range(num_mba_delay):
+                                xml_config.clone_curr_elem(elem_mba_delay, 'hv', 'FEATURES', 'RDT')
+                        xml_config.save(generic_name.rsplit('.', 1)[0], user_defined=False)
 
             board_info = os.path.splitext(file.filename)[0]
             current_app.config.update(BOARD_INFO=board_info)
@@ -808,6 +831,8 @@ def get_post_launch_vms():
     """
     data = request.json if request.method == "POST" else request.args
     scenario_name = data['scenario_name']
+    current_app.config.update(SCENARIO=scenario_name)
+
     vm_list = get_post_launch_vm_list(scenario_name)
 
     uos_id_list = []
@@ -827,6 +852,19 @@ def get_post_launch_vms():
     vm_list = [vm_list[i] for i in index]
 
     return {'vm_list': vm_list}
+
+
+@CONFIG_APP.route('/get_num_of_rdt_res_entries', methods=['POST'])
+def get_num_of_rdt_res_entries():
+    """
+    get the number of rdt res entries
+    :return: the number of CLOS_MASK and MBA_DELAY entries
+    """
+    data = request.json if request.method == "POST" else request.args
+    cdp_enabled = data['cdp_enabled']
+    board_info = current_app.config.get('BOARD_INFO')
+    (num_clos_mask, num_mba_delay) = get_num_of_rdt_res(board_info, cdp_enabled)
+    return {'num_clos_mask': num_clos_mask, 'num_mba_delay': num_mba_delay}
 
 
 def get_post_launch_vm_list(scenario_name):
@@ -971,14 +1009,53 @@ def get_board_info(board_info):
     return (bios_info, base_board_info)
 
 
-def get_board_rdt_clos_max(board_info):
+def get_num_of_rdt_res(board_file_name, cdp_enalbed):
     """
-    get board info type
-    :param board_info: the board info file
-    :return: the rdt clos max
+    get the number of rdt res entries
+    :param board_file_name: the file name of the board
+    :param cdp_enalbed: cdp enalbed or not
+    :return: the number of rdt res entries
     """
-    board_config = get_board_config(board_info)
-    rdt_clos_max = 0
+    dict_rdt_res_clos_max = get_board_rdt_res_clos_max(board_file_name)
+
+    num_clos_max = 0
+    num_mba_delay = 0
+
+    if 'MBA' not in dict_rdt_res_clos_max.keys():
+        num_mba_delay = 0
+        if 'L2' not in dict_rdt_res_clos_max.keys() and 'L3' not in dict_rdt_res_clos_max.keys():
+            num_clos_max = 0
+        else:
+            num_clos_max = min(dict_rdt_res_clos_max.values())
+    else:
+        if 'L2' not in dict_rdt_res_clos_max.keys() and 'L3' not in dict_rdt_res_clos_max.keys():
+            num_clos_max = 0
+            num_mba_delay = dict_rdt_res_clos_max['MBA']
+        else:
+            if cdp_enalbed is not None and cdp_enalbed.strip().lower() == 'y':
+                for key in dict_rdt_res_clos_max.keys():
+                    if key not in ['MBA']:
+                        dict_rdt_res_clos_max[key] = int(dict_rdt_res_clos_max[key] / 2)
+                common_clos_max = min(dict_rdt_res_clos_max.values())
+                num_clos_max = common_clos_max * 2
+                num_mba_delay = common_clos_max
+            else:
+                common_clos_max = min(dict_rdt_res_clos_max.values())
+                num_clos_max = common_clos_max
+                num_mba_delay = common_clos_max
+
+    return (num_clos_max, num_mba_delay)
+
+
+def get_board_rdt_res_clos_max(board_file_name):
+    """
+    get rdt res clos max of the board
+    :param board_file_name: the file name of the board
+    :return: the rdt res clos max
+    """
+    board_config = get_board_config(board_file_name)
+    rdt_res_supported = []
+    rdt_res_clos_max = []
 
     if board_config is not None:
         board_info_root = board_config.get_curr_root()
@@ -987,14 +1064,29 @@ def get_board_rdt_clos_max(board_info):
                 if item.tag == 'CLOS_INFO':
                     for line in item.text.split('\n'):
                         line = line.strip()
+                        if line.startswith('rdt resources supported'):
+                            try:
+                                rdt_res_supported = line.split(':')[1].split(',')
+                            except:
+                                pass
                         if line.startswith('rdt resource clos max:'):
                             try:
-                                rdt_clos_max = int(line.split(':')[1].strip())
+                                rdt_res_clos_max = line.split(':')[1].split(',')
                                 break
                             except:
                                 pass
-
-    return rdt_clos_max
+    if len(rdt_res_clos_max) < len(rdt_res_supported):
+        for i in range(len(rdt_res_supported) - len(rdt_res_clos_max)):
+            rdt_res_clos_max.append(0)
+    dict_rdt_res_clos_max = {}
+    for i in range(len(rdt_res_supported)):
+        try:
+            clos_max = int(rdt_res_clos_max[i].strip())
+        except:
+            clos_max = 0
+        if clos_max > 0:
+            dict_rdt_res_clos_max[rdt_res_supported[i].strip()] = clos_max
+    return dict_rdt_res_clos_max
 
 
 def assign_vm_id(scenario_config):
@@ -1012,7 +1104,7 @@ def assign_vm_id(scenario_config):
         if vm.tag == 'vm':
             for item in vm.getchildren():
                 if item.tag == 'vm_type':
-                    if item.text in ['PRE_STD_VM', 'SAFETY_VM']:
+                    if item.text in ['PRE_STD_VM', 'SAFETY_VM', 'PRE_RT_VM']:
                         pre_launched_vm_num += 1
                     elif item.text in ['SOS_VM']:
                         sos_vm_num += 1
@@ -1026,7 +1118,7 @@ def assign_vm_id(scenario_config):
         if vm.tag == 'vm':
             for item in vm.getchildren():
                 if item.tag == 'vm_type':
-                    if item.text in ['PRE_STD_VM', 'SAFETY_VM']:
+                    if item.text in ['PRE_STD_VM', 'SAFETY_VM', 'PRE_RT_VM']:
                         vm.attrib['id'] = str(pre_launched_vm_index)
                         pre_launched_vm_index += 1
                     elif item.text in ['SOS_VM']:

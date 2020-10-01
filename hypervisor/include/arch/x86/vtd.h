@@ -11,6 +11,7 @@
 #include <platform_acpi_info.h>
 
 #define INVALID_DRHD_INDEX 0xFFFFFFFFU
+#define INVALID_IRTE_ID 0xFFFFU
 
 /*
  * Intel IOMMU register specification per version 1.0 public spec.
@@ -671,17 +672,34 @@ void resume_iommu(void);
 int32_t init_iommu(void);
 
 /**
+ * @brief Reserve num continuous IRTEs.
+ *
+ * @param[in] intr_src filled with type of interrupt source and the source
+ * @param[in] num number of IRTEs to reserve
+ * @param[out] start_id stard index of reserved IRTEs, caller should check the value is INVALID_IRTE_ID or not.
+ *
+ * @retval 0 on success, caller should check whether the returned start index is valid or not.
+ * @retval -EINVAL if corresponding DMAR is not preset.
+ *
+ * @pre num can only be 2, 4, 8, 16 or 32
+ *
+ */
+int32_t dmar_reserve_irte(const struct intr_source *intr_src, uint16_t num, uint16_t *start_id);
+
+/**
  * @brief Assign RTE for Interrupt Remapping Table.
  *
  * @param[in] intr_src filled with type of interrupt source and the source
  * @param[in] irte filled with info about interrupt deliverymode, destination and destination mode
- * @param[in] index into Interrupt Remapping Table
+ * @param[in] idx_in if this value is INVALID_IRTE_ID, a new IRTE will be allocated, otherwise, use the IRTE directly.
+ * @param[out] idx_out return the actual IRTE index used, need to check whether the returned value is valid or not.
  *
- * @retval -EINVAL if corresponding DMAR is not present
- * @retval 0 otherwise
+ * @retval -EINVAL if corresponding DMAR is not preset
+ * @retval 0 on success, caller should check whether the returned start index is valid or not.
  *
  */
-int32_t dmar_assign_irte(const struct intr_source *intr_src, union dmar_ir_entry *irte, uint16_t index);
+int32_t dmar_assign_irte(const struct intr_source *intr_src, union dmar_ir_entry *irte,
+	uint16_t idx_in, uint16_t *idx_out);
 
 /**
  * @brief Free RTE for Interrupt Remapping Table.

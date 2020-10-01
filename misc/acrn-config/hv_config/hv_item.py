@@ -78,7 +78,7 @@ class CapHv:
         hv_cfg_lib.ir_entries_check(self.max_ir_entries, "CAPACITIES", "MAX_IR_ENTRIES")
         hv_cfg_lib.hv_size_check(self.iommu_bus_num, "CAPACITIES", "IOMMU_BUS_NUM")
         hv_cfg_lib.hv_range_check(self.max_pci_dev_num, "CAPACITIES", "MAX_PCI_DEV_NUM", hv_cfg_lib.RANGE_DB['PCI_DEV_NUM'])
-        hv_cfg_lib.hv_range_check(self.max_msix_table_num, "CAPACITIES", "MAX_MSIX_TABLE_NUM", hv_cfg_lib.RANGE_DB['MSIX_TABLE_NUM'])
+        hv_cfg_lib.max_msix_table_num_check(self.max_msix_table_num, "CAPACITIES", "MAX_MSIX_TABLE_NUM")
 
 
 class MisCfg:
@@ -105,6 +105,7 @@ class Features:
         self.rdt_enabled = ''
         self.cdp_enabled = ''
         self.cat_max_mask = []
+        self.mba_delay = []
         self.scheduler = ''
         self.hyperv_enabled = ''
         self.iommu_enforce_snp = ''
@@ -117,6 +118,7 @@ class Features:
         self.rdt_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "RDT", "RDT_ENABLED")
         self.cdp_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "RDT", "CDP_ENABLED")
         self.cat_max_mask = common.get_hv_item_tag(self.hv_file, "FEATURES", "RDT", "CLOS_MASK")
+        self.mba_delay = common.get_hv_item_tag(self.hv_file, "FEATURES", "RDT", "MBA_DELAY")
         self.scheduler = common.get_hv_item_tag(self.hv_file, "FEATURES", "SCHEDULER")
         self.reloc = common.get_hv_item_tag(self.hv_file, "FEATURES", "RELOC")
         self.hyperv_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "HYPERV_ENABLED")
@@ -130,6 +132,7 @@ class Features:
         hv_cfg_lib.ny_support_check(self.rdt_enabled, "FEATURES", "RDT", "RDT_ENABLED")
         hv_cfg_lib.ny_support_check(self.cdp_enabled, "FEATURES", "RDT", "CDP_ENABLED")
         hv_cfg_lib.cat_max_mask_check(self.cat_max_mask, "FEATURES", "RDT", "CLOS_MASK")
+        hv_cfg_lib.mba_delay_check(self.mba_delay, "FEATURES", "RDT", "MBA_DELAY")
         hv_cfg_lib.scheduler_check(self.scheduler, "FEATURES", "SCHEDULER")
         hv_cfg_lib.ny_support_check(self.reloc, "FEATURES", "RELOC")
         hv_cfg_lib.ny_support_check(self.hyperv_enabled, "FEATURES", "HYPERV_ENABLED")
@@ -150,6 +153,8 @@ class Memory:
         self.platform_ram_size = 0
         self.sos_ram_size = 0
         self.uos_ram_size = 0
+        self.ivshmem_enable = 'n'
+        self.ivshmem_region = []
 
     def get_info(self):
         self.stack_size = common.get_hv_item_tag(self.hv_file, "MEMORY", "STACK_SIZE")
@@ -159,6 +164,8 @@ class Memory:
         self.platform_ram_size = common.get_hv_item_tag(self.hv_file, "MEMORY", "PLATFORM_RAM_SIZE")
         self.sos_ram_size = common.get_hv_item_tag(self.hv_file, "MEMORY", "SOS_RAM_SIZE")
         self.uos_ram_size = common.get_hv_item_tag(self.hv_file, "MEMORY", "UOS_RAM_SIZE")
+        self.ivshmem_enable = common.get_hv_item_tag(self.hv_file, "FEATURES", "IVSHMEM", "IVSHMEM_ENABLED")
+        self.ivshmem_region = common.get_hv_item_tag(self.hv_file, "FEATURES", "IVSHMEM", "IVSHMEM_REGION")
 
     def check_item(self):
         hv_cfg_lib.hv_size_check(self.stack_size, "MEMORY", "STACK_SIZE")
@@ -166,6 +173,7 @@ class Memory:
         hv_cfg_lib.hv_size_check(self.platform_ram_size, "MEMORY", "PLATFORM_RAM_SIZE")
         hv_cfg_lib.hv_size_check(self.sos_ram_size, "MEMORY", "SOS_RAM_SIZE")
         hv_cfg_lib.hv_size_check(self.uos_ram_size, "MEMORY", "UOS_RAM_SIZE")
+        hv_cfg_lib.ny_support_check(self.ivshmem_enable, "FEATURES", "IVSHMEM", "IVSHMEM_ENABLED")
 
 
 class HvInfo:

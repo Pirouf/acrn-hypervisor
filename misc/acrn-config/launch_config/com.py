@@ -51,7 +51,7 @@ def tap_uos_net(names, virt_io, vmid, config):
     print("#vm-name used to generate uos-mac address", file=config)
     print("mac=$(cat /sys/class/net/e*/address)", file=config)
     print("vm_name=post_vm_id$1", file=config)
-    print("mac_seed=${mac:9:8}-${vm_name}", file=config)
+    print("mac_seed=${mac:0:17}-${vm_name}", file=config)
     print("", file=config)
 
 
@@ -416,8 +416,11 @@ def set_dm_pt(names, sel, vmid, config):
     uos_type = names['uos_types'][vmid]
 
     if sel.bdf['usb_xdci'][vmid] and sel.slot['usb_xdci'][vmid]:
-        print('   -s {},passthru,{}/{}/{} \\'.format(sel.slot["usb_xdci"][vmid], sel.bdf["usb_xdci"][vmid][0:2],\
-            sel.bdf["usb_xdci"][vmid][3:5], sel.bdf["usb_xdci"][vmid][6:7]), file=config)
+        sub_attr = ''
+        if uos_type == "WINDOWS":
+            sub_attr = ',d3hot_reset'
+        print('   -s {},passthru,{}/{}/{}{} \\'.format(sel.slot["usb_xdci"][vmid], sel.bdf["usb_xdci"][vmid][0:2],\
+            sel.bdf["usb_xdci"][vmid][3:5], sel.bdf["usb_xdci"][vmid][6:7], sub_attr), file=config)
 
     # pass through audio/audio_codec
     if sel.bdf['audio'][vmid]:
@@ -478,6 +481,15 @@ def xhci_args_set(dm, vmid, config):
     if dm['xhci'][vmid]:
         print("   -s {},xhci,{} \\".format(
             launch_cfg_lib.virtual_dev_slot("xhci"), dm['xhci'][vmid]), file=config)
+
+
+def shm_arg_set(dm, vmid, config):
+
+    if dm['shm_enabled'] == "n":
+        return
+    for shm_region in dm["shm_regions"][vmid]:
+        print("   -s {},ivshmem,{} \\".format(
+            launch_cfg_lib.virtual_dev_slot("shm_region_{}".format(shm_region)), shm_region), file=config)
 
 
 def virtio_args_set(dm, virt_io, vmid, config):
@@ -575,7 +587,8 @@ def dm_arg_set(names, sel, virt_io, dm, vmid, config):
                 err_key = "uos:id={}:poweroff_channel".format(vmid)
                 launch_cfg_lib.ERR_LIST[err_key] = "vuart1 of VM{} in scenario file should select 'SOS_COM2_BASE'".format(sos_vmid + vmid)
                 return
-        print("   {} \\".format(launch_cfg_lib.PM_CHANNEL_DIC[pm_key]), file=config)
+        scenario_cfg_lib.get_sos_vuart_settings()
+        print("   {} \\".format(launch_cfg_lib.PM_CHANNEL_DIC[pm_key] + scenario_cfg_lib.SOS_UART1_VALID_NUM), file=config)
 
     # set logger_setting for all VMs
     print("   $logger_setting \\", file=config)
@@ -595,14 +608,19 @@ def dm_arg_set(names, sel, virt_io, dm, vmid, config):
     # pcpu-list args set
     pcpu_arg_set(dm, vmid, config)
 
+    # shm regions args set
+    shm_arg_set(dm, vmid, config)
+
     for value in sel.bdf.values():
         if value[vmid]:
             print("   $intr_storm_monitor \\", file=config)
             break
 
+    if uos_type != "PREEMPT-RT LINUX":
+        print("   -s 1:0,lpc \\", file=config)
+
     # redirect console
     if dm['vuart0'][vmid] == "Enable":
-        print("   -s 1:0,lpc \\", file=config)
         print("   -l com1,stdio \\", file=config)
 
     if launch_cfg_lib.is_linux_like(uos_type) or uos_type in ("ANDROID", "ALIOS"):

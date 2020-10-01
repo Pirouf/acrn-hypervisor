@@ -1192,9 +1192,26 @@ pci_xhci_reset(struct pci_xhci_vdev *xdev)
 	xdev->rtsregs.er_enq_idx = 0;
 	xdev->rtsregs.er_enq_seg = 0;
 	xdev->rtsregs.event_pcs = 1;
+	struct pci_xhci_dev_emu *dev;
+
+	for (i = 1; i <= XHCI_MAX_DEVS; i++)
+	{
+		dev = xdev->devices[i];
+		if (dev) {
+			xdev->devices[i] = NULL;
+			pci_xhci_dev_destroy(dev);
+			/* FIXME: The ndevices hasn't
+			 * aligned between ++ and --
+			 * */
+			xdev->ndevices--;
+		}
+	}
 
 	for (i = 1; i <= XHCI_MAX_SLOTS; i++)
-		pci_xhci_reset_slot(xdev, i);
+	{
+		xdev->slots[i] = NULL;
+		xdev->slot_allocated[i] = false;
+	}
 }
 
 static uint32_t
@@ -2283,6 +2300,30 @@ pci_xhci_cmd_reset_ep(struct pci_xhci_vdev *xdev,
 	type = XHCI_TRB_3_TYPE_GET(trb->dwTrb3);
 
 	dev = XHCI_SLOTDEV_PTR(xdev, slot);
+	/* There have three scenarios the pointer will be NULL.
+	 * 1.Enable slot command not received.
+	 * 2.Enable slot command have been received but not receive
+	 * address device command.
+	 * 3.After received disable slot command.
+	 * In scenario 1 and 3 the slot state should be Disabled.
+	 * In scenario 2, the slot state should be Enabled.
+	 * Fllow xHCI spec 4.6.8 and 4.6.9, for stop and reset endpoint
+	 * command, when the slot state is Disabled the error code should
+	 * be Slot Not Enabled Error, when the slot have been enabled by
+	 * an Enable Slot Command the error code should be Context State Error.
+	 * TODO: The dev_slotstate should move from pci_xhci_dev_emu to
+	 * pci_xhci_vdev, and slot_allocated need to removed.
+	 */
+
+	if (!dev)
+	{
+		if (xdev->slot_allocated[slot] == true)
+			cmderr = XHCI_TRB_ERROR_CONTEXT_STATE;
+		else
+			cmderr = XHCI_TRB_ERROR_SLOT_NOT_ON;
+		goto done;
+	}
+
 
 	if (type == XHCI_TRB_TYPE_STOP_EP &&
 	   (trb->dwTrb3 & XHCI_TRB_3_SUSP_EP_BIT) != 0) {
@@ -2382,6 +2423,11 @@ pci_xhci_cmd_set_tr(struct pci_xhci_vdev *xdev,
 	cmderr = XHCI_TRB_ERROR_SUCCESS;
 
 	dev = XHCI_SLOTDEV_PTR(xdev, slot);
+	if (!dev) {
+		UPRINTF(LDBG, "%s slot is not enabled!\r\n", __func__);
+		cmderr = XHCI_TRB_ERROR_SLOT_NOT_ON;
+		goto done;
+	}
 	UPRINTF(LDBG, "set_tr: new-tr x%016lx, SCT %u DCS %u\r\n"
 		 "      stream-id %u, slot %u, epid %u, C %u\r\n",
 		 (trb->qwTrb0 & ~0xF),  (uint32_t)((trb->qwTrb0 >> 1) & 0x7),
@@ -2523,7 +2569,8 @@ done:
 
 #define XHCI_GET_SLOT(xdev, trb, slot, cmderr)			\
 	do {								\
-		slot = (XHCI_TRB_3_SLOT_GET(trb->dwTrb3)) ? 0 :		\
+		slot = (XHCI_TRB_3_SLOT_GET(trb->dwTrb3) >              \
+			XHCI_MAX_SLOTS) ? 0 :   			\
 			XHCI_TRB_3_SLOT_GET(trb->dwTrb3);		\
 		if (!slot)						\
 			cmderr = XHCI_TRB_ERROR_INVALID;		\
@@ -2803,11 +2850,14 @@ pci_xhci_xfer_complete(struct pci_xhci_vdev *xdev, struct usb_xfer *xfer,
 		if (err == XHCI_TRB_ERROR_SUCCESS && rem_len > 0)
 			err = XHCI_TRB_ERROR_SHORT_PKT;
 
-		/* Only interrupt if IOC or short packet */
-		if (!(trb->dwTrb3 & XHCI_TRB_3_IOC_BIT) &&
-		    !((err == XHCI_TRB_ERROR_SHORT_PKT) &&
-		      (trb->dwTrb3 & XHCI_TRB_3_ISP_BIT))) {
-
+		/* When transfer success and IOC bit not set or
+		 * transfer is short packet and ISP bit is not set.
+		 * */
+		if (((err == XHCI_TRB_ERROR_SUCCESS) &&
+			!(trb->dwTrb3 & XHCI_TRB_3_IOC_BIT)) ||
+			((err == XHCI_TRB_ERROR_SHORT_PKT) &&
+			(!(trb->dwTrb3 & XHCI_TRB_3_ISP_BIT) &&
+			!(trb->dwTrb3 & XHCI_TRB_3_IOC_BIT)))) {
 			i = index_inc(i, xfer->max_blk_cnt);
 			continue;
 		}
@@ -2829,8 +2879,10 @@ pci_xhci_xfer_complete(struct pci_xhci_vdev *xdev, struct usb_xfer *xfer,
 
 		*do_intr = 1;
 
-		err = pci_xhci_insert_event(xdev, &evtrb, 0);
-		if (err != XHCI_TRB_ERROR_SUCCESS)
+		pci_xhci_insert_event(xdev, &evtrb, *do_intr);
+		/* The xHC stop on the TRB in error.*/
+		if (err != XHCI_TRB_ERROR_SUCCESS &&
+			err != XHCI_TRB_ERROR_SHORT_PKT)
 			break;
 
 		i = index_inc(i, xfer->max_blk_cnt);

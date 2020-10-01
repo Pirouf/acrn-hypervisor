@@ -1,4 +1,3 @@
-From 1c532baaa7fb4ec49a769a628ca8db14518dcdc4 Mon Sep 17 00:00:00 2001
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 9 Jun 2020 19:18:51 +0200
 Subject: acrn-config: print warnings and errors to stderr
@@ -12,7 +11,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 4 insertions(+), 4 deletions(-)
 
 diff --git a/misc/acrn-config/library/common.py b/misc/acrn-config/library/common.py
-index 410b7532..6ab1854e 100644
+index 410b753..6ab1854 100644
 --- a/misc/acrn-config/library/common.py
 +++ b/misc/acrn-config/library/common.py
 @@ -66,9 +66,9 @@ def print_yel(msg, warn=False):
@@ -39,6 +38,3 @@ index 410b7532..6ab1854e 100644
  
  
  def usage(file_name):
--- 
-2.20.1
-

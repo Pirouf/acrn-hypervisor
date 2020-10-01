@@ -78,8 +78,12 @@
 #define CPUID_EBX_SGX           (1U<<2U)
 /* CPUID.07H:EBX.MPX */
 #define CPUID_EBX_MPX           (1U<<14U)
+/* CPUID.07H:ECX.CET_SS */
+#define CPUID_ECX_CET_SS        (1U<<7U)
 /* CPUID.07H:ECX.SGX_LC*/
 #define CPUID_ECX_SGX_LC        (1U<<30U)
+/* CPUID.07H:EDX.CET_IBT */
+#define CPUID_EDX_CET_IBT       (1U<<20U)
 /* CPUID.07H:EDX.IBRS_IBPB*/
 #define CPUID_EDX_IBRS_IBPB     (1U<<26U)
 /* CPUID.07H:EDX.STIBP*/
@@ -100,6 +104,10 @@
 #define CPUID_EAX_XCR0_BNDREGS  (1U<<3U)
 /* CPUID.0DH.EAX.XCR0_BNDCSR */
 #define CPUID_EAX_XCR0_BNDCSR   (1U<<4U)
+/* CPUID.0DH.ECX.CET_U_STATE */
+#define CPUID_ECX_CET_U_STATE   (1U<<11U)
+/* CPUID.0DH.ECX.CET_S_STATE */
+#define CPUID_ECX_CET_S_STATE   (1U<<12U)
 /* CPUID.12H.EAX.SGX1 */
 #define CPUID_EAX_SGX1          (1U<<0U)
 /* CPUID.12H.EAX.SGX2 */
@@ -123,25 +131,15 @@
 #define CPUID_EXTEND_INVA_TSC        0x80000007U
 #define CPUID_EXTEND_ADDRESS_SIZE    0x80000008U
 
-
-static inline void asm_cpuid(uint32_t *eax, uint32_t *ebx,
+static inline void cpuid_subleaf(uint32_t leaf, uint32_t subleaf,
+				uint32_t *eax, uint32_t *ebx,
 				uint32_t *ecx, uint32_t *edx)
 {
 	/* Execute CPUID instruction and save results */
 	asm volatile("cpuid":"=a"(*eax), "=b"(*ebx),
 			"=c"(*ecx), "=d"(*edx)
-			: "0" (*eax), "2" (*ecx)
+			: "a" (leaf), "c" (subleaf)
 			: "memory");
-}
-
-static inline void cpuid_subleaf(uint32_t leaf, uint32_t subleaf,
-				uint32_t *eax, uint32_t *ebx,
-				uint32_t *ecx, uint32_t *edx)
-{
-	*eax = leaf;
-	*ecx = subleaf;
-
-	asm_cpuid(eax, ebx, ecx, edx);
 }
 
 #endif /* CPUID_H_ */

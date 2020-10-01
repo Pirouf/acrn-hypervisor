@@ -112,6 +112,20 @@ static inline bool msicap_access(const struct pci_vdev *vdev, uint32_t offset)
 	return (has_msi_cap(vdev) && in_range(offset, vdev->msi.capoff, vdev->msi.caplen));
 }
 
+/**
+ * @brief Check if the specified vdev is a zombie VF instance
+ *
+ * @pre: The vdev is a VF instance
+ *
+ * @param vdev Pointer to vdev instance
+ *
+ * @return If the vdev is a zombie VF instance return true, otherwise return false
+ */
+static inline bool is_zombie_vf(const struct pci_vdev *vdev)
+{
+	return (vdev->user == NULL);
+}
+
 void init_vdev_pt(struct pci_vdev *vdev, bool is_pf_vdev);
 void deinit_vdev_pt(struct pci_vdev *vdev);
 void vdev_pt_write_vbar(struct pci_vdev *vdev, uint32_t idx, uint32_t val);
@@ -120,13 +134,17 @@ void vdev_pt_map_msix(struct pci_vdev *vdev, bool hold_lock);
 void init_vmsi(struct pci_vdev *vdev);
 void read_vmsi_cap_reg(const struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t *val);
 void write_vmsi_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
-void deinit_vmsi(struct pci_vdev *vdev);
+void deinit_vmsi(const struct pci_vdev *vdev);
 
 void init_vmsix(struct pci_vdev *vdev);
 int32_t vmsix_handle_table_mmio_access(struct io_request *io_req, void *handler_private_data);
 void read_vmsix_cap_reg(const struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t *val);
 void write_vmsix_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
 void deinit_vmsix(struct pci_vdev *vdev);
+
+void init_vmsix_on_msi(struct pci_vdev *vdev);
+void write_vmsix_cap_reg_on_msi(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
+void remap_one_vmsix_entry_on_msi(struct pci_vdev *vdev, uint32_t index);
 
 void init_vsriov(struct pci_vdev *vdev);
 void read_sriov_cap_reg(const struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t *val);
@@ -138,4 +156,10 @@ void pci_vdev_write_vcfg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes,
 
 uint32_t pci_vdev_read_vbar(const struct pci_vdev *vdev, uint32_t idx);
 void pci_vdev_write_vbar(struct pci_vdev *vdev, uint32_t idx, uint32_t val);
+
+void vdev_pt_hide_sriov_cap(struct pci_vdev *vdev);
+
+typedef void (*map_pcibar)(struct pci_vdev *vdev, uint32_t bar_idx);
+typedef void (*unmap_pcibar)(struct pci_vdev *vdev, uint32_t bar_idx);
+void vpci_update_one_vbar(struct pci_vdev *vdev, uint32_t bar_idx, uint32_t val, map_pcibar map_cb, unmap_pcibar unmap_cb);
 #endif /* VPCI_PRIV_H_ */

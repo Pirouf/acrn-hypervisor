@@ -182,7 +182,7 @@ basl_fwrite_rsdt(FILE *fp, struct vmctx *ctx)
 		EFPRINTF(fp, "[0004]\t\tACPI Table Address %u : %08X\n", num++,
 		    basl_acpi_base + NHLT_OFFSET);
 
-	if (ctx->tpm_dev)
+	if (ctx->tpm_dev || pt_tpm2)
 		EFPRINTF(fp, "[0004]\t\tACPI Table Address %u : %08X\n", num++,
 		    basl_acpi_base + TPM2_OFFSET);
 
@@ -224,7 +224,7 @@ basl_fwrite_xsdt(FILE *fp, struct vmctx *ctx)
 		EFPRINTF(fp, "[0004]\t\tACPI Table Address %u : 00000000%08X\n", num++,
 		    basl_acpi_base + NHLT_OFFSET);
 
-	if (ctx->tpm_dev)
+	if (ctx->tpm_dev || pt_tpm2)
 		EFPRINTF(fp, "[0004]\t\tACPI Table Address %u : 00000000%08X\n", num++,
 		    basl_acpi_base + TPM2_OFFSET);
 
@@ -272,17 +272,17 @@ basl_fwrite_madt(FILE *fp, struct vmctx *ctx)
 		EFPRINTF(fp, "\n");
 	}
 
-	if (!is_rtvm) {
-		/* Always a single IOAPIC entry, with ID 0 */
-		EFPRINTF(fp, "[0001]\t\tSubtable Type : 01\n");
-		EFPRINTF(fp, "[0001]\t\tLength : 0C\n");
-		/* iasl expects a hex value for the i/o apic id */
-		EFPRINTF(fp, "[0001]\t\tI/O Apic ID : %02x\n", 0);
-		EFPRINTF(fp, "[0001]\t\tReserved : 00\n");
-		EFPRINTF(fp, "[0004]\t\tAddress : fec00000\n");
-		EFPRINTF(fp, "[0004]\t\tInterrupt : 00000000\n");
-		EFPRINTF(fp, "\n");
+	/* Always a single IOAPIC entry, with ID 0 */
+	EFPRINTF(fp, "[0001]\t\tSubtable Type : 01\n");
+	EFPRINTF(fp, "[0001]\t\tLength : 0C\n");
+	/* iasl expects a hex value for the i/o apic id */
+	EFPRINTF(fp, "[0001]\t\tI/O Apic ID : %02x\n", 0);
+	EFPRINTF(fp, "[0001]\t\tReserved : 00\n");
+	EFPRINTF(fp, "[0004]\t\tAddress : fec00000\n");
+	EFPRINTF(fp, "[0004]\t\tInterrupt : 00000000\n");
+	EFPRINTF(fp, "\n");
 
+	if (!is_rtvm) {
 		/* Legacy IRQ0 is connected to pin 2 of the IOAPIC */
 		EFPRINTF(fp, "[0001]\t\tSubtable Type : 02\n");
 		EFPRINTF(fp, "[0001]\t\tLength : 0A\n");
@@ -859,7 +859,7 @@ basl_fwrite_dsdt(FILE *fp, struct vmctx *ctx)
 
 	pm_write_dsdt(ctx, basl_ncpu);
 
-	if (ctx->tpm_dev)
+	if (ctx->tpm_dev || pt_tpm2)
 		tpm2_crb_fwrite_dsdt();
 
 	dsdt_line("}");
@@ -1124,7 +1124,7 @@ acpi_build(struct vmctx *ctx, int ncpu)
 	 */
 	while (!err && (i < ARRAY_SIZE(basl_ftables))) {
 		if ((basl_ftables[i].offset == TPM2_OFFSET) &&
-			(ctx->tpm_dev != NULL)) {
+			(ctx->tpm_dev != NULL || pt_tpm2)) {
 				basl_ftables[i].valid = true;
 		}
 

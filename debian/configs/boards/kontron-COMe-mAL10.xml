@@ -150,7 +150,6 @@
 	</IOMEM_INFO>
 
 	<BLOCK_DEVICE_INFO>
-	/dev/sda2: TYPE="ext4"
 	</BLOCK_DEVICE_INFO>
 
 	<TTYS_INFO>

@@ -25,8 +25,8 @@ The project's documentation contains the following items:
 
 * ReStructuredText source files used to generate documentation found at the
   http://projectacrn.github.io website. All of the reStructuredText sources
-  are found in the acrn-hypervisor/doc folder, or pulled in from sibling
-  folders (such as /misc/) by the build scripts.
+  are found in the ``acrn-hypervisor/doc`` folder, or pulled in from sibling
+  folders (such as ``misc/``) by the build scripts.
 
 * Doxygen-generated material used to create all API-specific documents
   found at http://projectacrn.github.io/latest/api/.  The doc build
@@ -67,6 +67,7 @@ folder setup for documentation contributions and generation:
          devicemodel/
          doc/
          hypervisor/
+         misc/
       acrn-kernel/
 
 The parent projectacrn folder is there because we'll also be creating a
@@ -137,9 +138,6 @@ Our documentation processing has been tested to run with:
 
 Depending on your Linux version, install the needed tools:
 
-* For Clear Linux OS: follow the :ref:`kbl-nuc-sdc` to install
-  all the tools required
-
 * For Ubuntu use:
 
   .. code-block:: bash
@@ -153,7 +151,7 @@ Depending on your Linux version, install the needed tools:
 
      sudo dnf install doxygen python3-pip python3-wheel make graphviz
 
-And for any of these Linux environments, install the remaining python-based
+And for any of these Linux environments, install the remaining Python-based
 tools:
 
 .. code-block:: bash
@@ -162,7 +160,7 @@ tools:
    pip3 install --user -r scripts/requirements.txt
 
 Add ``$HOME/.local/bin`` to the front of your ``PATH`` so the system will
-find expected versions of python utilities such as ``sphinx-build`` and
+find expected versions of Python utilities such as ``sphinx-build`` and
 ``breathe``:
 
 .. code-block:: bash
@@ -282,7 +280,7 @@ folder.  Note that there's no direct selection to go to a newer version
 from an older one, without going to ``latest`` first.
 
 By default, doc build and publishing assumes we're generating
-documentation for the master branch and publishing to the ``/latest/``
+documentation for the main branch and publishing to the ``/latest/``
 area on https://projectacrn.github.io. When we're generating the
 documentation for a tagged version (e.g., 0.2), check out that version
 of the repo, and add some extra flags to the make commands:
@@ -306,7 +304,7 @@ Sphinx/Breathe, we've added a post-processing filter on the output of
 the documentation build process to check for "expected" messages from the
 generation process output.
 
-The output from the Sphinx build is processed by the python script
+The output from the Sphinx build is processed by the Python script
 ``scripts/filter-known-issues.py`` together with a set of filter
 configuration files in the ``.known-issues/doc`` folder.  (This
 filtering is done as part of the ``Makefile``.)

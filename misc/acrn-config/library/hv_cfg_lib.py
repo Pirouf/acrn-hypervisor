@@ -30,10 +30,10 @@ def empty_check(val, prime_item, item, sub_item=''):
     if not val or val == None:
         if sub_item:
             key = 'hv,{},{},{}'.format(prime_item, item, sub_item)
-            ERR_LIST[key] = "{} should not empty".format(sub_item)
+            ERR_LIST[key] = "{} should not be empty".format(sub_item)
         else:
             key = 'hv,{},{}'.format(prime_item, item)
-            ERR_LIST[key] = "{} should not empty".format(item)
+            ERR_LIST[key] = "{} should not be empty".format(item)
         return True
 
     return False
@@ -71,10 +71,11 @@ def release_check(sel_str, dbg_opt, rel_str):
         ERR_LIST[key] = "{} should be in {}".format(rel_str, N_Y)
 
 
-def hv_range_check(str_val, branch_tag, item, range_db):
+def hv_range_check(str_val, branch_tag, item, range_db, empty_check_enable=True):
 
-    if empty_check(str_val, branch_tag, item):
-        return
+    if empty_check_enable:
+        if empty_check(str_val, branch_tag, item):
+            return
     if not is_numeric_check(str_val, branch_tag, item):
         return
     range_check(str_val, branch_tag, item, range_db)
@@ -169,16 +170,19 @@ def is_contiguous_bit_set(value):
 
 def cat_max_mask_check(cat_mask_list, feature, cat_str, max_mask_str):
 
-    if not board_cfg_lib.is_rdt_supported():
+    (res_info, rdt_res_clos_max, clos_max_mask_list) = board_cfg_lib.clos_info_parser(common.BOARD_INFO_FILE)
+    if not board_cfg_lib.is_rdt_enabled() or ("L2" not in res_info and "L3" not in res_info):
         return
 
-    (_, rdt_res_clos_max, clos_max_mask_list) = board_cfg_lib.clos_info_parser(common.BOARD_INFO_FILE)
+    if board_cfg_lib.is_cdp_enabled():
+        clos_max_set_entry = 2 * board_cfg_lib.get_common_clos_max()
+    else:
+        clos_max_set_entry = board_cfg_lib.get_common_clos_max()
 
-    clos_max = common.num2int(min(rdt_res_clos_max))
     cat_max_mask_settings_len = len(cat_mask_list)
-    if clos_max != cat_max_mask_settings_len:
+    if clos_max_set_entry != cat_max_mask_settings_len:
         key = 'hv,{},{},{}'.format(feature, cat_str, max_mask_str)
-        ERR_LIST[key] = "clso max: {} in board xml, should set the same number for CLOS_MASK.".format(clos_max)
+        ERR_LIST[key] = "Number of Cache mask entries should be equal to MAX_CACHE_CLOS_NUM_ENTRIES={}".format(clos_max_set_entry)
         return
 
     clos_max_mask_str = clos_max_mask_list[0].strip('"').strip("'")
@@ -196,3 +200,42 @@ def cat_max_mask_check(cat_mask_list, feature, cat_str, max_mask_str):
             key = 'hv,{},{},{}'.format(feature, cat_str, max_mask_str)
             ERR_LIST[key] = "CLOS_MASK {} should be contiguous bit set.".format(max_mask_str, clos_max_mask_str)
             return
+
+
+def mba_delay_check(mba_delay_list, feature, mba_str, max_mask_str):
+
+    (res_info, rdt_res_clos_max, clos_max_mask_list) = board_cfg_lib.clos_info_parser(common.BOARD_INFO_FILE)
+    if not board_cfg_lib.is_rdt_enabled() or "MBA" not in res_info:
+        return
+
+    clos_max = board_cfg_lib.get_common_clos_max()
+    mba_delay_settings_len = len(mba_delay_list)
+    if clos_max != mba_delay_settings_len:
+        key = 'hv,{},{},{}'.format(feature, mba_str, max_mask_str)
+        ERR_LIST[key] = "Number of MBA delay entries should be equal to MAX_MBA_CLOS_NUM_ENTRIES={}".format(clos_max)
+        return
+
+    mba_idx = res_info.index("MBA")
+    mba_delay_str = clos_max_mask_list[mba_idx].strip('"').strip("'")
+    mba_delay = common.num2int(mba_delay_str)
+    for val_str in mba_delay_list:
+        if empty_check(val_str, feature, mba_str, max_mask_str):
+            return
+        value = common.num2int(val_str)
+        if value > mba_delay:
+            key = 'hv,{},{},{}'.format(feature, mba_str, max_mask_str)
+            ERR_LIST[key] = "{} should be in range[0,{}]".format(max_mask_str, mba_delay_str)
+            return
+
+
+def max_msix_table_num_check(max_msix_table_num, cap_str, max_msi_num_str):
+    native_max_msix_line = board_cfg_lib.get_info(common.BOARD_INFO_FILE, "<MAX_MSIX_TABLE_NUM>", "</MAX_MSIX_TABLE_NUM>")
+    if not native_max_msix_line and not max_msix_table_num:
+        empty_check(max_msix_table_num, cap_str, max_msi_num_str)
+        return
+
+    if max_msix_table_num:
+        hv_range_check(max_msix_table_num, cap_str, max_msi_num_str, RANGE_DB['MSIX_TABLE_NUM'], False)
+    if native_max_msix_line:
+        native_max_msix_num = native_max_msix_line[0].strip()
+        range_check(native_max_msix_num, "In board xml", max_msi_num_str, RANGE_DB['MSIX_TABLE_NUM'])

@@ -18,7 +18,7 @@ set -e
 
 
 case "$1" in
-    remove|upgrade|deconfigure)
+    deconfigure)
         rm -f /boot/acrn-@acrnversion@.out
         rm -f /boot/acrn-@acrnversion@.config
         rm -f /boot/acrn-@acrnversion@.map
@@ -28,7 +28,7 @@ case "$1" in
         fi
     ;;
 
-    failed-upgrade)
+    remove|upgrade|failed-upgrade)
     ;;
 
     *)

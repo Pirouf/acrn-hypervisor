@@ -57,17 +57,6 @@ bool pcpu_has_cap(uint32_t bit)
 	return ret;
 }
 
-bool monitor_cap_buggy(void)
-{
-	bool buggy = false;
-
-	if ((boot_cpu_data.family == 0x6U) && (boot_cpu_data.model == 0x5cU)) {
-		buggy = true;
-	}
-
-	return buggy;
-}
-
 bool has_monitor_cap(void)
 {
 	bool ret = false;
@@ -77,7 +66,7 @@ bool has_monitor_cap(void)
 		 * in hypervisor, but still expose it to the guests and
 		 * let them handle it correctly
 		 */
-		if (!monitor_cap_buggy()) {
+		if (!is_apl_platform()) {
 			ret = true;
 		}
 	}
@@ -118,7 +107,7 @@ bool is_apl_platform(void)
 {
 	bool ret = false;
 
-	if ((boot_cpu_data.family == 0x6U) && (boot_cpu_data.model == 0x92U)) {
+	if ((boot_cpu_data.displayfamily == 0x6U) && (boot_cpu_data.displaymodel == 0x5cU)) {
 		ret = true;
 	}
 
@@ -206,6 +195,11 @@ static void detect_vmx_mmu_cap(void)
 	cpu_caps.vmx_vpid = (uint32_t) (val >> 32U);
 }
 
+static bool pcpu_vmx_set_32bit_addr_width(void)
+{
+	return ((msr_read(MSR_IA32_VMX_BASIC) & MSR_IA32_VMX_BASIC_ADDR_WIDTH) != 0UL);
+}
+
 static void detect_xsave_cap(void)
 {
 	uint32_t unused;
@@ -246,7 +240,7 @@ static uint64_t get_address_mask(uint8_t limit)
 void init_pcpu_capabilities(void)
 {
 	uint32_t eax, unused;
-	uint32_t family, model;
+	uint32_t family_id, model_id, displayfamily, displaymodel;
 
 	cpuid_subleaf(CPUID_VENDORSTRING, 0x0U,
 		&boot_cpu_data.cpuid_level,
@@ -255,17 +249,21 @@ void init_pcpu_capabilities(void)
 	cpuid_subleaf(CPUID_FEATURES, 0x0U, &eax, &unused,
 		&boot_cpu_data.cpuid_leaves[FEAT_1_ECX],
 		&boot_cpu_data.cpuid_leaves[FEAT_1_EDX]);
-	family = (eax >> 8U) & 0xfU;
-	if (family == 0xFU) {
-		family += ((eax >> 20U) & 0xffU) << 4U;
-	}
-	boot_cpu_data.family = (uint8_t)family;
 
-	model = (eax >> 4U) & 0xfU;
-	if (family == 0x06U || family == 0xFU) {
-		model += ((eax >> 16U) & 0xfU) << 4U;
+	/* SDM Vol.2A 3-211 states the algorithm to calculate DisplayFamily and DisplayModel */
+	family_id = (eax >> 8U) & 0xfU;
+	displayfamily = family_id;
+	if (family_id == 0xFU) {
+		displayfamily += ((eax >> 20U) & 0xffU);
 	}
-	boot_cpu_data.model = (uint8_t)model;
+	boot_cpu_data.displayfamily = (uint8_t)displayfamily;
+
+	model_id = (eax >> 4U) & 0xfU;
+	displaymodel = model_id;
+	if ((family_id == 0x06U) || (family_id == 0xFU)) {
+		displaymodel += ((eax >> 16U) & 0xfU) << 4U;
+	}
+	boot_cpu_data.displaymodel = (uint8_t)displaymodel;
 
 
 	cpuid_subleaf(CPUID_EXTEND_FEATURE, 0x0U, &unused,
@@ -464,6 +462,9 @@ int32_t detect_hardware_support(void)
 	} else if (is_vmx_disabled()) {
 		printf("%s, VMX can not be enabled\n", __func__);
 		ret = -ENODEV;
+	} else if (pcpu_vmx_set_32bit_addr_width()) {
+		printf("%s, Only support Intel 64 architecture.\n", __func__);
+		ret = -ENODEV;
 	} else if (!pcpu_has_cap(X86_FEATURE_X2APIC)) {
 		printf("%s, x2APIC not supported\n", __func__);
 		ret = -ENODEV;
@@ -472,6 +473,9 @@ int32_t detect_hardware_support(void)
 		ret = -ENODEV;
 	} else if (!pcpu_has_cap(X86_FEATURE_XSAVES)) {
 		printf("%s, XSAVES not supported\n", __func__);
+		ret = -ENODEV;
+	} else if (!pcpu_has_cap(X86_FEATURE_SSE)) {
+		printf("%s, SSE not supported\n", __func__);
 		ret = -ENODEV;
 	} else if (!pcpu_has_cap(X86_FEATURE_COMPACTION_EXT)) {
 		printf("%s, Compaction extensions in XSAVE is not supported\n", __func__);

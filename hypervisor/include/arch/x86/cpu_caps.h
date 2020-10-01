@@ -32,7 +32,10 @@
 #define	FEATURE_WORDS		15U
 
 struct cpuinfo_x86 {
-	uint8_t family, model;
+	/* SDM 2-2 Vol.4 Table 2-1 uses DisplayFamily_DisplayModel to
+	 * distinguish Processor Families/Processor Number Series.
+	 */
+	uint8_t displayfamily, displaymodel;
 	uint8_t virt_bits;
 	uint8_t phys_bits;
 	uint32_t cpuid_level;
@@ -43,7 +46,7 @@ struct cpuinfo_x86 {
 };
 
 bool has_monitor_cap(void);
-bool monitor_cap_buggy(void);
+bool is_apl_platform(void);
 bool is_apicv_advanced_feature_supported(void);
 bool pcpu_has_cap(uint32_t bit);
 bool pcpu_has_vmx_ept_cap(uint32_t bit_mask);

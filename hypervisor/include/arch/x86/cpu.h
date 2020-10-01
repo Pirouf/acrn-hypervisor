@@ -84,6 +84,7 @@
 #define CR4_SMEP                (1UL<<20U)
 #define CR4_SMAP                (1UL<<21U)
 #define CR4_PKE                 (1UL<<22U)	/* Protect-key-enable */
+#define CR4_CET                 (1UL<<23U)	/* Control-flow Enforcement Technology enable */
 
 /* XCR0_SSE */
 #define XCR0_SSE		(1UL<<1U)
@@ -158,6 +159,7 @@
 #define XSAVE_COMPACTED_FORMAT			(1UL << 63U)
 
 #define XSAVE_FPU				(1UL << 0U)
+#define XSAVE_SSE				(1UL << 1U)
 
 #define	CPU_CONTEXT_OFFSET_RAX			0U
 #define	CPU_CONTEXT_OFFSET_RCX			8U
@@ -402,7 +404,6 @@ struct ext_context {
 
 	struct xsave_area xs_area;
 	uint64_t xcr0;
-	uint64_t xss;
 };
 
 struct cpu_context {

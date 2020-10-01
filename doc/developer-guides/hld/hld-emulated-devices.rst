@@ -13,7 +13,7 @@ documented in this section.
 
    usb-virt-hld
    UART virtualization <uart-virt-hld>
-   Watchdoc virtualization <watchdog-hld>
+   Watchdog virtualization <watchdog-hld>
    AHCI virtualization <ahci-hld>
    GVT-g GPU Virtualization <hld-APL_GVT-g>
    System timer virtualization <system-timer-hld>
@@ -22,4 +22,4 @@ documented in this section.
    Hostbridge emulation <hostbridge-virt-hld>
    AT keyboard controller emulation <atkbdc-virt-hld>
    Split Device Model <split-dm>
-   Shared memory based inter-vm communication <ivshmem-hld>
+   Shared memory based inter-VM communication <ivshmem-hld>

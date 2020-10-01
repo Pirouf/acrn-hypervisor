@@ -177,7 +177,7 @@ shown in :numref:`rules_arch_level` below.
    | External resource  | Invalid E820 table or   | Yes          | The hypervisor shall      | Invalid E820 table or   |
    | provided by        | invalid boot information|              | panic during platform     | invalid boot information|
    | bootloader         |                         |              | initialization            |                         |
-   | (UEFI or SBL)      |                         |              |                           |                         |
+   | (GRUB or SBL)      |                         |              |                           |                         |
    +--------------------+-------------------------+--------------+---------------------------+-------------------------+
    | Physical resource  | 1GB page is not         | Yes          | The hypervisor shall      | 1GB page is not         |
    | used by the        | available on the        |              | panic during platform     | available on the        |
@@ -566,7 +566,7 @@ The following table shows some use cases of module level configuration design:
      - This module is used to virtualize part of LAPIC functionalities.
        It can be done via APICv or software emulation depending on CPU
        capabilities.
-       For example, KBL NUC doesn't support virtual-interrupt delivery, while
+       For example, KBL Intel NUC doesn't support virtual-interrupt delivery, while
        other platforms support it.
      - If a function pointer is used, the prerequisite is
        "hv_operation_mode == OPERATIONAL".
@@ -574,118 +574,19 @@ The following table shows some use cases of module level configuration design:
    * - Configuration data provided by firmware
      - This module is used to interact with firmware (UEFI or SBL), and the
        configuration data is provided by firmware.
-       For example, UP2 uses SBL and KBL NUC uses UEFI.
      - If a function pointer is used, the prerequisite is
        "hv_operation_mode != DETECT".
 
    * - Configuration data provided by BSP
      - This module is used to virtualize LAPIC, and the configuration data is
        provided by BSP.
-       For example, some VMs use LAPIC pass-through and the other VMs use
+       For example, some VMs use LAPIC passthrough and the other VMs use
        vLAPIC.
      - If a function pointer is used, the prerequisite is
        "hv_operation_mode == OPERATIONAL".
 
 .. note:: Prerequisite is used to guarantee that the function pointer used for
    configuration is dereferenced after it has been instantiated.
-
-
-Examples
-========
-
-Take the module for parsing boot information as an example to illustrate the
-idea of module level configuration design.
-
-.. figure:: images/boot_information_parsing_module.png
-   :align: center
-   :scale: 70 %
-   :name: boot_information_parsing_module
-
-   Boot Information Parsing Module
-
-
-As shown in the source code below, 'struct firmware_operations' is an operations
-data structure that contains a set of function pointers.
-Different firmware may have different implementations:
-
-- 'firmware_uefi_ops' is for UEFI platform;
-- 'firmware_sbl_ops' is for SBL platform.
-
-
-.. code-block:: c
-
-  struct firmware_operations {
-          void (*init)(void);
-          uint64_t (*get_ap_trampoline)(void);
-          void *(*get_rsdp)(void);
-          void (*init_irq)(void);
-          int32_t (*init_vm_boot_info)(struct acrn_vm *vm);
-  };
-
-  static struct firmware_operations firmware_uefi_ops = {
-          .init = uefi_init,
-          .get_ap_trampoline = uefi_get_ap_trampoline,
-          .get_rsdp = uefi_get_rsdp,
-          .init_irq = uefi_init_irq,
-          .init_vm_boot_info = uefi_init_vm_boot_info,
-  };
-
-  static struct firmware_operations firmware_sbl_ops = {
-          .init = sbl_init,
-          .get_ap_trampoline = sbl_get_ap_trampoline,
-          .get_rsdp = sbl_get_rsdp,
-          .init_irq = sbl_init_irq,
-          .init_vm_boot_info = sbl_init_vm_boot_info,
-  };
-
-
-'firmware_ops' is the operations set that is dereferenced and takes effect.
-
-'init_firmware_operations' is called when the hypervisor is in DETECT mode and
-'firmware_ops' is instantiated here to either 'firmware_uefi_ops' or
-'firmware_sbl_ops' depending on the platform.
-
-.. note:: All the other exported interfaces using 'firmware_ops' shall be called
-   after the instantiation.
-
-
-.. code-block:: c
-
-  static struct firmware_operations *firmware_ops;
-
-  struct firmware_operations* uefi_get_firmware_operations(void)
-  {
-          return &firmware_uefi_ops;
-  }
-
-  struct firmware_operations* sbl_get_firmware_operations(void)
-  {
-          return &firmware_sbl_ops;
-  }
-
-  void init_firmware_operations(void)
-  {
-          if (is_firmware_sbl()) {
-                  firmware_ops = sbl_get_firmware_operations();
-          } else {
-                  firmware_ops = uefi_get_firmware_operations();
-          }
-  }
-
-
-For example, when the hypervisor needs to initialize the VM boot information,
-it calls 'firmware_init_vm_boot_info' and 'firmware_ops->init_vm_boot_info' is
-dereferenced here with correct API being called.
-
-.. code-block:: c
-
-  /**
-   * @pre firmware_ops->init_vm_boot_info != NULL
-   */
-  int32_t firmware_init_vm_boot_info(struct acrn_vm *vm)
-  {
-          return firmware_ops->init_vm_boot_info(vm);
-  }
 
 
 References

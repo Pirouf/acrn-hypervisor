@@ -9,6 +9,8 @@ import getopt
 import shutil
 import subprocess
 import xml.etree.ElementTree as ET
+import re
+
 
 ACRN_CONFIG_TARGET = ''
 SOURCE_ROOT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '../../../')
@@ -19,7 +21,7 @@ PY_CACHES = ["__pycache__", "../board_config/__pycache__", "../scenario_config/_
 GUEST_FLAG = ["0UL", "GUEST_FLAG_SECURE_WORLD_ENABLED", "GUEST_FLAG_LAPIC_PASSTHROUGH",
               "GUEST_FLAG_IO_COMPLETION_POLLING", "GUEST_FLAG_HIDE_MTRR", "GUEST_FLAG_RT"]
 
-MULTI_ITEM = ["guest_flag", "pcpu_id", "vcpu_clos", "input", "block", "network", "pci_dev"]
+MULTI_ITEM = ["guest_flag", "pcpu_id", "vcpu_clos", "input", "block", "network", "pci_dev", "shm_region"]
 
 SIZE_K = 1024
 SIZE_M = SIZE_K * 1024
@@ -45,6 +47,7 @@ class MultiItem():
         self.vir_console = []
         self.vir_network = []
         self.pci_dev = []
+        self.shm_region = []
 
 class TmpItem():
 
@@ -124,7 +127,7 @@ def get_param(args):
             return (err_dic, params)
 
         if not os.path.exists(par_v):
-            err_dic['wrong usage'] = "{} is not exist!".format(par_v)
+            err_dic['wrong usage'] = "{} does not exist!".format(par_v)
             return (err_dic, params)
 
     return (err_dic, params)
@@ -216,10 +219,9 @@ def find_tmp_flag(flag):
     if flag == None or flag == '0':
         return '0UL'
 
-    flag_str = ''
     for i in range(len(GUEST_FLAG)):
         if flag == GUEST_FLAG[i]:
-            return flag_str
+            return flag
 
 
 def get_config_root(config_file):
@@ -283,6 +285,10 @@ def get_leaf_value(tmp, tag_str, leaf):
     if leaf.tag == "pci_dev" and tag_str == "pci_dev":
         tmp.multi.pci_dev.append(leaf.text)
 
+    # get shm_region for vm
+    if leaf.tag == "shm_region" and tag_str == "shm_region":
+        tmp.multi.shm_region.append(leaf.text)
+
 
 def get_sub_value(tmp, tag_str, vm_id):
 
@@ -313,6 +319,10 @@ def get_sub_value(tmp, tag_str, vm_id):
     # append pci_dev for vm
     if tmp.multi.pci_dev and tag_str == "pci_dev":
         tmp.tag[vm_id] = tmp.multi.pci_dev
+
+    # append shm_region for vm
+    if tmp.multi.shm_region and tag_str == "shm_region":
+        tmp.tag[vm_id] = tmp.multi.shm_region
 
 
 def get_leaf_tag_map(config_file, branch_tag, tag_str=''):
@@ -410,6 +420,7 @@ def get_hv_item_tag(config_file, branch_tag, tag_str='', leaf_str=''):
 
     tmp = ''
     root = get_config_root(config_file)
+
     for item in root:
         # for each 2th level item
         for sub in item:
@@ -422,25 +433,34 @@ def get_hv_item_tag(config_file, branch_tag, tag_str='', leaf_str=''):
                     continue
 
                 # for each 3rd level item
+                tmp_list = []
                 for leaf in sub:
                     if leaf.tag == tag_str:
                         if not leaf_str:
                             if leaf.tag == tag_str and leaf.text and leaf.text != None:
-                                tmp = leaf.text
+                                if tag_str == "IVSHMEM_REGION":
+                                    tmp_list.append(leaf.text)
+                                else:
+                                    tmp = leaf.text
+
                         else:
                             # for each 4rd level item
                             tmp_list = []
                             for leaf_s in leaf:
                                 if leaf_s.tag == leaf_str and leaf_s.text and leaf_s.text != None:
-                                    if leaf_str == "CLOS_MASK":
+                                    if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION":
                                         tmp_list.append(leaf_s.text)
                                     else:
                                         tmp = leaf_s.text
                                 continue
 
-                            if leaf_str == "CLOS_MASK":
+                            if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION":
                                 tmp = tmp_list
                                 break
+
+                if tag_str == "IVSHMEM_REGION":
+                    tmp = tmp_list
+                    break
 
     return tmp
 
@@ -508,3 +528,71 @@ def get_avl_dev_info(bdf_desc_map, pci_sub_class):
                 tmp_pci_desc.append(pci_desc_value.strip())
 
     return tmp_pci_desc
+
+
+def str2bool(v):
+    return v.lower() in ("yes", "true", "t", "y", "1") if v else False
+
+
+def get_leaf_tag_map_bool(config_file, branch_tag, tag_str=''):
+    """
+    This convert and return map's value from string to bool
+    """
+
+    result = {}
+
+    tag_map = get_leaf_tag_map(config_file, branch_tag, tag_str)
+    for vm_i, s in tag_map.items():
+        result[vm_i] = str2bool(s)
+
+    return result
+
+
+def hpa2gpa(vm_id, hpa, size):
+    return hpa
+
+
+def str2int(x):
+    s = x.replace(" ", "").lower()
+
+    if s:
+        base = 10
+        if s.startswith('0x'): base = 16
+        return int(s, base)
+
+    return 0
+
+
+def get_pt_intx_table(config_file):
+    pt_intx_map = get_leaf_tag_map(config_file, "pt_intx")
+
+    # translation table to normalize the paired phys_gsi and virt_gsi string
+    table = {ord('[') : ord('('), ord(']') : ord(')'), ord('{') : ord('('),
+        ord('}') : ord(')'), ord(';') : ord(','),
+        ord('\n') : None, ord('\r') : None, ord(' ') : None}
+
+    phys_gsi = {}
+    virt_gsi = {}
+
+    for vm_i, s in pt_intx_map.items():
+        #normalize the phys_gsi and virt_gsi pair string
+        s = s.translate(table)
+
+        #extract the phys_gsi and virt_gsi pairs between parenthesis to a list
+        s = re.findall(r'\(([^)]+)', s)
+
+        phys_gsi[vm_i] = [];
+        virt_gsi[vm_i] = [];
+
+        for part in s:
+            if not part: continue
+            assert ',' in part, "you need to use ',' to separate phys_gsi and virt_gsi!"
+            a, b = part.split(',')
+            if not a and not b: continue
+            assert a and b, "you need to specify both phys_gsi and virt_gsi!"
+            a, b = str2int(a), str2int(b)
+
+            phys_gsi[vm_i].append(a)
+            virt_gsi[vm_i].append(b)
+
+    return phys_gsi, virt_gsi

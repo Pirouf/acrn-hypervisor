@@ -31,6 +31,8 @@
 #ifndef PCI_H_
 #define PCI_H_
 
+#include <list.h>
+
 /*
  * PCIM_xxx: mask to locate subfield in register
  * PCIR_xxx: config register offset
@@ -206,6 +208,13 @@ enum pci_bar_type {
 	PCIBAR_MEM64HI,
 };
 
+struct pci_mmcfg_region {
+	uint64_t address;	/* Base address, processor-relative */
+	uint16_t pci_segment;	/* PCI segment group number */
+	uint8_t start_bus;	/* Starting PCI Bus number */
+	uint8_t end_bus;	/* Final PCI Bus number */
+} __packed;
+
 /* Basic MSIX capability info */
 struct pci_msix_cap {
 	uint32_t  capoff;
@@ -219,6 +228,8 @@ struct pci_msix_cap {
 struct pci_sriov_cap {
 	uint32_t  capoff;
 	uint32_t  caplen;
+	uint32_t  pre_pos;
+	bool hide_sriov;
 };
 
 struct pci_pdev {
@@ -228,6 +239,9 @@ struct pci_pdev {
 
 	/* IOMMU responsible for DMA and Interrupt Remapping for this device */
 	uint32_t drhd_index;
+	/* Used for vMSI-x on MSI emulation */
+	uint16_t irte_start;
+	uint16_t irte_count;
 
 	/* The bar info of the physical PCI device. */
 	uint32_t nr_bars; /* 6 for normal device, 2 for bridge, 1 for cardbus */
@@ -245,6 +259,7 @@ struct pci_pdev {
 	bool has_pm_reset;
 	bool has_flr;
 	bool has_af_flr;
+	struct hlist_node link;
 };
 
 struct pci_cfg_ops {
@@ -316,10 +331,15 @@ static inline bool bdf_is_equal(union pci_bdf a, union pci_bdf b)
 	return (a.value == b.value);
 }
 
+static inline uint64_t get_pci_mmcfg_size(struct pci_mmcfg_region *pci_mmcfg)
+{
+	return 0x100000UL * (pci_mmcfg->end_bus - pci_mmcfg->start_bus + 1U);
+}
+
 #ifdef CONFIG_ACPI_PARSE_ENABLED
-void set_mmcfg_base(uint64_t mmcfg_base);
+void set_mmcfg_region(struct pci_mmcfg_region *region);
 #endif
-uint64_t get_mmcfg_base(void);
+struct pci_mmcfg_region *get_mmcfg_region(void);
 
 struct pci_pdev *init_pdev(uint16_t pbdf, uint32_t drhd_index);
 uint32_t pci_pdev_read_cfg(union pci_bdf bdf, uint32_t offset, uint32_t bytes);
@@ -335,12 +355,12 @@ void enable_disable_pci_intx(union pci_bdf bdf, bool enable);
 void init_pci_pdev_list(void);
 
 /* @brief: Find the DRHD index corresponding to a PCI device
- * Runs through the pci_pdev_array and returns the value in drhd_idx
+ * Runs through the pci_pdevs and returns the value in drhd_idx
  * member from pdev strucutre that matches matches B:D.F
  *
  * @pbdf[in]	B:D.F of a PCI device
  *
- * @return if there is a matching pbdf in pci_pdev_array, pdev->drhd_idx, else -1U
+ * @return if there is a matching pbdf in pci_pdevs, pdev->drhd_idx, else -1U
  */
 uint32_t pci_lookup_drhd_for_pbdf(uint16_t pbdf);
 
@@ -355,8 +375,24 @@ static inline bool is_pci_cfg_multifunction(uint8_t header_type)
 	return ((header_type & PCIM_MFDEV) == PCIM_MFDEV);
 }
 
+static inline bool pci_is_valid_access_offset(uint32_t offset, uint32_t bytes)
+{
+	return ((offset & (bytes - 1U)) == 0U);
+}
+
+static inline bool pci_is_valid_access_byte(uint32_t bytes)
+{
+	return ((bytes == 1U) || (bytes == 2U) || (bytes == 4U));
+}
+
+static inline bool pci_is_valid_access(uint32_t offset, uint32_t bytes)
+{
+	return (pci_is_valid_access_byte(bytes) && pci_is_valid_access_offset(offset, bytes));
+}
+
 bool is_plat_hidden_pdev(union pci_bdf bdf);
 bool pdev_need_bar_restore(const struct pci_pdev *pdev);
 void pdev_restore_bar(const struct pci_pdev *pdev);
 void pci_switch_to_mmio_cfg_ops(void);
+void reserve_vmsix_on_msi_irtes(struct pci_pdev *pdev);
 #endif /* PCI_H_ */

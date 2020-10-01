@@ -7,7 +7,6 @@ import common
 import board_cfg_lib
 import scenario_cfg_lib
 
-
 class HwInfo:
     """ This is Abstract of class of Hardware information """
     processor_val = []
@@ -110,8 +109,8 @@ class CfgOsKern:
         scenario_cfg_lib.os_kern_type_check(self.kern_type, "os_config", "kern_type")
         scenario_cfg_lib.os_kern_mod_check(self.kern_mod, "os_config", "kern_mod")
         scenario_cfg_lib.os_kern_args_check(self.kern_args, "os_config", "kern_args")
-        scenario_cfg_lib.os_kern_load_addr_check(self.kern_load_addr, "os_config", "kern_load_addr")
-        scenario_cfg_lib.os_kern_entry_addr_check(self.kern_entry_addr, "os_config", "kern_entry_addr")
+        scenario_cfg_lib.os_kern_load_addr_check(self.kern_type, self.kern_load_addr, "os_config", "kern_load_addr")
+        scenario_cfg_lib.os_kern_entry_addr_check(self.kern_type, self.kern_entry_addr, "os_config", "kern_entry_addr")
 
 
 class VuartInfo:
@@ -228,6 +227,38 @@ class EpcSection:
         self.size = common.get_leaf_tag_map(self.scenario_info, "epc_section", "size")
 
 
+class ShareMem:
+    """ This is the class to get Share Memory regions for VMs """
+    shmem_enabled = 'n'
+    raw_shmem_regions = []
+    shmem_regions = {}
+    shmem_num = {}
+
+    def __init__(self, scenario_info):
+        self.scenario_info = scenario_info
+
+    def set_ivshmem(self, ivshmem_regions):
+        """
+        set ivshmem regions for VMs.
+        :param ivshmem_regions:
+        :return:
+        """
+        self.raw_shmem_regions = ivshmem_regions
+        self.shmem_enabled = common.get_hv_item_tag(self.scenario_info, "FEATURES", "IVSHMEM", "IVSHMEM_ENABLED")
+        self.shmem_regions = scenario_cfg_lib.get_shmem_regions(ivshmem_regions)
+        self.shmem_num = scenario_cfg_lib.get_shmem_num(self.shmem_regions)
+
+    def check_items(self):
+        '''
+        check the configurations for share memories.
+        :return:
+        '''
+        if self.shmem_enabled == 'y':
+            vm_type_info = common.get_leaf_tag_map(self.scenario_info, "vm_type")
+            scenario_cfg_lib.share_mem_check(self.shmem_regions, self.raw_shmem_regions, vm_type_info,
+                                         "FEATURES", "IVSHMEM", "IVSHMEM_REGION")
+
+
 class LoadOrderNum:
     """ This is Abstract of VM number for different load order """
     def __init__(self):
@@ -239,6 +270,54 @@ class LoadOrderNum:
         self.pre_vm = scenario_cfg_lib.get_load_vm_cnt(load_vm, "PRE_LAUNCHED_VM")
         self.sos_vm = scenario_cfg_lib.get_load_vm_cnt(load_vm, "SOS_VM")
         self.post_vm = scenario_cfg_lib.get_load_vm_cnt(load_vm, "POST_LAUNCHED_VM")
+
+
+class MmioResourcesInfo:
+    """ This is Abstract of class of mmio resource setting information """
+    p2sb = False
+
+    def __init__(self, scenario_file):
+        self.scenario_info = scenario_file
+
+    def get_info(self):
+        """
+        Get all items which belong to this class
+        :return: None
+        """
+        self.p2sb = common.get_leaf_tag_map_bool(self.scenario_info, "mmio_resources", "p2sb")
+        self.tpm2 = common.get_leaf_tag_map_bool(self.scenario_info, "mmio_resources", "TPM2")
+
+    def check_item(self):
+        """
+        Check all items in this class
+        :return: None
+        """
+        scenario_cfg_lib.check_p2sb(self.p2sb)
+
+
+class PtIntxInfo:
+    """ This is Abstract of class of pt intx setting information """
+    phys_gsi = {}
+    virt_gsi = {}
+
+    def __init__(self, scenario_file):
+        self.scenario_info = scenario_file
+
+    def get_info(self):
+        """
+        Get all items which belong to this class
+        :return: None
+        """
+        self.phys_gsi, self.virt_gsi = common.get_pt_intx_table(self.scenario_info)
+
+    def check_item(self):
+        """
+        Check all items in this class
+        :return: None
+        """
+
+        scenario_cfg_lib.check_pt_intx(self.phys_gsi, self.virt_gsi)
+
 
 class VmInfo:
     """ This is Abstract of class of VM setting """
@@ -259,6 +338,10 @@ class VmInfo:
         self.vuart = VuartInfo(self.scenario_info)
         self.cfg_pci = CfgPci(self.scenario_info)
         self.load_order_cnt = LoadOrderNum()
+        self.shmem = ShareMem(self.scenario_info)
+        self.mmio_resource_info = MmioResourcesInfo(self.scenario_info)
+        self.pt_intx_info = PtIntxInfo(self.scenario_info)
+
 
     def get_info(self):
         """
@@ -280,6 +363,16 @@ class VmInfo:
         self.vuart.get_info()
         self.cfg_pci.get_info()
         self.load_order_cnt.get_info(self.load_vm)
+        self.mmio_resource_info.get_info()
+        self.pt_intx_info.get_info()
+
+    def set_ivshmem(self, ivshmem_regions):
+        """
+        set ivshmem regions for VMs
+        :param ivshmem_regions:
+        :return:
+        """
+        self.shmem.set_ivshmem(ivshmem_regions)
 
     def get_cpu_bitmap(self, index):
         """
@@ -310,4 +403,7 @@ class VmInfo:
         self.os_cfg.check_item()
         self.cfg_pci.check_item()
         self.vuart.check_item()
+        self.shmem.check_items()
+        self.mmio_resource_info.check_item()
+        self.pt_intx_info.check_item()
         scenario_cfg_lib.ERR_LIST.update(err_dic)

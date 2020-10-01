@@ -30,7 +30,7 @@ $().ready(function(){
                     alert(result.status);
                }
 
-               window.location.reload();
+               window.location = 'http://'+ window.location.host+"/scenario";
            },
            error: function(e){
                console.log(e.status);
@@ -141,7 +141,7 @@ $().ready(function(){
             data : JSON.stringify(data),
             success : function(result) {
                 console.log(result);
-                window.location.reload(true);
+                window.location = 'http://'+ window.location.host+"/scenario";
             },
             error : function(e){
                 console.log(e.status);
@@ -405,12 +405,14 @@ $().ready(function(){
         var id = $(this).attr('id');
         var value = $(this).val();
         update_vcpu_clos_option(id, value);
+        update_rdt_clos_mask(id, value);
     });
 
     $("select[ID$='FEATURES,RDT,CDP_ENABLED']").each(function(index, item) {
         var id = $(this).attr('id');
         var value = $(item).val();
         update_vcpu_clos_option(id, value);
+        update_rdt_clos_mask(id, value);
     });
 
     $(document).on('click', "button:contains('+')", function() {
@@ -438,6 +440,8 @@ $().ready(function(){
         var id_pre_added = curr_item_id.substr(0, curr_item_id.lastIndexOf('_'));
         config_item_added.find("button:contains('+')").attr('id', id_pre_added+'_'+id_added);
         config_item_added.find("button:contains('-')").attr('id', id_pre_added.replace('add_', 'remove_')+'_'+id_added);
+        var curr_err_id = config_item_added.find("p").attr('id');
+        config_item_added.find("p").attr('id', curr_err_id.replace(','+curr_id+'_', ','+id_added+'_'));
         config_item_added.find("button:contains('-')").prop("disabled", false);
         config_item_added.find("label:first").text("");
         config_item_added.find('.bootstrap-select').replaceWith(function() { return $('select', this); });
@@ -565,6 +569,69 @@ function update_vcpu_clos_option(id, value) {
     }
 }
 
+function update_rdt_clos_mask(id, value) {
+    $.ajax({
+        type : "POST",
+        contentType: "application/json;charset=UTF-8",
+        url : "../get_num_of_rdt_res_entries",
+        data : JSON.stringify({'cdp_enabled': value}),
+        success : function(result) {
+            console.log(result);
+            num_clos_mask = result.num_clos_mask;
+            num_mba_delay = result.num_mba_delay;
+            clos_mask_entries = [null];
+            index = 0;
+            $("input[ID$='hv,FEATURES,RDT,CLOS_MASK']").each(function(){
+                index += 1;
+                if(index<=num_clos_mask) {
+                    clos_mask_entries[0] = $(this).parent().parent();
+                }
+                if(index>num_clos_mask) {
+                    clos_mask_entries.push($(this).parent().parent());
+                }
+            });
+            if(index<=num_clos_mask) {
+                last_clos_mask_entry = clos_mask_entries[0];
+                for(i=0; i<num_clos_mask-index; i++) {
+                    clos_mask_entry_added = last_clos_mask_entry.clone();
+                    clos_mask_entry_added.insertAfter(last_clos_mask_entry);
+                }
+            } else {
+                for(i=clos_mask_entries.length-1; i>0; i--) {
+                    clos_mask_entries[i].remove();
+                }
+            }
+            mba_delay_entries = [null];
+            index = 0;
+            $("input[ID$='hv,FEATURES,RDT,MBA_DELAY']").each(function(){
+                index += 1;
+                if(index<=num_mba_delay) {
+                    mba_delay_entries[0] = $(this).parent().parent();
+                }
+                if(index>num_mba_delay) {
+                    mba_delay_entries.push($(this).parent().parent());
+                }
+            });
+            if(index<=num_mba_delay) {
+                last_mba_delay_entry = mba_delay_entries[0];
+                for(i=0; i<num_mba_delay-index; i++) {
+                    mba_delay_entry_added = last_mba_delay_entry.clone();
+                    mba_delay_entry_added.insertAfter(last_mba_delay_entry);
+                }
+            } else {
+                for(i=mba_delay_entries.length-1; i>0; i--) {
+                    mba_delay_entries[i].remove();
+                }
+            }
+        },
+        error : function(e){
+            console.log(e.status);
+            console.log(e.responseText);
+            alert(e.responseText);
+        }
+    });
+}
+
 function create_setting(type, default_name, name, mode){
     var board_info = $("text#board_type").text();
     if (board_info==null || board_info=='') {
@@ -590,7 +657,7 @@ function create_setting(type, default_name, name, mode){
             create_flag = true
             if(exist == "yes") {
                 overwirte_confirm_message = 'Setting name: ' + create_config['create_name'] + ' existed in ' +
-                    'acrn-hypervisor/misc/acrn-config/xmls/config-xmls/'+board_info+'/user_defined/.\n'+
+                    'acrn-hypervisor/misc/vm_configs/xmls/config-xmls/'+board_info+'/user_defined/.\n'+
                     'Do you want to overwrite it?\nClick OK to overwrite it; click Cancel to rename it.'
                 if(!confirm(overwirte_confirm_message)) {
                     create_flag = false
@@ -663,7 +730,7 @@ function save_scenario(generator=null){
     $("input").each(function(){
         var id = $(this).attr('id');
         var value = $(this).val();
-        if(id.indexOf('CLOS_MASK')>=0 ) {
+        if(id.indexOf('CLOS_MASK')>=0 || id.indexOf('MBA_DELAY')>=0 || id.indexOf('IVSHMEM_REGION')>=0) {
             if(id in scenario_config) {
                 scenario_config[id].push(value);
             } else {
@@ -706,7 +773,7 @@ function save_scenario(generator=null){
             create_flag = true
             if(exist == "yes") {
                 overwirte_confirm_message = 'Setting name: ' + scenario_config['create_name'] + ' existed in ' +
-                    'acrn-hypervisor/misc/acrn-config/xmls/config-xmls/'+board_info+'/user_defined/.\n'+
+                    'acrn-hypervisor/misc/vm_configs/xmls/config-xmls/'+board_info+'/user_defined/.\n'+
                     'Do you want to overwrite it?\nClick OK to overwrite it; click Cancel to rename it.'
                 if(!confirm(overwirte_confirm_message)) {
                     create_flag = false
@@ -730,23 +797,23 @@ function save_scenario(generator=null){
                                 index = index.replace(new RegExp(jquerySpecialChars[i],
                                     "g"), "\\" + jquerySpecialChars[i]);
                             }
-                            $("#"+index).parents(".form-group").addClass("has-error");
+                            $("#"+index+"_err").parents(".form-group").addClass("has-error");
                             $("#"+index+"_err").text(item);
                         })
                         if(no_err == true && status == 'success') {
                             file_name = result.file_name;
                             validate_message = 'Scenario setting saved successfully with name: '
-                                +file_name+'\ninto acrn-hypervisor/misc/acrn-config/xmls/config-xmls/'+board_info+'/user_defined/.'
+                                +file_name+'\ninto acrn-hypervisor/misc/vm_configs/xmls/config-xmls/'+board_info+'/user_defined/.'
                             if(result.rename==true) {
                                 validate_message = 'Scenario setting existed, saved successfully with a new name: '
-                                    +file_name+'\ninto acrn-hypervisor/misc/acrn-config/xmls/config-xmls/'+board_info+'/user_defined/.';
+                                    +file_name+'\ninto acrn-hypervisor/misc/vm_configs/xmls/config-xmls/'+board_info+'/user_defined/.';
                             }
                             if(generator=="generate_config_src") {
                                 var src_path = $("input#src_path").val();
                                 generate_flag = true;
                                 if(src_path == null || src_path == '') {
                                     overwirte_confirm_message = 'The Source Path for configuration files is not set.\n' +
-                                        'Do you want to generate them into the default path: hypervisor/arch/x86/configs/ and hypervisor/scenarios/,\n'+
+                                        'Do you want to generate them into the default path: acrn-hypervisor/misc/vm_configs/board/ and acrn-hypervisor/misc/vm_configs/scenarios/,\n'+
                                         'and overwrite the old ones?\nClick OK to overwrite them; click Cancel to edit the Source Path.'
                                     if(!confirm(overwirte_confirm_message)) {
                                         generate_flag = false
@@ -771,7 +838,7 @@ function save_scenario(generator=null){
                                         error_list = result.error_list
                                         if (status == 'success' && (JSON.stringify(error_list)=='{}' || JSON.stringify(error_list)=='null')) {
                                             if(src_path==null || src_path=='') {
-                                                alert(generator+' successfully into hypervisor/arch/x86/configs/ and hypervisor/scenarios/ ');
+                                                alert(generator+' successfully into acrn-hypervisor/misc/vm_configs/board/ and acrn-hypervisor/misc/vm_configs/scenarios/ ');
                                             } else {
                                                 alert(generator+' successfully into '+src_path);
                                             }
@@ -857,7 +924,7 @@ function save_launch(generator=null) {
     $("select").each(function(){
         var id = $(this).attr('id');
         var value = $(this).val();
-        if(id.indexOf('pcpu_id')>=0 || id.indexOf('pci_dev')>=0) {
+        if(id.indexOf('pcpu_id')>=0 || id.indexOf('shm_region')>=0 || id.indexOf('pci_dev')>=0) {
             if(id in launch_config) {
                 launch_config[id].push(value);
             } else {
@@ -884,7 +951,7 @@ function save_launch(generator=null) {
             create_flag = true
             if(exist == "yes") {
                 overwirte_confirm_message = 'Setting name: ' + launch_config['create_name'] + ' existed in ' +
-                    'acrn-hypervisor/misc/acrn-config/xmls/config-xmls/'+board_info+'/user_defined/.\n'+
+                    'acrn-hypervisor/misc/vm_configs/xmls/config-xmls/'+board_info+'/user_defined/.\n'+
                     'Do you want to overwrite it?\nClick OK to overwrite it; click Cancel to rename it.'
                 if(!confirm(overwirte_confirm_message)) {
                     create_flag = false
@@ -916,17 +983,17 @@ function save_launch(generator=null) {
                         if(no_err == true && status == 'success') {
                             file_name = result.file_name;
                             validate_message = 'Launch setting saved successfully with name: '
-                                +file_name+'\nto acrn-hypervisor/misc/acrn-config/xmls/config-xmls/'+board_info+'/user_defined/.'
+                                +file_name+'\nto acrn-hypervisor/misc/vm_configs/xmls/config-xmls/'+board_info+'/user_defined/.'
                             if(result.rename==true) {
                                 validate_message = 'Launch setting existed, saved successfully with a new name: '
-                                    +file_name+'\nto acrn-hypervisor/misc/acrn-config/xmls/config-xmls/'+board_info+'/user_defined/.';
+                                    +file_name+'\nto acrn-hypervisor/misc/vm_configs/xmls/config-xmls/'+board_info+'/user_defined/.';
                             }
                             if(generator == 'generate_launch_script') {
                                 var src_path = $("input#src_path").val();
                                 generate_flag = true;
                                 if(src_path == null || src_path == '') {
                                     overwirte_confirm_message = 'The Source Path for launch scripts is not set.\n' +
-                                        'Do you want to generate them into the default path: misc/acrn-config/xmls/config-xmls/'+board_info+'/output/,\n'+
+                                        'Do you want to generate them into the default path: misc/vm_configs/xmls/config-xmls/'+board_info+'/output/,\n'+
                                         'and overwrite the old ones?\nClick OK to overwrite them; click Cancel to edit the Source Path.'
                                     if(!confirm(overwirte_confirm_message)) {
                                         generate_flag = false
@@ -953,7 +1020,7 @@ function save_launch(generator=null) {
                                         if (status == 'success' && (JSON.stringify(error_list)=='{}' || JSON.stringify(error_list)=='null')) {
                                             if(src_path==null || src_path==='') {
                                                 alert(generator+' successfully into '+
-                                                      'acrn-hypervisor/misc/acrn-config/xmls/config-xmls/'+board_info+'/output/.');
+                                                      'acrn-hypervisor/misc/vm_configs/xmls/config-xmls/'+board_info+'/output/.');
                                             } else {
                                                 alert(generator+' successfully into '+src_path);
                                             }

@@ -114,7 +114,7 @@ vioapic_set_pinstate(struct acrn_single_vioapic *vioapic, uint32_t pin, uint32_t
 }
 
 
-static struct acrn_single_vioapic *
+struct acrn_single_vioapic *
 vgsi_to_vioapic_and_vpin(const struct acrn_vm *vm, uint32_t vgsi, uint32_t *vpin)
 {
 	struct acrn_single_vioapic *vioapic;
@@ -150,7 +150,6 @@ vgsi_to_vioapic_and_vpin(const struct acrn_vm *vm, uint32_t vgsi, uint32_t *vpin
  *
  * @pre vgsi < get_vm_gsicount(vm)
  * @pre vm != NULL
- * @pre vioapic->ready == true
  * @return None
  */
 void
@@ -204,11 +203,9 @@ vioapic_set_irqline_lock(const struct acrn_vm *vm, uint32_t vgsi, uint32_t opera
 	struct acrn_single_vioapic *vioapic;
 
 	vioapic = vgsi_to_vioapic_and_vpin(vm, vgsi, NULL);
-	if (vioapic->ready) {
-		spinlock_irqsave_obtain(&(vioapic->mtx), &rflags);
-		vioapic_set_irqline_nolock(vm, vgsi, operation);
-		spinlock_irqrestore_release(&(vioapic->mtx), rflags);
-	}
+	spinlock_irqsave_obtain(&(vioapic->lock), &rflags);
+	vioapic_set_irqline_nolock(vm, vgsi, operation);
+	spinlock_irqrestore_release(&(vioapic->lock), rflags);
 }
 
 static uint32_t
@@ -271,8 +268,8 @@ static inline bool vioapic_need_intr(const struct acrn_single_vioapic *vioapic, 
 }
 
 /*
- * Due to the race between vcpus and vioapic->mtx could be accessed from softirq, ensure to do
- * spinlock_irqsave_obtain(&(vioapic->mtx), &rflags) & spinlock_irqrestore_release(&(vioapic->mtx), rflags)
+ * Due to the race between vcpus and vioapic->lock could be accessed from softirq, ensure to do
+ * spinlock_irqsave_obtain(&(vioapic->lock), &rflags) & spinlock_irqrestore_release(&(vioapic->lock), rflags)
  * by caller.
  */
 static void vioapic_indirect_write(struct acrn_single_vioapic *vioapic, uint32_t addr, uint32_t data)
@@ -386,7 +383,7 @@ vioapic_mmio_rw(struct acrn_single_vioapic *vioapic, uint64_t gpa,
 
 	offset = (uint32_t)(gpa - vioapic->chipinfo.addr);
 
-	spinlock_irqsave_obtain(&(vioapic->mtx), &rflags);
+	spinlock_irqsave_obtain(&(vioapic->lock), &rflags);
 
 	/* The IOAPIC specification allows 32-bit wide accesses to the
 	 * IOAPIC_REGSEL (offset 0) and IOAPIC_WINDOW (offset 16) registers.
@@ -415,12 +412,11 @@ vioapic_mmio_rw(struct acrn_single_vioapic *vioapic, uint64_t gpa,
 		break;
 	}
 
-	spinlock_irqrestore_release(&(vioapic->mtx), rflags);
+	spinlock_irqrestore_release(&(vioapic->lock), rflags);
 }
 
 /*
  * @pre vm != NULL
- * @pre vioapic->ready == true
  */
 static void
 vioapic_process_eoi(struct acrn_single_vioapic *vioapic, uint32_t vector)
@@ -450,7 +446,7 @@ vioapic_process_eoi(struct acrn_single_vioapic *vioapic, uint32_t vector)
 	 * XXX keep track of the pins associated with this vector instead
 	 * of iterating on every single pin each time.
 	 */
-	spinlock_irqsave_obtain(&(vioapic->mtx), &rflags);
+	spinlock_irqsave_obtain(&(vioapic->lock), &rflags);
 	for (pin = 0U; pin < pincount; pin++) {
 		rte = vioapic->rtbl[pin];
 		if ((rte.bits.vector != vector) ||
@@ -465,7 +461,7 @@ vioapic_process_eoi(struct acrn_single_vioapic *vioapic, uint32_t vector)
 			vioapic_generate_intr(vioapic, pin);
 		}
 	}
-	spinlock_irqrestore_release(&(vioapic->mtx), rflags);
+	spinlock_irqrestore_release(&(vioapic->lock), rflags);
 }
 
 void vioapic_broadcast_eoi(const struct acrn_vm *vm, uint32_t vector)
@@ -528,7 +524,7 @@ vioapic_init(struct acrn_vm *vm)
 
 	for (vioapic_index = 0U; vioapic_index < vm->arch_vm.vioapics.ioapic_num; vioapic_index++) {
 		vioapic = &vm->arch_vm.vioapics.vioapic_array[vioapic_index];
-		spinlock_init(&(vioapic->mtx));
+		spinlock_init(&(vioapic->lock));
 		vioapic->chipinfo = vioapic_info[vioapic_index];
 
 		vioapic->vm = vm;
@@ -537,7 +533,6 @@ vioapic_init(struct acrn_vm *vm)
 		register_mmio_emulation_handler(vm, vioapic_mmio_access_handler, (uint64_t)vioapic->chipinfo.addr,
 					(uint64_t)vioapic->chipinfo.addr + VIOAPIC_SIZE, (void *)vioapic, false);
 		ept_del_mr(vm, (uint64_t *)vm->arch_vm.nworld_eptp, (uint64_t)vioapic->chipinfo.addr, VIOAPIC_SIZE);
-		vioapic->ready = true;
 	}
 
 	/*
@@ -557,7 +552,6 @@ get_vm_gsicount(const struct acrn_vm *vm)
 
 /*
  * @pre handler_private_data != NULL
- * @pre vioapic->ready == true
  */
 int32_t vioapic_mmio_access_handler(struct io_request *io_req, void *handler_private_data)
 {

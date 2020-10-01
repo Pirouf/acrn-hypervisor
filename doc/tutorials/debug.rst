@@ -18,7 +18,7 @@ the ``help`` command within the ACRN shell.
 An example
 **********
 
-As an example, we'll show how to obtain the interrupts of a pass-through USB device.
+As an example, we'll show how to obtain the interrupts of a passthrough USB device.
 
 First, we can get the USB controller BDF number (0:15.0) through the
 following command in the Service VM console::
@@ -52,7 +52,7 @@ ACRN Log
 
 ACRN log provides console log and mem log for a user to analyze.
 We can use console log to debug directly, while mem log is a userland tool
-used to capture a ACRN hypervisor log.
+used to capture an ACRN hypervisor log.
 
 Turn on the logging info
 ========================
@@ -90,8 +90,8 @@ noted above.  For example, add the following code into function
    shell_cmd_help added information
 
 Once you have instrumented the code, you need to rebuild the hypervisor and
-install it on your platform. Refer to :ref:`getting-started-building` and
-:ref:`kbl-nuc-sdc` for detailed instructions on how to do that.
+install it on your platform. Refer to :ref:`getting-started-building`
+for detailed instructions on how to do that.
 
 We set console log level to 5, and mem log level to 2 through the
 command::
@@ -151,7 +151,7 @@ reason and times of each vm_exit after we have done some operations.
       # acrnalyze.py -i /home/trace/acrntrace/20190219-001529/1 -o vmexit --vm_exit
 
    .. note:: The acrnalyze.py script is in the
-      ``acrn-hypervisor/misc/tools/acrntrace/scripts`` folder.  The location
+      ``misc/tools/acrntrace/scripts`` folder.  The location
       of the trace files produced by ``acrntrace`` may be different in your system.
 
    .. figure:: images/debug_image28.png
@@ -174,7 +174,7 @@ shown in the following example:
       trace event id
 
 2. Add the following format to
-   ``acrn-hypervisor/misc/tools/acrntrace/scripts/formats``:
+   ``misc/tools/acrntrace/scripts/formats``:
 
    .. figure:: images/debug_image1.png
       :align: center
@@ -186,7 +186,7 @@ shown in the following example:
       Formats:
         0x00000005: event id for trace test
 
-        %(cpu)d: corresponding cpu index with 'decimal' format
+        %(cpu)d: corresponding CPU index with 'decimal' format
 
         %(event)016x: corresponding event id with 'hex' format
 
@@ -205,7 +205,7 @@ shown in the following example:
 
 4. After we have inserted the trace code addition, we need to rebuild
    the ACRN hypervisor and install it on the platform. Refer to
-   :ref:`getting-started-building` and :ref:`kbl-nuc-sdc` for
+   :ref:`getting-started-building` for
    detailed instructions on how to do that.
 
 5. Now we can use the following command in the Service VM console
@@ -224,7 +224,7 @@ shown in the following example:
         formats /home/trace/acrntrace/20190219-001529/1 | grep "trace test"
 
    .. note:: The acrnalyze.py script is in the
-      ``acrn-hypervisor/misc/tools/acrntrace/scripts`` folder.  The location
+      ``misc/tools/acrntrace/scripts`` folder.  The location
       of the trace files produced by ``acrntrace`` may be different in your system.
 
    and we will get the following log:
