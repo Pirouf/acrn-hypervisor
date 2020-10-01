@@ -1,3 +1,32 @@
+acrn-hypervisor (2.0-35-g54b8d4b4) buster; urgency=medium
+
+  [ Sun Peng ]
+  * dm: core: Convert print output to acrn-dm logger
+  * dm: virtio: Convert console print output to acrn-dm logger
+  * dm: ahci: Convert print output to acrn-dm logger
+  * dm: pci_core: Convert print output to acrn-dm logger
+  * dm: gsi: Convert print output to acrn-dm logger
+  * dm: gvt: Convert print output to acrn-dm logger
+  * dm: npk: Convert print output to acrn-dm logger
+  * dm: pci_passthrough: Convert print output to acrn-dm logger
+  * dm: usb: Convert print output to acrn-dm logger
+  * dm: rbmp: Convert print output to acrn-dm logger
+  * dm: tpm: Convert print output to acrn-dm logger
+  * dm: timer: Convert print output to acrn-dm logger
+  * dm: ioc: Convert print output to acrn-dm logger
+  * dm: blockif: Convert print output to acrn-dm logger
+  * dm: uart: Convert print output to acrn-dm logger
+
+  [ Helmut Buchsbaum ]
+  * debian/configs: maxtang-wl10/industry3: add hidden pdevs
+  * debian: update patches
+  * debian: scenario configs: reenable use of SOS/COM_BASE/IRQ
+  * debian/configs: add hidden pdevs to nuc7i7dnb2/industry
+  * debian/configs: add nuc7i7dnb2/industry3
+  * debian: debconf: only provide supported scenarios
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Thu, 01 Oct 2020 18:53:15 +0200
+
 acrn-hypervisor (2.0-20-g25fff0c2) buster; urgency=medium
 
   [ Binbin Wu ]
