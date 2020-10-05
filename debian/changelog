@@ -1,3 +1,9 @@
+acrn-hypervisor (2.0+35+g54b8d4b4-3) buster; urgency=medium
+
+  * debian: fix spelling errors in patch descriptions
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 05 Oct 2020 18:20:54 +0200
+
 acrn-hypervisor (2.0+35+g54b8d4b4-2) buster; urgency=medium
 
   * debian: remove old binaries on upgrade
