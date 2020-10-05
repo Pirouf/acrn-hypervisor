@@ -1,3 +1,15 @@
+acrn-hypervisor (2.0+35+g54b8d4b4-2) buster; urgency=medium
+
+  * debian: remove old binaries on upgrade
+  * derive package version version using
+      git describe $(grep -E ^upstream-tag debian/gbp.conf \
+        | cut -d'=' -f2) | sed -e 's/^v//' -e 's/-/+/g'
+    and add Debian version (we start with '2' here)
+    So 2.0+35+g54b8d4b4-2 means: derived from v2.0, 35 commits
+    added at commit 54b8d4b4, second version for Debian package.
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 05 Oct 2020 14:35:41 +0200
+
 acrn-hypervisor (2.0-35-g54b8d4b4) buster; urgency=medium
 
   [ Sun Peng ]
