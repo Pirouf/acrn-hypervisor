@@ -5,6 +5,14 @@
 
 set -e
 
+rm_acrn()
+{
+    rm -f /boot/acrn-@acrnversion@.out
+    rm -f /boot/acrn-@acrnversion@.config
+    rm -f /boot/acrn-@acrnversion@.map
+    rm -f /boot/acrn-@acrnversion@.bin
+}
+
 # summary of how this script can be called:
 #        * <prerm> `remove'
 #        * <old-prerm> `upgrade' <new-version>
@@ -19,10 +27,7 @@ set -e
 
 case "$1" in
     deconfigure)
-        rm -f /boot/acrn-@acrnversion@.out
-        rm -f /boot/acrn-@acrnversion@.config
-        rm -f /boot/acrn-@acrnversion@.map
-        rm -f /boot/acrn-@acrnversion@.bin
+        rm_acrn
         if command -v update-grub > /dev/null && [ -d /boot/grub ]; then
             update-grub || :
         fi

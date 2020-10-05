@@ -5,6 +5,14 @@
 
 set -e
 
+rm_acrn()
+{
+    rm -f /boot/acrn-@acrnversion@.out
+    rm -f /boot/acrn-@acrnversion@.config
+    rm -f /boot/acrn-@acrnversion@.map
+    rm -f /boot/acrn-@acrnversion@.bin
+}
+
 # summary of how this script can be called:
 #        * <postrm> `remove'
 #        * <postrm> `purge'
@@ -20,16 +28,16 @@ set -e
 
 
 case "$1" in
-    remove)
-        rm -f /boot/acrn-@acrnversion@.out
-        rm -f /boot/acrn-@acrnversion@.config
-        rm -f /boot/acrn-@acrnversion@.map
-        rm -f /boot/acrn-@acrnversion@.bin
+    remove|purge)
+        rm_acrn
         if command -v update-grub > /dev/null && [ -d /boot/grub ]; then
             update-grub || :
         fi
     ;;
-    purge|upgrade|failed-upgrade|abort-install|abort-upgrade|disappear)
+    upgrade)
+        rm_acrn
+    ;;
+    failed-upgrade|abort-install|abort-upgrade|disappear)
     ;;
 
     *)
