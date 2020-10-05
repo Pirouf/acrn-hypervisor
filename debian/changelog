@@ -1,3 +1,20 @@
+acrn-hypervisor (2.3+unstable2+g5289a3eb-1) unstable; urgency=medium
+
+  [ David B. Kinder ]
+  * doc: tweak 2.2 release notes
+  * doc: update breadcrumb to include release version
+  * doc: spelling and grammar improvements
+  * doc: more spelling and grammar fixes
+
+  [ Helmut Buchsbaum ]
+  * debian: remove old binaries on upgrade
+  * change version pattern to
+    <future ACRN version>+unstable<count>+g<upstream commit>-<Debian version>
+    to be able to increase the SW verion by <count> and the respective
+    package version separately
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 05 Oct 2020 14:24:35 +0200
+
 acrn-hypervisor (2.3-unstable-1-gead32163) unstable; urgency=medium
 
   * update to master branch just at start of version 2.3
