@@ -1,0 +1,46 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Sat, 26 Sep 2020 10:39:23 +0200
+Subject: devicemodel: fix invalid name for disk log
+
+When using disk logger the logfilename should use the VM name. Thus VM name
+must be set *BEFORE* logginer initialization.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ devicemodel/core/main.c | 9 +++++++--
+ 1 file changed, 7 insertions(+), 2 deletions(-)
+
+diff --git a/devicemodel/core/main.c b/devicemodel/core/main.c
+index e1bea1e..1ed5a89 100644
+--- a/devicemodel/core/main.c
++++ b/devicemodel/core/main.c
+@@ -812,6 +812,7 @@ main(int argc, char *argv[])
+ 	struct vmctx *ctx;
+ 	size_t memsize;
+ 	int option_idx = 0;
++	char *logger_setting = NULL;
+ 
+ 	progname = basename(argv[0]);
+ 	memsize = 256 * MB;
+@@ -959,8 +960,8 @@ main(int argc, char *argv[])
+ 				errx(EX_USAGE, "invalid intr-monitor params %s", optarg);
+ 			break;
+ 		case CMD_OPT_LOGGER_SETTING:
+-			if (init_logger_setting(optarg) != 0)
+-				errx(EX_USAGE, "invalid logger setting params %s", optarg);
++			/* delay logger init until vmname is set */
++			logger_setting = optarg;
+ 			break;
+ 		case CMD_OPT_PM_NOTIFY_CHANNEL:
+ 			if (strncmp("ioc", optarg, 3) == 0)
+@@ -996,6 +997,10 @@ main(int argc, char *argv[])
+ 		exit(1);
+ 	}
+ 
++	/* disk logger needs vmname, so init logger now */
++	if (logger_setting && (init_logger_setting(logger_setting) != 0))
++		errx(EX_USAGE, "invalid logger setting params %s", logger_setting);
++
+ 	if (!init_hugetlb()) {
+ 		pr_err("init_hugetlb failed\n");
+ 		exit(1);

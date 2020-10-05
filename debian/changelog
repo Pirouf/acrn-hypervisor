@@ -1,0 +1,6 @@
+acrn-hypervisor (2.2+1+gbd8cf19b-1) buster; urgency=medium
+
+  * Initial release for ACRN v2.2
+  * derived from 2.3+unstable2+g5289a3eb-1
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 05 Oct 2020 16:59:12 +0200

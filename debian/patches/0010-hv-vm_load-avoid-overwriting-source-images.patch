@@ -1,0 +1,202 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Wed, 23 Sep 2020 09:13:21 +0200
+Subject: hv: vm_load: avoid overwriting source images
+
+Since large ramdisks might have been loaded by the bootloader to a
+memory range which is used by the target range for the kernel image,
+order memory copy operations in a way to avoid overwriting.
+
+See the following figure for such a problematic scenario:
+
+    as loaded            as placed
+    by the               by ACRN
+    bootloader           for SOS boot
+    +------+             +------+
+    |      |             |      |
+    +------+0x10000      |      |
+    |      |             |      |
+    |kernel|             |      |
+    |image |             |      |
+    |      |             |      |
+    +------+0xdfc6a0     |      |
+    |      |             |      |
+    +------+0xdfd000     |      |
+    |      |             |      |
+    |      |             |      |
+    | ram  |             |      |
+    | disk |             |      |
+    |      |          ~~ +------+0x1000000
+    |      |     OVERLAP!|      |
+    +------+0x1ce32ef ~~ |kernel|
+    |      |             |image |
+    |      |             |      |
+    |      |             +------+0x1cfc6a0
+    |      |             |      |
+    |      |             +------+0x1cfd000
+    |      |             |      |
+    |      |             |      |
+    |      |             | ram  |
+    |      |             | disk |
+    |      |             |      |
+    |      |             |      |
+    |      |             +------+
+    |      |             |      |
+    |      |             |      |
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/common/vm_load.c | 124 ++++++++++++++++++++++++++++++++++++++++----
+ 1 file changed, 113 insertions(+), 11 deletions(-)
+
+diff --git a/hypervisor/common/vm_load.c b/hypervisor/common/vm_load.c
+index 73d596f..b69d5fc 100644
+--- a/hypervisor/common/vm_load.c
++++ b/hypervisor/common/vm_load.c
+@@ -178,6 +178,93 @@ static void prepare_loading_rawimage(struct acrn_vm *vm)
+ 	sw_kernel->kernel_entry_addr = (void *)vm_config->os_config.kernel_entry_addr;
+ }
+ 
++#define MAX_MEM_BLOCK_COPY	4
++
++static struct sw_module_info mem_block_list[MAX_MEM_BLOCK_COPY];
++static size_t mem_block_list_idx = 0;
++
++/*
++ * insert memory block to be copied later
++ */
++static int32_t add_copy_operation(void *hva, void *gpa, uint32_t size)
++{
++	if (mem_block_list_idx >= ARRAY_SIZE(mem_block_list))
++		return -ENOMEM;
++
++	if (size == 0)
++		return -EINVAL;
++
++	mem_block_list[mem_block_list_idx].src_addr = hva;
++	mem_block_list[mem_block_list_idx].load_addr = gpa;
++	mem_block_list[mem_block_list_idx].size = size;
++
++	++mem_block_list_idx;
++
++	return 0;
++}
++
++/*
++ * check if two memory ranges intersect
++ */
++static bool intersects(void *addr1, uint32_t size1, void *addr2, uint32_t size2)
++{
++	return (addr1 <= (addr2 + size2)) && (addr2 <= (addr1 + size1));
++}
++
++/*
++ * trigger copying stored memory blocks without overwriting each other
++ * return 0 on successful copy operations, negative error code otherwise
++ */
++static int32_t do_copy_operations(struct acrn_vm *vm)
++{
++	size_t i, j;
++	bool finished;
++	int32_t ret = 0;
++
++	for (i = 0, finished = true; i < mem_block_list_idx; ++i) {
++		struct sw_module_info *b1 = &mem_block_list[i];
++
++		if (b1->size == 0)
++			continue;
++
++		finished = false;
++		for (j = 0; j < mem_block_list_idx; ++j) {
++			struct sw_module_info *b2 = &mem_block_list[j];
++
++			if (b2->size == 0)
++				continue;
++
++			/* avoid overwriting */
++			if (intersects(b1->load_addr, b1->size, b2->src_addr, b2->size))
++				break;
++		}
++
++		if (j == mem_block_list_idx) {
++			/* no intersection found -> copy! */
++			pr_dbg("%s, Copy 0x%016lx-0x%016lx to 0x%016lx-0x%016lx",
++				__func__, (uint64_t)b1->src_addr,
++				(uint64_t)b1->src_addr + b1->size - 1,
++				(uint64_t)b1->load_addr,
++				(uint64_t)b1->load_addr + b1->size - 1);
++			ret = copy_to_gpa(vm, b1->src_addr,
++				(uint64_t)b1->load_addr, b1->size);
++			if (ret)
++				goto out;
++
++			/* mark as done */
++			b1->size = 0;
++
++			/* force restart loop */
++			i = -1;
++			finished = true;
++		}
++	}
++
++	ret = finished ? 0 : -1;
++out:
++	return ret;
++}
++
+ /**
+  * @pre vm != NULL
+  */
+@@ -200,27 +287,42 @@ int32_t direct_boot_sw_loader(struct acrn_vm *vm)
+ 	 */
+ 	init_vcpu_protect_mode_regs(vcpu, get_guest_gdt_base_gpa(vcpu->vm));
+ 
+-	/* Copy the guest kernel image to its run-time location */
+-	(void)copy_to_gpa(vm, sw_kernel->kernel_src_addr,
+-		(uint64_t)sw_kernel->kernel_load_addr, sw_kernel->kernel_size);
++	ret = add_copy_operation(sw_kernel->kernel_src_addr,
++		sw_kernel->kernel_load_addr, sw_kernel->kernel_size);
++	if (ret)
++		return ret;
+ 
+ 	/* Check if a RAM disk is present */
+ 	if (ramdisk_info->size != 0U) {
+-		/* Copy RAM disk to its load location */
+-		(void)copy_to_gpa(vm, ramdisk_info->src_addr,
+-			(uint64_t)ramdisk_info->load_addr,
+-			ramdisk_info->size);
++		ret = add_copy_operation(ramdisk_info->src_addr,
++			ramdisk_info->load_addr, ramdisk_info->size);
++		if (ret)
++			return ret;
+ 	}
++
+ 	/* Copy Guest OS bootargs to its load location */
+ 	if (bootargs_info->size != 0U) {
+-		(void)copy_to_gpa(vm, bootargs_info->src_addr,
+-			(uint64_t)bootargs_info->load_addr,
+-			(strnlen_s((char *)bootargs_info->src_addr, MAX_BOOTARGS_SIZE) + 1U));
++		ret = add_copy_operation(bootargs_info->src_addr,
++			bootargs_info->load_addr,
++			strnlen_s((char *)bootargs_info->src_addr,
++				MAX_BOOTARGS_SIZE) + 1U);
++		if (ret)
++			return ret;
+ 	}
+ 	/* Copy Guest OS ACPI to its load location */
+ 	if (acpi_info->size == ACPI_MODULE_SIZE) {
+-		(void)copy_to_gpa(vm, acpi_info->src_addr, (uint64_t)acpi_info->load_addr, ACPI_MODULE_SIZE);
++		ret = add_copy_operation(acpi_info->src_addr, acpi_info->load_addr,
++			ACPI_MODULE_SIZE);
++		if (ret)
++			return ret;
++	}
++
++	ret = do_copy_operations(vm);
++	if (ret) {
++		pr_err("%s, Cannot copy required SW modules: %d", __func__, ret);
++		return ret;
+ 	}
++
+ 	switch (vm->sw.kernel_type) {
+ 	case KERNEL_BZIMAGE:
+ 		prepare_loading_bzimage(vm, vcpu);

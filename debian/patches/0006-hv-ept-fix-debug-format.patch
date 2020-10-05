@@ -1,0 +1,22 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Tue, 26 May 2020 16:49:28 +0200
+Subject: hv: ept: fix debug format
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/arch/x86/guest/ept.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/hypervisor/arch/x86/guest/ept.c b/hypervisor/arch/x86/guest/ept.c
+index a561d61..2f3ea05 100644
+--- a/hypervisor/arch/x86/guest/ept.c
++++ b/hypervisor/arch/x86/guest/ept.c
+@@ -122,7 +122,7 @@ void ept_add_mr(struct acrn_vm *vm, uint64_t *pml4_page,
+ {
+ 	uint64_t prot = prot_orig;
+ 
+-	dev_dbg(DBG_LEVEL_EPT, "%s, vm[%d] hpa: 0x%016lx gpa: 0x%016lx size: 0x%016lx prot: 0x%016x\n",
++	dev_dbg(DBG_LEVEL_EPT, "%s, vm[%d] hpa: 0x%016lx gpa: 0x%016lx size: 0x%016lx prot: 0x%016lx\n",
+ 			__func__, vm->vm_id, hpa, gpa, size, prot);
+ 
+ 	spinlock_obtain(&vm->ept_lock);

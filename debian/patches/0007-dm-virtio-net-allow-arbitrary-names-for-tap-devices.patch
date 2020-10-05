@@ -1,0 +1,87 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Tue, 24 Mar 2020 15:17:04 +0100
+Subject: dm: virtio-net: allow arbitrary names for tap devices
+
+Remove the hardcoded device names for tap devices in virtio_net_init(),
+instead check if the network device in question is a tap device. This
+allows arbitrary tap device names.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ devicemodel/hw/pci/virtio/virtio_net.c | 56 ++++++++++++++++++++++++++++++++--
+ 1 file changed, 54 insertions(+), 2 deletions(-)
+
+diff --git a/devicemodel/hw/pci/virtio/virtio_net.c b/devicemodel/hw/pci/virtio/virtio_net.c
+index 5dd968e..e4e4746 100644
+--- a/devicemodel/hw/pci/virtio/virtio_net.c
++++ b/devicemodel/hw/pci/virtio/virtio_net.c
+@@ -807,6 +807,59 @@ virtio_net_tap_setup(struct virtio_net *net, char *devname)
+ 	}
+ }
+ 
++static int
++virtio_net_read_tun_flags(const char *devname, long *value)
++{
++	char filename[128], data[80], *endp, *nl;
++	FILE *fp;
++	long result;
++	int rc;
++
++	rc = snprintf(filename, sizeof(filename), "/sys/class/net/%s/tun_flags",
++		devname);
++
++	if (rc <= 0 || rc >= sizeof(filename))
++		return -1;
++
++	fp = fopen(filename, "r");
++	if (fp == NULL)
++		return -1;
++
++	if (!fgets(data, sizeof(data), fp)) {
++		fclose(fp);
++		return -1;
++	}
++
++	nl = strchr(data, '\n');
++	if (nl)
++		*nl = '\0';
++
++	fclose(fp);
++	result = strtol(data, &endp, 0);
++
++	if (*endp || data == endp)
++		return -1;
++
++	if ((result == LONG_MAX || result == LONG_MIN) && errno == ERANGE)
++		return -1;
++
++	*value = result;
++	return 0;
++}
++
++static bool
++virtio_net_is_tap(const char *devname)
++{
++	int rc;
++	long flags;
++
++	rc = virtio_net_read_tun_flags(devname, &flags);
++	if (rc < 0)
++		return false;
++
++	return !!(flags & IFF_TAP);
++}
++
+ static int
+ virtio_net_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
+ {
+@@ -900,8 +953,7 @@ virtio_net_init(struct vmctx *ctx, struct pci_vdev *dev, char *opts)
+ 		return -1;
+ 	}
+ 
+-	if ((strstr(devname, "tap") != NULL) ||
+-	    (strncmp(devname, "vmnet", 5) == 0))
++	if (virtio_net_is_tap(devname))
+ 		virtio_net_tap_setup(net, devname);
+ 
+ 	free(devname);

@@ -1,0 +1,80 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Mon, 27 Apr 2020 12:51:27 +0200
+Subject: Makefile: honor BUILD_VERSION and BUILD_TAG
+
+Use BUILD_VERSION an BUILD_TAG variable also for hypervisor,
+acrnprobe and crashlog.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/Makefile                         | 13 +++++++++----
+ misc/tools/acrn-crashlog/acrnprobe/Makefile | 10 +++++++---
+ misc/tools/acrn-crashlog/usercrash/Makefile | 10 +++++++---
+ 3 files changed, 23 insertions(+), 10 deletions(-)
+
+diff --git a/hypervisor/Makefile b/hypervisor/Makefile
+index 6309b2f..af3a1dc 100644
+--- a/hypervisor/Makefile
++++ b/hypervisor/Makefile
+@@ -482,10 +482,15 @@ distclean:
+ PHONY: (VERSION)
+ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
+ 	touch $(VERSION)
+-	@COMMIT=`git rev-parse --verify --short HEAD 2>/dev/null`;\
+-	DIRTY=`git diff-index --name-only HEAD`;\
+-	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
+-	DAILY_TAG=`git tag --merged HEAD|grep "acrn"|tail -n 1`;\
++	@if [ "$(BUILD_VERSION)"x = x -o "$(BUILD_TAG)"x = x ];then \
++		COMMIT=`git rev-parse --verify --short HEAD 2>/dev/null`;\
++		DIRTY=`git diff-index --name-only HEAD`;\
++		if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
++		DAILY_TAG=`git tag --merged HEAD|grep "acrn"|tail -n 1`;\
++	else \
++		PATCH="$(BUILD_VERSION)"; \
++		DAILY_TAG="$(BUILD_TAG)"; \
++	fi; \
+ 	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%F %T"); \
+ 	USER="$${USER:-$$(id -u -n)}"; \
+ 	if [ x$(CONFIG_RELEASE) = "xy" ];then BUILD_TYPE="REL";else BUILD_TYPE="DBG";fi;\
+diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
+index 7b69293..1b119f5 100644
+--- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
++++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
+@@ -62,9 +62,13 @@ $(VERSION_H):
+ 		mkdir -p $(BUILDDIR)/include/acrnprobe ; \
+ 	fi
+ 	touch $(VERSION_H)
+-	@COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
+-	DIRTY=`git diff --name-only $(CURDIR)`;\
+-	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
++	@if [ "$(BUILD_VERSION)"x = x ];then \
++		COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
++		DIRTY=`git diff --name-only $(CURDIR)`;\
++		if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
++	else \
++		PATCH="$(BUILD_VERSION)"; \
++	fi; \
+ 	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
+ 	USER="$${USER:-$$(id -u -n)}"; \
+ 	cat $(CURDIR)/../license_header > $(VERSION_H);\
+diff --git a/misc/tools/acrn-crashlog/usercrash/Makefile b/misc/tools/acrn-crashlog/usercrash/Makefile
+index a7e5471..d21d4a9 100644
+--- a/misc/tools/acrn-crashlog/usercrash/Makefile
++++ b/misc/tools/acrn-crashlog/usercrash/Makefile
+@@ -42,9 +42,13 @@ $(VERSION_H):
+ 		mkdir -p $(BUILDDIR)/include/usercrash ; \
+ 	fi
+ 	touch $(VERSION_H)
+-	@COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
+-	DIRTY=`git diff --name-only $(CURDIR)`;\
+-	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
++	@if [ "$(BUILD_VERSION)"x = x ];then \
++		COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
++		DIRTY=`git diff --name-only $(CURDIR)`;\
++		if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
++	else \
++		PATCH="$(BUILD_VERSION)"; \
++	fi; \
+ 	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
+ 	USER="$${USER:-$$(id -u -n)}"; \
+ 	cat $(CURDIR)/../license_header > $(VERSION_H);\
