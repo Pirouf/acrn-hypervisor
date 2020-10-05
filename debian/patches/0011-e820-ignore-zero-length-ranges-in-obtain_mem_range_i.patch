@@ -3,7 +3,7 @@ Date: Mon, 15 Jun 2020 11:18:57 +0200
 Subject: e820: ignore zero length ranges in obtain_mem_range_info
 
 On my Kontron COMe-mAL10 base board grub-2.02 obviously provides a bogus
-E820 mmap entryi (booting ACRN via multiboot2 protocol), which then causes
+E820 mmap entry (booting ACRN via multiboot2 protocol), which then causes
 obtain_mem_range_info() to calculate a rather high hv_mem_range.mem_top,
 which then is rounded to 0 for high64_max_ram in init_paging(),
 which in turn makes the subsequent check fail and finally panics.
@@ -86,7 +86,7 @@ E820 map:
 [0us][cpu=0][(null)][sev=3][seq=29]:mmap[27]: 0x0000000100000000 - 0x0000000180000000 (1)
 
 Showing the bogus entry at mmap[14]. Since init_e820() already marks this
-entry as 'out of range' by setting its length to 0, we simply ignory all
+entry as 'out of range' by setting its length to 0, we simply ignore all
 mmap entries with length 0 in obtain_mem_range_info() as a workaround.
 Thus the bogus/out-of-range entries is ignored and ACRN starts as expected.
 
