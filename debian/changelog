@@ -1,3 +1,9 @@
+acrn-hypervisor (2.3+unstable2+g5289a3eb-2) unstable; urgency=medium
+
+  * debian: fix spelling errors in patch descriptions
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 05 Oct 2020 18:24:42 +0200
+
 acrn-hypervisor (2.3+unstable2+g5289a3eb-1) unstable; urgency=medium
 
   [ David B. Kinder ]
