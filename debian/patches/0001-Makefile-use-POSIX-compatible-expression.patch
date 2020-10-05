@@ -2,7 +2,7 @@ From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Tue, 9 Jun 2020 18:53:37 +0200
 Subject: Makefile: use POSIX compatible expression
 
-Using '==' in shell string comparision in bash specific. This breaks
+Using '==' in shell string comparison in bash specific. This breaks
 building e.g. with sh set to dash (default on Debian). Switch to
 POSIX conformant '=' comparison. See also
 https://www.gnu.org/software/bash/manual/html_node/Bash-Conditional-Expressions.html
