@@ -1,3 +1,27 @@
+acrn-hypervisor (2.3+unstable3+gabcfc1c0-1) unstable; urgency=medium
+
+  [ Shixiong Zhang ]
+  * acrn-config: modify the get_scenario_uuid function to use the right vmid
+  * acrn-config: Provide post launch xml for hybrid scenario
+  * acrn-config: Add Px / Cx state info for tgl-rvp
+
+  [ Victor Sun ]
+  * acrn-config: add cfl-k700-i7 hybrid_rt xmls
+  * HV: add config code for cfl-k700-i7 board
+
+  [ Shuang Zheng ]
+  * acrn-config: increase hv ram size for 7 VMs
+
+  [ dongshen ]
+  * acrn-config: fix hang issue for board EHL (hybrid_rt)
+
+  [ Shuang Zheng ]
+  * acrn-config: assign 2 CPUs for WaaG and add 1 YaaG on hybrid_rt
+  * hv: update hybrid_rt with 2 post-launched VMs in Kconfig
+  * acrn-config: update vm configurations for hybrid_rt
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Fri, 16 Oct 2020 09:26:23 +0200
+
 acrn-hypervisor (2.3+unstable2+g5289a3eb-2) unstable; urgency=medium
 
   * debian: fix spelling errors in patch descriptions
