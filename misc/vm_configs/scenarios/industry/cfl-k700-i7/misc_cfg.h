@@ -7,12 +7,12 @@
 #ifndef MISC_CFG_H
 #define MISC_CFG_H
 
-#define SOS_ROOTFS		"root=/dev/mmcblk0p2 "
+#define SOS_ROOTFS		"root=/dev/sda3 "
 #define SOS_CONSOLE		"console=ttyS0 "
 #define SOS_COM1_BASE		0x3F8U
 #define SOS_COM1_IRQ		4U
 #define SOS_COM2_BASE		0x2F8U
-#define SOS_COM2_IRQ		5U
+#define SOS_COM2_IRQ		3U
 
 #define SOS_BOOTARGS_DIFF	"rw " \
 				"rootwait "	\
@@ -22,14 +22,19 @@
 				"quiet "	\
 				"loglevel=3 "	\
 				"i915.nuclear_pageflip=1 "	\
-				"swiotlb=131072 "	\
-				"maxcpus=2"
+				"hvlog=2M@0xe00000 "	\
+				"memmap=0x200000$0xe00000 "	\
+				"maxcpus=8"
 
-#define VM0_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(2U) | AFFINITY_CPU(3U))
 
-#define SOS_VM_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U))
-#define VM2_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U))
-#define VM3_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(1U))
+#define SOS_VM_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U) | AFFINITY_CPU(2U) | AFFINITY_CPU(3U) | AFFINITY_CPU(4U) | AFFINITY_CPU(5U) | AFFINITY_CPU(6U) | AFFINITY_CPU(7U))
+#define VM1_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U))
+#define VM2_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(2U) | AFFINITY_CPU(3U))
+#define VM3_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U))
+#define VM4_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U))
+#define VM5_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U))
+#define VM6_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U))
+#define VM7_CONFIG_CPU_AFFINITY	(AFFINITY_CPU(0U) | AFFINITY_CPU(1U))
 
 #ifdef CONFIG_RDT_ENABLED
 
@@ -52,36 +57,8 @@
 
 /* Max number of MBA delay entries corresponding to each CLOS. */
 #define MAX_CACHE_CLOS_NUM_ENTRIES	0U
-
-#define CLOS_MASK_0			0xfffU
-#define CLOS_MASK_1			0xfffU
-#define CLOS_MASK_2			0xfffU
-#define CLOS_MASK_3			0xfffU
-#define CLOS_MASK_4			0xfffU
-#define CLOS_MASK_5			0xfffU
-#define CLOS_MASK_6			0xfffU
-#define CLOS_MASK_7			0xfffU
-#define CLOS_MASK_8			0xfffU
-#define CLOS_MASK_9			0xfffU
-#define CLOS_MASK_10			0xfffU
-#define CLOS_MASK_11			0xfffU
-#define CLOS_MASK_12			0xfffU
-#define CLOS_MASK_13			0xfffU
-#define CLOS_MASK_14			0xfffU
-#define CLOS_MASK_15			0xfffU
-
-#define VM0_VCPU_CLOS			{0U}
-#define VM1_VCPU_CLOS			{0U}
-#define VM2_VCPU_CLOS			{0U, 0U}
-#define VM3_VCPU_CLOS			{0U}
 #endif
 
-#define VM0_CONFIG_PCI_DEV_NUM	4U
-#define VM2_CONFIG_PCI_DEV_NUM	1U
-
-#define VM0_BOOT_ARGS	"rw rootwait root=/dev/sda2 console=ttyS0 \
-noxsave nohpet no_timer_check ignore_loglevel \
-consoleblank=0 tsc=reliable"
 
 
 #define VM0_PT_INTX_NUM	0U

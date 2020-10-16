@@ -1,4 +1,4 @@
-<acrn-config board="whl-ipc-i7" scenario="hybrid_rt">
+<acrn-config board="cfl-k700-i7" scenario="hybrid_rt">
   <hv>
     <DEBUG_OPTIONS desc="Debug options for ACRN hypervisor, only valid on debug version">
         <RELEASE desc="Release build. 'y' for Release, 'n' for Debug.">n</RELEASE>
@@ -25,7 +25,7 @@
         <MCE_ON_PSC_DISABLED desc="Force to disable software workaround for Machine Check Error on Page Size Change.">n</MCE_ON_PSC_DISABLED>
         <IVSHMEM desc="IVSHMEM configuration">
             <IVSHMEM_ENABLED desc="Enable Share Memory between VMs by IVSHMEM.">y</IVSHMEM_ENABLED>
-            <IVSHMEM_REGION desc="the shared memory region name (starting with hv:/, size (in MB), and IDs of all VMs (separated by a colon) sharing this region, for example hv:/sharename,2,0:2">hv:/shm_region_0, 2, 0:2</IVSHMEM_REGION>
+            <IVSHMEM_REGION desc="the shared memory region name (starting with hv:/), size (in MB), and IDs of all VMs (separated by a colon) sharing this region, for example hv:/sharename,2,0:2">hv:/shm_region_0, 2, 0:2</IVSHMEM_REGION>
         </IVSHMEM>
     </FEATURES>
 
@@ -35,8 +35,8 @@
         <HV_RAM_START desc="2M-aligned Start physical address of the RAM region used by the hypervisor."></HV_RAM_START>
         <LOW_RAM_SIZE desc="Size of the low RAM region">0x00010000</LOW_RAM_SIZE>
         <UOS_RAM_SIZE desc="Size of the User OS (UOS) RAM.">0x200000000</UOS_RAM_SIZE>
-        <SOS_RAM_SIZE desc="Size of the Service OS (SOS) RAM.">0x400000000</SOS_RAM_SIZE>
-        <PLATFORM_RAM_SIZE desc="Size of the physical platform RAM">0x400000000</PLATFORM_RAM_SIZE>
+        <SOS_RAM_SIZE desc="Size of the Service OS (SOS) RAM.">0x800000000</SOS_RAM_SIZE>
+        <PLATFORM_RAM_SIZE desc="Size of the physical platform RAM">0x800000000</PLATFORM_RAM_SIZE>
     </MEMORY>
 
     <CAPACITIES desc="Capacity limits for static assigned data struct or maximum supported resouce">
@@ -64,10 +64,11 @@
         <guest_flag>GUEST_FLAG_RT</guest_flag>
     </guest_flags>
     <cpu_affinity desc="List of pCPU that this VM's vCPUs are pinned to.">
-        <pcpu_id>2</pcpu_id>
-        <pcpu_id>3</pcpu_id>
+        <pcpu_id>6</pcpu_id>
+        <pcpu_id>7</pcpu_id>
     </cpu_affinity>
     <clos desc="Class of Service for Cache Allocation Technology. Please refer SDM 17.19.2 for details and use with caution.">
+        <vcpu_clos>0</vcpu_clos>
         <vcpu_clos>0</vcpu_clos>
     </clos>
     <epc_section configurable="0" desc="epc section">
@@ -85,7 +86,7 @@
         <kern_type desc="Specify the kernel image type so that hypervisor could load it correctly. Currently support KERNEL_BZIMAGE and KERNEL_ZEPHYR.">KERNEL_BZIMAGE</kern_type>
         <kern_mod desc="The tag for kernel image which act as multiboot module, it must exactly match the module tag in GRUB multiboot cmdline.">RT_bzImage</kern_mod>
         <ramdisk_mod desc="The tag for ramdisk image which act as multiboot module, it must exactly match the module tag in GRUB multiboot cmdline."></ramdisk_mod>
-        <bootargs desc="Specify kernel boot arguments">rw rootwait root=/dev/sda3 console=ttyS0 noxsave nohpet no_timer_check ignore_loglevel consoleblank=0 tsc=reliable</bootargs>
+        <bootargs desc="Specify kernel boot arguments">rw rootwait root=/dev/nvme0n1p2 earlyprintk=serial,ttyS0,115200 console=ttyS0,115200n8 log_buf_len=2M ignore_loglevel noxsave nohpet no_timer_check tsc=reliable</bootargs>
     </os_config>
     <vuart id="0">
         <type configurable="0" desc="vCOM1 type">VUART_LEGACY_PIO</type>
@@ -100,8 +101,8 @@
         <target_uart_id configurable="0" desc="target vUART ID that vCOM2 connect to">1</target_uart_id>
     </vuart>
     <pci_devs desc="pci devices list">
-        <pci_dev desc="pci device">00:17.0 SATA controller: Intel Corporation Device 9dd3 (rev 30)</pci_dev>
-        <pci_dev desc="pci device">03:00.0 Ethernet controller: Intel Corporation I210 Gigabit Network Connection (rev 03)</pci_dev>
+	<pci_dev desc="pci device">00:1f.6 Ethernet controller: Intel Corporation Ethernet Connection (7) I219-LM (rev 10)</pci_dev>
+        <pci_dev desc="pci device">01:00.0 Non-Volatile memory controller: Marvell Technology Group Ltd. Device 1160 (rev b0)</pci_dev>
     </pci_devs>
     <mmio_resources desc="mmio devices list to passthrough">
         <TPM2 desc="TPM2 device">y</TPM2>
@@ -113,11 +114,12 @@
     <guest_flags desc="Select all applicable flags for the VM" multiselect="true">
         <guest_flag>0</guest_flag>
     </guest_flags>
-    <cpu_affinity desc="List of pCPU that this VM's vCPUs are pinned to.">
-        <pcpu_id>0</pcpu_id>
-        <pcpu_id>1</pcpu_id>
-    </cpu_affinity>
     <clos configurable="0" desc="Class of Service for Cache Allocation Technology. Please refer SDM 17.19.2 for details and use with caution.">
+        <vcpu_clos>0</vcpu_clos>
+        <vcpu_clos>0</vcpu_clos>
+        <vcpu_clos>0</vcpu_clos>
+        <vcpu_clos>0</vcpu_clos>
+        <vcpu_clos>0</vcpu_clos>
         <vcpu_clos>0</vcpu_clos>
     </clos>
     <memory>
@@ -131,6 +133,14 @@
         <ramdisk_mod desc="The tag for ramdisk image which act as multiboot module, it must exactly match the module tag in GRUB multiboot cmdline."></ramdisk_mod>
         <bootargs configurable="0" desc="Specify kernel boot arguments">SOS_VM_BOOTARGS</bootargs>
     </os_config>
+    <cpu_affinity desc="List of pCPU that this VM's vCPUs are pinned to.">
+        <pcpu_id>0</pcpu_id>
+        <pcpu_id>1</pcpu_id>
+        <pcpu_id>2</pcpu_id>
+        <pcpu_id>3</pcpu_id>
+        <pcpu_id>4</pcpu_id>
+        <pcpu_id>5</pcpu_id>
+    </cpu_affinity>
     <vuart id="0">
         <type configurable="0" desc="vCOM1 type">VUART_LEGACY_PIO</type>
         <base desc="vUART0 (A.K.A COM1) enabling switch. Enable by exposing its base address, disable by returning invalid base address." readonly="true">SOS_COM1_BASE</base>
@@ -149,8 +159,8 @@
     <board_private>
         <rootfs desc="rootfs for Linux kernel">/dev/nvme0n1p3</rootfs>
         <bootargs desc="Specify kernel boot arguments">
-        rw rootwait console=tty0 consoleblank=0 no_timer_check quiet loglevel=3
-        i915.nuclear_pageflip=1 hvlog=2M@0xe00000 memmap=0x200000$0xe00000
+        rw rootwait console=ttyS0,115200n8 ignore_loglevel no_timer_check
+        hvlog=2M@0xe00000 memmap=0x200000$0xe00000
         </bootargs>
     </board_private>
   </vm>
@@ -162,8 +172,12 @@
     <cpu_affinity desc="List of pCPU: the guest VM is allowed to create vCPU from all or a subset of this list.">
         <pcpu_id>0</pcpu_id>
         <pcpu_id>1</pcpu_id>
+        <pcpu_id>2</pcpu_id>
+        <pcpu_id>3</pcpu_id>
     </cpu_affinity>
     <clos desc="Class of Service for Cache Allocation Technology. Please refer SDM 17.19.2 for details and use with caution.">
+        <vcpu_clos>0</vcpu_clos>
+        <vcpu_clos>0</vcpu_clos>
         <vcpu_clos>0</vcpu_clos>
         <vcpu_clos>0</vcpu_clos>
     </clos>
@@ -190,9 +204,11 @@
         <guest_flag>0</guest_flag>
     </guest_flags>
     <cpu_affinity desc="List of pCPU: the guest VM is allowed to create vCPU from all or a subset of this list.">
-        <pcpu_id>1</pcpu_id>
+        <pcpu_id>4</pcpu_id>
+        <pcpu_id>5</pcpu_id>
     </cpu_affinity>
     <clos desc="Class of Service for Cache Allocation Technology. Please refer SDM 17.19.2 for details and use with caution.">
+        <vcpu_clos>0</vcpu_clos>
         <vcpu_clos>0</vcpu_clos>
     </clos>
     <epc_section configurable="0" desc="epc section">
