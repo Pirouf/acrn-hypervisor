@@ -19,10 +19,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 87 insertions(+), 5 deletions(-)
 
 diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
-index 7e7568b..6b57750 100644
+index 605fad5..964b449 100644
 --- a/hypervisor/boot/guest/vboot_info.c
 +++ b/hypervisor/boot/guest/vboot_info.c
-@@ -23,19 +23,101 @@
+@@ -21,19 +21,101 @@
  
  #define DBG_LEVEL_BOOT	6U
  

@@ -30,10 +30,10 @@ index 18dfab3..f36efb9 100644
  	sed 's/^/ * /' ../LICENSE >> $(VERSION_H);\
  	echo " */" >> $(VERSION_H);\
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index bc1cf33..dafb111 100644
+index c2ff410..9677b41 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -485,8 +485,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
+@@ -481,8 +481,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
  	DIRTY=`git diff-index --name-only HEAD`;\
  	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
  	DAILY_TAG=`git tag --merged HEAD|grep "acrn"|tail -n 1`;\
@@ -45,10 +45,10 @@ index bc1cf33..dafb111 100644
  	echo "/*" > $(VERSION); \
  	sed 's/^/ * /' ../LICENSE >> $(VERSION); \
 diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
-index 7bc2567..7b69293 100644
+index 86f6f49..52692f3 100644
 --- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
 +++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
-@@ -65,8 +65,8 @@ $(VERSION_H):
+@@ -66,8 +66,8 @@ $(VERSION_H):
  	@COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
  	DIRTY=`git diff --name-only $(CURDIR)`;\
  	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\

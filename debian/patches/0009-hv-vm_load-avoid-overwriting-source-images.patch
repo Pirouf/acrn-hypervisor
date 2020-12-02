@@ -49,7 +49,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 113 insertions(+), 11 deletions(-)
 
 diff --git a/hypervisor/common/vm_load.c b/hypervisor/common/vm_load.c
-index 73d596f..b69d5fc 100644
+index 75cecd9..3074808 100644
 --- a/hypervisor/common/vm_load.c
 +++ b/hypervisor/common/vm_load.c
 @@ -178,6 +178,93 @@ static void prepare_loading_rawimage(struct acrn_vm *vm)
@@ -146,7 +146,7 @@ index 73d596f..b69d5fc 100644
  /**
   * @pre vm != NULL
   */
-@@ -200,27 +287,42 @@ int32_t direct_boot_sw_loader(struct acrn_vm *vm)
+@@ -200,27 +287,42 @@ int32_t vm_sw_loader(struct acrn_vm *vm)
  	 */
  	init_vcpu_protect_mode_regs(vcpu, get_guest_gdt_base_gpa(vcpu->vm));
  

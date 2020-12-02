@@ -55,7 +55,7 @@ index a79a98e..ce43672 100644
          for hidden_pdev_i in range(hidden_pdev_num):
              bus = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[0], 16))
 diff --git a/misc/acrn-config/board_config/board_info_h.py b/misc/acrn-config/board_config/board_info_h.py
-index 75edde9..f618774 100644
+index 49c612d..608a4c7 100644
 --- a/misc/acrn-config/board_config/board_info_h.py
 +++ b/misc/acrn-config/board_config/board_info_h.py
 @@ -83,10 +83,10 @@ def generate_file(config):
@@ -74,30 +74,30 @@ index 75edde9..f618774 100644
      # generate HI_MMIO_START/HI_MMIO_END
      find_hi_mmio_window(config)
 diff --git a/misc/acrn-config/hv_config/hv_item.py b/misc/acrn-config/hv_config/hv_item.py
-index acedae8..374812d 100644
+index 11e6c98..3cf7180 100644
 --- a/misc/acrn-config/hv_config/hv_item.py
 +++ b/misc/acrn-config/hv_config/hv_item.py
-@@ -112,6 +112,7 @@ class Features:
-         self.acpi_parse_enabled = ''
+@@ -110,6 +110,7 @@ class Features:
          self.l1d_flush_vmentry_enabled = ''
          self.mce_on_psc_workaround_disabled = ''
+         self.psram_enabled = ''
 +        self.hidden_pdevs = []
  
      def get_info(self):
          self.multiboot2 = common.get_hv_item_tag(self.hv_file, "FEATURES", "MULTIBOOT2")
-@@ -126,6 +127,7 @@ class Features:
-         self.l1d_flush_vmentry_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "L1D_VMENTRY_ENABLED")
+@@ -125,6 +126,7 @@ class Features:
          self.mce_on_psc_workaround_disabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "MCE_ON_PSC_DISABLED")
          self.iommu_enforce_snp = common.get_hv_item_tag(self.hv_file, "FEATURES", "IOMMU_ENFORCE_SNP")
+         self.psram_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "PSRAM", "PSRAM_ENABLED")
 +        self.hidden_pdevs = common.get_hv_item_tag(self.hv_file, "FEATURES", "HIDDEN_PDEVS", "BDF")
  
      def check_item(self):
          hv_cfg_lib.ny_support_check(self.multiboot2, "FEATURES", "MULTIBOOT2")
 diff --git a/misc/acrn-config/library/common.py b/misc/acrn-config/library/common.py
-index d93c2ab..a40b19f 100644
+index 86b618f..e258c7b 100644
 --- a/misc/acrn-config/library/common.py
 +++ b/misc/acrn-config/library/common.py
-@@ -448,13 +448,13 @@ def get_hv_item_tag(config_file, branch_tag, tag_str='', leaf_str=''):
+@@ -480,13 +480,13 @@ def get_hv_item_tag(config_file, branch_tag, tag_str='', leaf_str=''):
                              tmp_list = []
                              for leaf_s in leaf:
                                  if leaf_s.tag == leaf_str and leaf_s.text and leaf_s.text != None:

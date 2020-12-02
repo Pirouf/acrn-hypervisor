@@ -12,10 +12,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 2 insertions(+), 6 deletions(-)
 
 diff --git a/hypervisor/common/hypercall.c b/hypervisor/common/hypercall.c
-index 0cc2cab..0a1e3a7 100644
+index bd6c2fa..8be2ae8 100644
 --- a/hypervisor/common/hypercall.c
 +++ b/hypervisor/common/hypercall.c
-@@ -1090,9 +1090,7 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, struct acrn_vm *target_vm, ui
+@@ -1030,9 +1030,7 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, struct acrn_vm *target_vm, ui
  	if (is_created_vm(target_vm)) {
  		switch (cmd & PMCMD_TYPE_MASK) {
  		case PMCMD_GET_PX_CNT: {
@@ -26,7 +26,7 @@ index 0cc2cab..0a1e3a7 100644
  			break;
  		}
  		case PMCMD_GET_PX_DATA: {
-@@ -1117,9 +1115,7 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, struct acrn_vm *target_vm, ui
+@@ -1057,9 +1055,7 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, struct acrn_vm *target_vm, ui
  			break;
  		}
  		case PMCMD_GET_CX_CNT: {

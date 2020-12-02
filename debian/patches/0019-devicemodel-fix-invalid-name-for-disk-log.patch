@@ -11,7 +11,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/devicemodel/core/main.c b/devicemodel/core/main.c
-index d13f459..50f0c0a 100644
+index ce050cd..d254cec 100644
 --- a/devicemodel/core/main.c
 +++ b/devicemodel/core/main.c
 @@ -807,6 +807,7 @@ main(int argc, char *argv[])
@@ -22,7 +22,7 @@ index d13f459..50f0c0a 100644
  
  	progname = basename(argv[0]);
  	memsize = 256 * MB;
-@@ -950,8 +951,8 @@ main(int argc, char *argv[])
+@@ -954,8 +955,8 @@ main(int argc, char *argv[])
  				errx(EX_USAGE, "invalid intr-monitor params %s", optarg);
  			break;
  		case CMD_OPT_LOGGER_SETTING:
@@ -33,7 +33,7 @@ index d13f459..50f0c0a 100644
  			break;
  		case CMD_OPT_PM_NOTIFY_CHANNEL:
  			if (strncmp("ioc", optarg, 3) == 0)
-@@ -987,6 +988,10 @@ main(int argc, char *argv[])
+@@ -991,6 +992,10 @@ main(int argc, char *argv[])
  		exit(1);
  	}
  

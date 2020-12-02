@@ -19,18 +19,18 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  4 files changed, 49 insertions(+), 9 deletions(-)
 
 diff --git a/hypervisor/arch/x86/guest/vm.c b/hypervisor/arch/x86/guest/vm.c
-index 6172571..1c73345 100644
+index 4818fe6..c1585f1 100644
 --- a/hypervisor/arch/x86/guest/vm.c
 +++ b/hypervisor/arch/x86/guest/vm.c
-@@ -35,6 +35,7 @@
- #include <mmio_dev.h>
+@@ -36,6 +36,7 @@
  #include <assign.h>
  #include <vgpio.h>
+ #include <ptcm.h>
 +#include <shell.h>
  
- vm_sw_loader_t vm_sw_loader;
+ /* Local variables */
  
-@@ -787,6 +788,7 @@ void prepare_vm(uint16_t vm_id, struct acrn_vm_config *vm_config)
+@@ -807,6 +808,7 @@ void prepare_vm(uint16_t vm_id, struct acrn_vm_config *vm_config)
  		start_vm(vm);
  
  		pr_acrnlog("Start VM id: %x name: %s", vm_id, vm_config->name);

@@ -8,10 +8,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 8 insertions(+)
 
 diff --git a/doc/tutorials/acrn_configuration_tool.rst b/doc/tutorials/acrn_configuration_tool.rst
-index 36b6613..04f355f 100644
+index 526fde0..276f303 100644
 --- a/doc/tutorials/acrn_configuration_tool.rst
 +++ b/doc/tutorials/acrn_configuration_tool.rst
-@@ -186,6 +186,14 @@ Additional scenario XML elements:
+@@ -189,6 +189,14 @@ Additional scenario XML elements:
      separated by a ``:``, for example, ``0:2`` (to share this area between
      VMs 0 and 2), or ``0:1:2`` (to let VMs 0, 1, and 2 share this area).
  

@@ -22,10 +22,10 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 3 insertions(+), 77 deletions(-)
 
 diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index d3a4fdf..cd1a6fe 100644
+index cd87a0a..185ae8f 100644
 --- a/misc/acrn-config/library/scenario_cfg_lib.py
 +++ b/misc/acrn-config/library/scenario_cfg_lib.py
-@@ -872,87 +872,13 @@ def check_pt_intx(phys_gsi, virt_gsi):
+@@ -1256,87 +1256,13 @@ def check_pt_intx(phys_gsi, virt_gsi):
              return
  
  
