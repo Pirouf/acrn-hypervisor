@@ -61,8 +61,6 @@ $(foreach b,$(boardlist),						\
 	$(eval scenariolist := $(sort $(scenariolist) $(scenariolist_$b)))\
 )
 
-# always build EFI variant of ACRN
-export FIRMWARE = uefi
 # for now build the debug versions
 export RELEASE ?= 0
 
@@ -179,9 +177,9 @@ override_dh_auto_install-arch:
 			DESTDIR=$(DESTDIR)				\
 			hypervisor-install $(devnull);			\
 			cp $(O)/$b/$s/hypervisor/.config		\
-				$(DESTDIR)$(libdir)/acrn/acrn.$b.$(FIRMWARE).$s.config;\
+				$(DESTDIR)$(libdir)/acrn/acrn.$b.$s.config;\
 			cp $(O)/$b/$s/hypervisor/acrn.map		\
-				$(DESTDIR)$(libdir)/acrn/acrn.$b.$(FIRMWARE).$s.map;\
+				$(DESTDIR)$(libdir)/acrn/acrn.$b.$s.map;\
 	))
 	@:
 	@# cleanup hypervisor binaries

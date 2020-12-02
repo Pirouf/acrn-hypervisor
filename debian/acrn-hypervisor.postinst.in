@@ -12,8 +12,8 @@ ACRNDIR=@acrndir@
 db_get acrn-hypervisor/board
 BOARD=${RET}
 
-SCENARIOS=$(ls -1 ${ACRNDIR}/acrn.${BOARD}.uefi.*.bin \
-       | sed "s%${ACRNDIR}/acrn.${BOARD}\.uefi\.\(.*\)\.bin%\1%g" \
+SCENARIOS=$(ls -1 ${ACRNDIR}/acrn.${BOARD}.*.bin \
+       | sed "s%${ACRNDIR}/acrn.${BOARD}\.\(.*\)\.bin%\1%g" \
        | sort | awk '{s=s (s?OFS:x) $1} END {print s}' OFS=", ")
 
 db_subst acrn-hypervisor/scenario scenariolist ${SCENARIOS}
@@ -24,10 +24,10 @@ db_go || true
 db_get acrn-hypervisor/scenario
 SCENARIO=${RET}
 
-ACRNOUT="${ACRNDIR}/acrn.${BOARD}.uefi.${SCENARIO}.32.out"
-ACRNCFG="${ACRNDIR}/acrn.${BOARD}.uefi.${SCENARIO}.config"
-ACRNMAP="${ACRNDIR}/acrn.${BOARD}.uefi.${SCENARIO}.map"
-ACRNBIN="${ACRNDIR}/acrn.${BOARD}.uefi.${SCENARIO}.bin"
+ACRNOUT="${ACRNDIR}/acrn.${BOARD}.${SCENARIO}.32.out"
+ACRNCFG="${ACRNDIR}/acrn.${BOARD}.${SCENARIO}.config"
+ACRNMAP="${ACRNDIR}/acrn.${BOARD}.${SCENARIO}.map"
+ACRNBIN="${ACRNDIR}/acrn.${BOARD}.${SCENARIO}.bin"
 
 case "$1" in
     configure)
