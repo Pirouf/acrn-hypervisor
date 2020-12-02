@@ -1079,6 +1079,26 @@ Compliant example::
        }
 
 
+C-FN-20: Each function shall have at most 6 parameters
+======================================================
+
+Compliant example::
+
+    void func_showcase(uint32_t param_1, uint32_t param_2, uint32_t param_3,
+            uint32_t param_4, uint32_t param_5, uint32_t param_6) {
+            ...
+    }
+
+.. rst-class:: non-compliant-code
+
+   Non-compliant example::
+
+       void func_showcase(uint32_t param_1, uint32_t param_2, uint32_t param_3,
+               uint32_t param_4, uint32_t param_5, uint32_t param_6,
+               uint32_t param_7) {
+               ...
+       }
+
 
 Statements
 **********
@@ -2595,6 +2615,31 @@ Compliant example::
        uint32_t test = showcase_u16 + showcase_u32 + showcase_u64;
 
 
+C-TY-29: "U" suffix shall be used for unsigned integer constants
+================================================================
+
+For 8-bit, 16-bit, and 32-bit unsigned integer constants, "U" suffix shall be
+used. For 64-bit unsigned integer constants, "UL" suffix shall be used.
+
+Compliant example::
+
+    uint8_t showcase_u8 = 8U;
+    uint16_t showcase_u16 = 16U;
+    uint32_t showcase_u32 = 32U;
+
+    uint64_t showcase_u64 = 64UL;
+
+.. rst-class:: non-compliant-code
+
+   Non-compliant example::
+
+       uint8_t showcase_u8 = 8;
+       uint16_t showcase_u16 = 16;
+       uint32_t showcase_u32 = 32;
+
+       uint64_t showcase_u64 = 64;
+
+
 
 Identifiers
 ***********
@@ -3240,8 +3285,8 @@ function:
    block shall start with :literal:`\ *` (space-asterisk). It also applies to the line which
    is used to separate different paragraphs. We'll call it a blank line for
    simplicity.
-4) For each function, the information shall be documented with the following
-   order: brief description, detailed description, parameters description,
+4) For each function, following information shall be documented:
+   brief description, detailed description, parameters description,
    pre-conditions, post-conditions, return value description, and comments
    explaining the actual return values. We'll call each block of information a
    paragraph for simplicity. A paragraph may be removed from the list if it is not

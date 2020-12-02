@@ -27,10 +27,130 @@
 * $FreeBSD$
 */
 #include <vm.h>
+#include <errno.h>
+#include <ptdev.h>
+#include <assign.h>
+#include <vtd.h>
 #include <ept.h>
 #include <mmu.h>
+#include <io.h>
 #include <logmsg.h>
 #include "vpci_priv.h"
+
+/**
+ * @pre vdev != NULL
+ */
+static inline struct msix_table_entry *get_msix_table_entry(const struct pci_vdev *vdev, uint32_t index)
+{
+	void *hva = hpa2hva(vdev->msix.mmio_hpa + vdev->msix.table_offset);
+
+	return ((struct msix_table_entry *)hva + index);
+}
+
+/**
+ * @brief Writing MSI-X Capability Structure
+ *
+ * @pre vdev != NULL
+ * @pre vdev->pdev != NULL
+ */
+void write_pt_vmsix_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val)
+{
+	uint32_t msgctrl;
+
+	if (write_vmsix_cap_reg(vdev, offset, bytes, val)) {
+		msgctrl = pci_vdev_read_vcfg(vdev, vdev->msix.capoff + PCIR_MSIX_CTRL, 2U);
+		/* If MSI Enable is being set, make sure INTxDIS bit is set */
+		if ((msgctrl & PCIM_MSIXCTRL_MSIX_ENABLE) != 0U) {
+			enable_disable_pci_intx(vdev->pdev->bdf, false);
+		}
+		pci_pdev_write_cfg(vdev->pdev->bdf, vdev->msix.capoff + PCIR_MSIX_CTRL, 2U, msgctrl);
+	}
+}
+
+/**
+ * @pre vdev != NULL
+ */
+static void mask_one_msix_vector(const struct pci_vdev *vdev, uint32_t index)
+{
+	uint32_t vector_control;
+	struct msix_table_entry *pentry = get_msix_table_entry(vdev, index);
+
+	stac();
+	vector_control = pentry->vector_control | PCIM_MSIX_VCTRL_MASK;
+	mmio_write32(vector_control, (void *)&(pentry->vector_control));
+	clac();
+}
+
+
+/**
+ * @pre vdev != NULL
+ * @pre vdev->vpci != NULL
+ * @pre vdev->pdev != NULL
+ */
+static void remap_one_vmsix_entry(const struct pci_vdev *vdev, uint32_t index)
+{
+	const struct msix_table_entry *ventry;
+	struct msix_table_entry *pentry;
+	struct msi_info info = {};
+	int32_t ret;
+
+	mask_one_msix_vector(vdev, index);
+	ventry = &vdev->msix.table_entries[index];
+	if ((ventry->vector_control & PCIM_MSIX_VCTRL_MASK) == 0U) {
+		info.addr.full = vdev->msix.table_entries[index].addr;
+		info.data.full = vdev->msix.table_entries[index].data;
+
+		ret = ptirq_prepare_msix_remap(vpci2vm(vdev->vpci), vdev->bdf.value, vdev->pdev->bdf.value,
+					       (uint16_t)index, &info, INVALID_IRTE_ID);
+		if (ret == 0) {
+			/* Write the table entry to the physical structure */
+			pentry = get_msix_table_entry(vdev, index);
+
+			/*
+			 * PCI 3.0 Spec allows writing to Message Address and Message Upper Address
+			 * fields with a single QWORD write, but some hardware can accept 32 bits
+			 * write only
+			 */
+			stac();
+			mmio_write32((uint32_t)(info.addr.full), (void *)&(pentry->addr));
+			mmio_write32((uint32_t)(info.addr.full >> 32U), (void *)((char *)&(pentry->addr) + 4U));
+
+			mmio_write32(info.data.full, (void *)&(pentry->data));
+			mmio_write32(vdev->msix.table_entries[index].vector_control, (void *)&(pentry->vector_control));
+			clac();
+		}
+	}
+
+}
+
+/**
+ * @pre io_req != NULL
+ * @pre priv_data != NULL
+ */
+static int32_t pt_vmsix_handle_table_mmio_access(struct io_request *io_req, void *priv_data)
+{
+	struct mmio_request *mmio = &io_req->reqs.mmio;
+	struct pci_vdev *vdev;
+	uint32_t index;
+	int32_t ret = 0;
+
+	vdev = (struct pci_vdev *)priv_data;
+	if (vdev->user == vdev) {
+		index = rw_vmsix_table(vdev, io_req);
+
+		if ((mmio->direction == REQUEST_WRITE) && (index < vdev->msix.table_count)) {
+			if (vdev->msix.is_vmsix_on_msi) {
+				remap_one_vmsix_entry_on_msi(vdev, index);
+			} else {
+				remap_one_vmsix_entry(vdev, index);
+			}
+		}
+	} else {
+		ret = -EFAULT;
+	}
+
+	return ret;
+}
 
 /*
  * @pre vdev != NULL
@@ -77,7 +197,7 @@ void vdev_pt_map_msix(struct pci_vdev *vdev, bool hold_lock)
 		addr_hi = addr_lo + (msix->table_count * MSIX_TABLE_ENTRY_SIZE);
 		addr_lo = round_page_down(addr_lo);
 		addr_hi = round_page_up(addr_hi);
-		register_mmio_emulation_handler(vm, vmsix_handle_table_mmio_access,
+		register_mmio_emulation_handler(vm, pt_vmsix_handle_table_mmio_access,
 				addr_lo, addr_hi, vdev, hold_lock);
 		ept_del_mr(vm, (uint64_t *)vm->arch_vm.nworld_eptp, addr_lo, addr_hi - addr_lo);
 		msix->mmio_gpa = vbar->base_gpa;
@@ -323,6 +443,41 @@ static void init_bars(struct pci_vdev *vdev, bool is_sriov_bar)
 	if (has_msix_cap(vdev) && (!is_sriov_bar)) {
 		vdev->msix.mmio_hpa = vdev->vbars[vdev->msix.table_bar].base_hpa;
 		vdev->msix.mmio_size = vdev->vbars[vdev->msix.table_bar].size;
+	}
+}
+
+/**
+ * @pre vdev != NULL
+ * @pre vdev->pdev != NULL
+ */
+void init_vmsix_pt(struct pci_vdev *vdev)
+{
+	struct pci_pdev *pdev = vdev->pdev;
+
+	vdev->msix.capoff = pdev->msix.capoff;
+	vdev->msix.caplen = pdev->msix.caplen;
+	vdev->msix.table_bar = pdev->msix.table_bar;
+	vdev->msix.table_offset = pdev->msix.table_offset;
+	vdev->msix.table_count = pdev->msix.table_count;
+
+	if (has_msix_cap(vdev)) {
+		(void)memcpy_s((void *)&vdev->cfgdata.data_8[pdev->msix.capoff], pdev->msix.caplen,
+			(void *)&pdev->msix.cap[0U], pdev->msix.caplen);
+	}
+}
+
+/**
+ * @pre vdev != NULL
+ * @pre vdev->vpci != NULL
+ */
+void deinit_vmsix_pt(struct pci_vdev *vdev)
+{
+	if (has_msix_cap(vdev)) {
+		if (vdev->msix.table_count != 0U) {
+			ptirq_remove_msix_remapping(vpci2vm(vdev->vpci), vdev->pdev->bdf.value, vdev->msix.table_count);
+			(void)memset((void *)&vdev->msix.table_entries, 0U, sizeof(vdev->msix.table_entries));
+			vdev->msix.is_vmsix_on_msi_programmed = false;
+		}
 	}
 }
 

@@ -24,10 +24,11 @@
 #include <ptdev.h>
 #include <logmsg.h>
 #include <rdt.h>
-#include <vboot.h>
 #include <sgx.h>
 #include <uart16550.h>
+#include <vpci.h>
 #include <ivshmem.h>
+#include <ptcm.h>
 
 #define CPU_UP_TIMEOUT		100U /* millisecond */
 #define CPU_DOWN_TIMEOUT	100U /* millisecond */
@@ -150,7 +151,6 @@ void init_pcpu_pre(bool is_bsp)
 
 		early_init_lapic();
 
-		init_vboot();
 #ifdef CONFIG_ACPI_PARSE_ENABLED
 		ret = acpi_fixup();
 		if (ret != 0) {
@@ -171,7 +171,7 @@ void init_pcpu_pre(bool is_bsp)
 		init_rdt_info();
 #endif
 
-		/* NOTE: this must call after MMCONFIG is parsed in init_vboot and before APs are INIT.
+		/* NOTE: this must call after MMCONFIG is parsed in acpi_fixup() and before APs are INIT.
 		 * We only support platform with MMIO based CFG space access.
 		 * IO port access only support in debug version.
 		 */
@@ -267,10 +267,14 @@ void init_pcpu_post(uint16_t pcpu_id)
 		}
 
 		ASSERT(get_pcpu_id() == BSP_CPU_ID, "");
+
+		init_psram(true);
 	} else {
 		pr_dbg("Core %hu is up", pcpu_id);
 
 		pr_warn("Skipping VM configuration check which should be done before building HV binary.");
+
+		init_psram(false);
 
 		/* Initialize secondary processor interrupts. */
 		init_interrupt(pcpu_id);
@@ -441,6 +445,7 @@ void cpu_dead(void)
 	if (bitmap_test(pcpu_id, &pcpu_active_bitmap)) {
 		/* clean up native stuff */
 		vmx_off();
+		/* TODO: a cpu dead can't effect the RTVM which use pSRAM */
 		cache_flush_invalidate_all();
 
 		/* Set state to show CPU is dead */

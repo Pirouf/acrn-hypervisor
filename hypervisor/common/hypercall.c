@@ -21,19 +21,22 @@
 #include <ioapic.h>
 #include <mmio_dev.h>
 #include <ivshmem.h>
+#include <vmcs9900.h>
+#include <ptcm.h>
 
 #define DBG_LEVEL_HYCALL	6U
 
-typedef int32_t (*emul_dev_op) (struct acrn_vm *vm, struct acrn_emul_dev *dev);
+typedef int32_t (*emul_dev_create) (struct acrn_vm *vm, struct acrn_emul_dev *dev);
+typedef int32_t (*emul_dev_destroy) (struct pci_vdev *vdev);
 struct emul_dev_ops {
 	/*
 	 * The low 32 bits represent the vendor id and device id of PCI device,
 	 * and the high 32 bits represent the device number of the legacy device
 	 */
 	uint64_t dev_id;
-	emul_dev_op create;
-	emul_dev_op destroy;
-
+	/* TODO: to re-use vdev_init/vdev_deinit directly in hypercall */
+	emul_dev_create create;
+	emul_dev_destroy destroy;
 };
 
 static struct emul_dev_ops emul_dev_ops_tbl[] = {
@@ -42,6 +45,7 @@ static struct emul_dev_ops emul_dev_ops_tbl[] = {
 #else
 	{(IVSHMEM_VENDOR_ID | (IVSHMEM_DEVICE_ID << 16U)), NULL, NULL},
 #endif
+	{(MCS9900_VENDOR | (MCS9900_DEV << 16U)), create_vmcs9900_vdev, destroy_vmcs9900_vdev},
 };
 
 bool is_hypercall_from_ring0(void)
@@ -256,6 +260,7 @@ int32_t hcall_destroy_vm(__unused struct acrn_vm *vm, struct acrn_vm *target_vm,
 		/* TODO: check target_vm guest_flags */
 		ret = shutdown_vm(target_vm);
 	}
+
 	return ret;
 }
 
@@ -418,56 +423,6 @@ int32_t hcall_set_irqline(struct acrn_vm *vm, struct acrn_vm *target_vm, __unuse
 }
 
 /**
- *@pre Pointer vm shall point to SOS_VM
- */
-static void inject_msi_lapic_pt(struct acrn_vm *vm, const struct acrn_msi_entry *vmsi)
-{
-	union apic_icr icr;
-	struct acrn_vcpu *vcpu;
-	union msi_addr_reg vmsi_addr;
-	union msi_data_reg vmsi_data;
-	uint64_t vdmask = 0UL;
-	uint32_t vdest, dest = 0U;
-	uint16_t vcpu_id;
-	bool phys;
-
-	vmsi_addr.full = vmsi->msi_addr;
-	vmsi_data.full = (uint32_t)vmsi->msi_data;
-
-	dev_dbg(DBG_LEVEL_LAPICPT, "%s: msi_addr 0x%016lx, msi_data 0x%016lx",
-		__func__, vmsi->msi_addr, vmsi->msi_data);
-
-	if (vmsi_addr.bits.addr_base == MSI_ADDR_BASE) {
-		vdest = vmsi_addr.bits.dest_field;
-		phys = (vmsi_addr.bits.dest_mode == MSI_ADDR_DESTMODE_PHYS);
-		/*
-		 * calculate all reachable destination vcpu.
-		 * the delivery mode of vmsi will be forwarded to ICR delievry field
-		 * and handled by hardware.
-		 */
-		vlapic_calc_dest_lapic_pt(vm, &vdmask, false, vdest, phys);
-		dev_dbg(DBG_LEVEL_LAPICPT, "%s: vcpu destination mask 0x%016lx", __func__, vdmask);
-
-		vcpu_id = ffs64(vdmask);
-		while (vcpu_id != INVALID_BIT_INDEX) {
-			bitmap_clear_nolock(vcpu_id, &vdmask);
-			vcpu = vcpu_from_vid(vm, vcpu_id);
-			dest |= per_cpu(lapic_ldr, pcpuid_from_vcpu(vcpu));
-			vcpu_id = ffs64(vdmask);
-		}
-
-		icr.value = 0UL;
-		icr.bits.dest_field = dest;
-		icr.bits.vector = vmsi_data.bits.vector;
-		icr.bits.delivery_mode = vmsi_data.bits.delivery_mode;
-		icr.bits.destination_mode = MSI_ADDR_DESTMODE_LOGICAL;
-
-		msr_write(MSR_IA32_EXT_APIC_ICR, icr.value);
-		dev_dbg(DBG_LEVEL_LAPICPT, "%s: icr.value 0x%016lx", __func__, icr.value);
-	}
-}
-
-/**
  * @brief inject MSI interrupt
  *
  * Inject a MSI interrupt for a VM.
@@ -488,32 +443,7 @@ int32_t hcall_inject_msi(struct acrn_vm *vm, struct acrn_vm *target_vm, __unused
 		struct acrn_msi_entry msi;
 
 		if (copy_from_gpa(vm, &msi, param2, sizeof(msi)) == 0) {
-			/* For target cpu with lapic pt, send ipi instead of injection via vlapic */
-			if (is_lapic_pt_configured(target_vm)) {
-				enum vm_vlapic_mode vlapic_mode = check_vm_vlapic_mode(target_vm);
-
-				if (vlapic_mode == VM_VLAPIC_X2APIC) {
-					/*
-					 * All the vCPUs of VM are in x2APIC mode and LAPIC is PT
-					 * Inject the vMSI as an IPI directly to VM
-					 */
-					inject_msi_lapic_pt(target_vm, &msi);
-					ret = 0;
-				} else if (vlapic_mode == VM_VLAPIC_XAPIC) {
-					/*
-					 * All the vCPUs of VM are in xAPIC and use vLAPIC
-					 * Inject using vLAPIC
-					 */
-					ret = vlapic_intr_msi(target_vm, msi.msi_addr, msi.msi_data);
-				} else {
-					/*
-					 * For cases VM_VLAPIC_DISABLED and VM_VLAPIC_TRANSITION
-					 * Silently drop interrupt
-					 */
-				}
-			} else {
-				ret = vlapic_intr_msi(target_vm, msi.msi_addr, msi.msi_data);
-			}
+			ret = vlapic_inject_msi(target_vm, msi.msi_addr, msi.msi_data);
 		}
 	}
 
@@ -648,6 +578,16 @@ static int32_t add_vm_memory_region(struct acrn_vm *vm, struct acrn_vm *target_v
 				prot |= EPT_WP;
 			} else {
 				prot |= EPT_UNCACHED;
+			}
+			/* If pSRAM is initialized, and HV received a request to map pSRAM area to guest,
+			 * we should add EPT_WB flag to make pSRAM effective.
+			 * Assumption: SOS must assign the PSRAM area as a whole and as a separate memory
+			 * region whose base address is PSRAM_BASE_HPA
+			 * TODO: We can enforce WB for any region has overlap with pSRAM, for simplicity,
+			 * and leave it to SOS to make sure it won't violate.
+			 */
+			if ((hpa == PSRAM_BASE_HPA) && is_psram_initialized) {
+				prot |= EPT_WB;
 			}
 			/* create gpa to hpa EPT mapping */
 			ept_add_mr(target_vm, pml4_page, hpa,
@@ -1291,16 +1231,30 @@ int32_t hcall_destroy_vdev(struct acrn_vm *vm, struct acrn_vm *target_vm, __unus
 {
 	int32_t ret = -EINVAL;
 	struct acrn_emul_dev dev;
+	struct pci_vdev *vdev;
 	struct emul_dev_ops *op;
+	union pci_bdf bdf;
 
 	/* We should only destroy a device to a post-launched VM at creating or pausing time for safety, not runtime or other cases*/
 	if (is_created_vm(target_vm) || is_paused_vm(target_vm)) {
 		if (copy_from_gpa(vm, &dev, param2, sizeof(dev)) == 0) {
-		op = find_emul_dev_ops(&dev);
-		if ((op != NULL) && (op->destroy != NULL)) {
-			ret = op->destroy(target_vm, &dev);
+			op = find_emul_dev_ops(&dev);
+			if (op != NULL) {
+				bdf.value = (uint16_t) dev.slot;
+				vdev = pci_find_vdev(&target_vm->vpci, bdf);
+				if (vdev != NULL) {
+					vdev->pci_dev_config->vbdf.value = UNASSIGNED_VBDF;
+					if (op->destroy != NULL) {
+						ret = op->destroy(vdev);
+					} else {
+						ret = 0;
+					}
+				} else {
+					pr_warn("%s, failed to destroy emulated device %x:%x.%x\n",
+						__func__, bdf.bits.b, bdf.bits.d, bdf.bits.f);
+				}
+			}
 		}
-	}
 	} else {
 		pr_err("%s, vm[%d] is not a postlaunched VM, or not in CREATED/PAUSED status to destroy a vdev\n", __func__, target_vm->vm_id);
 	}

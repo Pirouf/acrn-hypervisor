@@ -160,7 +160,6 @@ def get_serial_console(config):
 def get_miscfg(hv_info, config):
 
     print("CONFIG_GPU_SBDF={}".format(hv_info.mis.gpu_sbdf), file=config)
-    print('CONFIG_UEFI_OS_LOADER_NAME="{}"'.format(hv_info.mis.uefi_os_loader_name), file=config)
 
 
 def get_features(hv_info, config):
@@ -178,6 +177,8 @@ def get_features(hv_info, config):
     print("CONFIG_ACPI_PARSE_ENABLED={}".format(hv_info.features.acpi_parse_enabled), file=config)
     print("CONFIG_L1D_FLUSH_VMENTRY_ENABLED={}".format(hv_info.features.l1d_flush_vmentry_enabled), file=config)
     print("CONFIG_MCE_ON_PSC_WORKAROUND_DISABLED={}".format(hv_info.features.mce_on_psc_workaround_disabled), file=config)
+    if hv_info.features.psram_enabled in ['y', 'n']:
+        print("CONFIG_PSRAM_ENABLED={}".format(hv_info.features.psram_enabled), file=config)
 
 
 def get_capacities(hv_info, config):

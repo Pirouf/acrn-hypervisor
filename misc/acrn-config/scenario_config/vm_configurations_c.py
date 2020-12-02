@@ -56,16 +56,25 @@ def vuart0_output(i, vm_type, vm_info, config):
     # SOS_VM vuart[0]
     print("\t\t.vuart[0] = {", file=config)
     print("\t\t\t.type = {0},".format(vm_info.vuart.v0_vuart[i]['type']), file=config)
-    if "SOS_" in vm_type:
-        print("\t\t\t.addr.port_base = SOS_COM1_BASE,", file=config)
-        print("\t\t\t.irq = SOS_COM1_IRQ,", file=config)
-    elif "PRE_LAUNCHED_VM" == scenario_cfg_lib.VM_DB[vm_type]['load_type']:
-        print("\t\t\t.addr.port_base = COM1_BASE,", file=config)
-        print("\t\t\t.irq = COM1_IRQ,", file=config)
-    elif "POST_LAUNCHED_VM" in scenario_cfg_lib.VM_DB[vm_type]['load_type']:
-        print("\t\t\t.addr.port_base = {0},".format(
-            vm_info.vuart.v0_vuart[i]['base']), file=config)
-        if vm_info.vuart.v0_vuart[i]['base'] != "INVALID_COM_BASE":
+    if vm_info.vuart.v0_vuart[i]['base'] == "INVALID_COM_BASE":
+        print("\t\t\t.addr.port_base = INVALID_COM_BASE,", file=config)
+        if "SOS_" in vm_type:
+            print("\t\t\t.irq = SOS_COM1_IRQ,", file=config)
+        elif "PRE_LAUNCHED_VM" == scenario_cfg_lib.VM_DB[vm_type]['load_type']:
+            print("\t\t\t.irq = COM1_IRQ,", file=config)
+        elif "POST_LAUNCHED_VM" in scenario_cfg_lib.VM_DB[vm_type]['load_type']:
+            print("\t\t\t.irq = {0},".format(
+                    vm_info.vuart.v0_vuart[i]['irq']), file=config)
+    else:
+        if "SOS_" in vm_type:
+            print("\t\t\t.addr.port_base = SOS_COM1_BASE,", file=config)
+            print("\t\t\t.irq = SOS_COM1_IRQ,", file=config)
+        elif "PRE_LAUNCHED_VM" == scenario_cfg_lib.VM_DB[vm_type]['load_type']:
+            print("\t\t\t.addr.port_base = COM1_BASE,", file=config)
+            print("\t\t\t.irq = COM1_IRQ,", file=config)
+        elif "POST_LAUNCHED_VM" in scenario_cfg_lib.VM_DB[vm_type]['load_type']:
+            print("\t\t\t.addr.port_base = {0},".format(
+                vm_info.vuart.v0_vuart[i]['base']), file=config)
             print("\t\t\t.irq = {0},".format(
                 vm_info.vuart.v0_vuart[i]['irq']), file=config)
     print("\t\t},", file=config)
@@ -267,6 +276,9 @@ def gen_sos_vm(vm_type, vm_i, scenario_items, config):
     err_dic = vuart_output(vm_type, vm_i, vm_info, config)
     if err_dic:
         return err_dic
+    sos_dev_num = scenario_cfg_lib.get_pci_dev_num_per_vm()[vm_i]
+    print("\t\t.pci_dev_num = {}U,".format(sos_dev_num), file=config)
+    print("\t\t.pci_devs = sos_pci_devs,", file=config)
 
     print("\t},", file=config)
 
@@ -321,9 +333,7 @@ def gen_pre_launch_vm(vm_type, vm_i, scenario_items, config):
     if err_dic:
         return err_dic
 
-    if (vm_i in vm_info.cfg_pci.pci_devs.keys() and vm_info.cfg_pci.pci_devs[vm_i]) or \
-        (vm_info.shmem.shmem_enabled == 'y' and vm_i in vm_info.shmem.shmem_regions.keys() \
-                 and vm_info.shmem.shmem_regions[vm_i]):
+    if scenario_cfg_lib.get_pci_dev_num_per_vm()[vm_i]:
         print("\t\t.pci_dev_num = VM{}_CONFIG_PCI_DEV_NUM,".format(vm_i), file=config)
         print("\t\t.pci_devs = vm{}_pci_devs,".format(vm_i), file=config)
 
@@ -361,8 +371,7 @@ def gen_post_launch_vm(vm_type, vm_i, scenario_items, config):
     print("\t{{\t/* VM{} */".format(vm_i), file=config)
     print("\t\t{},".format(post_vm_type), file=config)
     clos_output(scenario_items, vm_i, config)
-    if vm_info.shmem.shmem_enabled == 'y' and vm_i in vm_info.shmem.shmem_regions.keys() \
-            and vm_info.shmem.shmem_regions[vm_i]:
+    if scenario_cfg_lib.get_pci_dev_num_per_vm()[vm_i]:
         print("\t\t/* The PCI device configuration is only for in-hypervisor vPCI devices. */", file=config)
         print("\t\t.pci_dev_num = VM{}_CONFIG_PCI_DEV_NUM,".format(vm_i), file=config)
         print("\t\t.pci_devs = vm{}_pci_devs,".format(vm_i), file=config)
@@ -375,15 +384,14 @@ def gen_post_launch_vm(vm_type, vm_i, scenario_items, config):
 
     print("\t},", file=config)
 
-
 def declare_pci_devs(vm_info, config):
 
     for vm_i,vm_type in common.VM_TYPES.items():
-        if scenario_cfg_lib.VM_DB[vm_type]['load_type'] not in ["PRE_LAUNCHED_VM", "POST_LAUNCHED_VM"]:
+        if vm_type == "SOS_VM":
+            print("extern struct acrn_vm_pci_dev_config " +
+                "sos_pci_devs[CONFIG_MAX_PCI_DEV_NUM];", file=config)
             continue
-        if (vm_i in vm_info.cfg_pci.pci_devs.keys() and vm_info.cfg_pci.pci_devs[vm_i]) \
-                or (vm_info.shmem.shmem_enabled == 'y' and vm_i in vm_info.shmem.shmem_regions.keys() \
-                    and vm_info.shmem.shmem_regions[vm_i]):
+        if scenario_cfg_lib.get_pci_dev_num_per_vm()[vm_i]:
             print("extern struct acrn_vm_pci_dev_config " +
                 "vm{}_pci_devs[VM{}_CONFIG_PCI_DEV_NUM];".format(vm_i, vm_i), file=config)
     print("", file=config)
@@ -397,18 +405,7 @@ def generate_file(scenario_items, config):
     vm_info = scenario_items['vm']
     gen_source_header(config)
 
-    pci_dev_config_flag = False
-    for vm_i,pci_dev_num in vm_info.cfg_pci.pci_dev_num.items():
-        if pci_dev_num >= 2:
-            pci_dev_config_flag = True
-            break
-    if vm_info.shmem.shmem_enabled == 'y':
-        for vm_id, shm_num in vm_info.shmem.shmem_num.items():
-            if shm_num > 0:
-                pci_dev_config_flag = True
-                break
-    if pci_dev_config_flag:
-        declare_pci_devs(vm_info, config)
+    declare_pci_devs(vm_info, config)
 
     if (board_cfg_lib.is_matched_board(("ehl-crb-b"))
         and vm_info.pt_intx_info.phys_gsi.get(0) is not None

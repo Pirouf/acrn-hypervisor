@@ -214,6 +214,7 @@ static inline uint16_t vmid_2_rel_vmid(uint16_t sos_vmid, uint16_t vmid) {
 void make_shutdown_vm_request(uint16_t pcpu_id);
 bool need_shutdown_vm(uint16_t pcpu_id);
 int32_t shutdown_vm(struct acrn_vm *vm);
+void poweroff_if_rt_vm(struct acrn_vm *vm);
 void pause_vm(struct acrn_vm *vm);
 void resume_vm_from_s3(struct acrn_vm *vm, uint32_t wakeup_vec);
 void start_vm(struct acrn_vm *vm);
@@ -234,10 +235,7 @@ struct acrn_vm *get_sos_vm(void);
 void create_sos_vm_e820(struct acrn_vm *vm);
 void create_prelaunched_vm_e820(struct acrn_vm *vm);
 
-int32_t direct_boot_sw_loader(struct acrn_vm *vm);
-
-typedef int32_t (*vm_sw_loader_t)(struct acrn_vm *vm);
-extern vm_sw_loader_t vm_sw_loader;
+int32_t vm_sw_loader(struct acrn_vm *vm);
 
 void vrtc_init(struct acrn_vm *vm);
 

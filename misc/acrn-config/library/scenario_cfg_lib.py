@@ -17,11 +17,15 @@ KERN_TYPE_LIST = ['KERNEL_BZIMAGE', 'KERNEL_ZEPHYR']
 KERN_BOOT_ADDR_LIST = ['0x100000']
 
 VUART_TYPE = ['VUART_LEGACY_PIO', 'VUART_PCI']
+INVALID_COM_BASE = 'INVALID_COM_BASE'
 VUART_BASE = ['SOS_COM1_BASE', 'SOS_COM2_BASE', 'COM1_BASE',
-              'COM2_BASE', 'COM3_BASE', 'COM4_BASE', 'INVALID_COM_BASE']
+              'COM2_BASE', 'COM3_BASE', 'COM4_BASE', INVALID_COM_BASE]
+INVALID_PCI_BASE = 'INVALID_PCI_BASE'
+PCI_VUART = 'PCI_VUART'
+PCI_VUART_BASE = [PCI_VUART, INVALID_PCI_BASE]
 
-AVALIBLE_COM1_BASE = ['INVALID_COM_BASE', 'COM1_BASE']
-AVALIBLE_COM2_BASE = ['INVALID_COM_BASE', 'COM2_BASE']
+AVALIBLE_COM1_BASE = [INVALID_COM_BASE, 'COM1_BASE']
+AVALIBLE_COM2_BASE = [INVALID_COM_BASE, 'COM2_BASE']
 
 VUART_IRQ = ['SOS_COM1_IRQ', 'SOS_COM2_IRQ', 'COM1_IRQ', 'COM2_IRQ', 'COM3_IRQ',
              'COM4_IRQ', 'CONFIG_COM_IRQ', '3', '4', '6', '7']
@@ -55,6 +59,7 @@ UUID_DB = {
 VM_DB = {
     'SOS_VM':{'load_type':'SOS_VM', 'severity':'SEVERITY_SOS', 'uuid':UUID_DB['SOS_VM']},
     'SAFETY_VM':{'load_type':'PRE_LAUNCHED_VM', 'severity':'SEVERITY_SAFETY_VM', 'uuid':UUID_DB['SAFETY_VM']},
+    'PRE_RT_VM':{'load_type':'PRE_LAUNCHED_VM', 'severity':'SEVERITY_RTVM', 'uuid':UUID_DB['PRE_RT_VM']},
     'PRE_STD_VM':{'load_type':'PRE_LAUNCHED_VM', 'severity':'SEVERITY_STANDARD_VM', 'uuid':UUID_DB['PRE_STD_VM']},
     'POST_STD_VM':{'load_type':'POST_LAUNCHED_VM', 'severity':'SEVERITY_STANDARD_VM', 'uuid':UUID_DB['POST_STD_VM']},
     'POST_RT_VM':{'load_type':'POST_LAUNCHED_VM', 'severity':'SEVERITY_RTVM', 'uuid':UUID_DB['POST_RT_VM']},
@@ -62,6 +67,11 @@ VM_DB = {
     'PRE_RT_VM':{'load_type':'PRE_LAUNCHED_VM', 'severity':'SEVERITY_RTVM', 'uuid':UUID_DB['PRE_RT_VM']},
 }
 LOAD_VM_TYPE = list(VM_DB.keys())
+
+# field names
+F_TARGET_VM_ID = 'target_vm_id'
+F_TARGET_UART_ID = 'target_uart_id'
+
 
 def get_pci_devs(pci_items):
 
@@ -93,7 +103,6 @@ def get_pci_num(pci_devs):
         pci_devs_num[vm_i] = cnt_dev
 
     return pci_devs_num
-
 
 def get_shmem_regions(raw_shmem_regions):
     shmem_regions = {'err': []}
@@ -128,6 +137,81 @@ def get_shmem_num(shmem_regions):
         shmem_num[shm_i] = len(shm_list)
 
     return shmem_num
+
+
+def get_vuart_num(vuarts):
+
+    vuarts_num = {}
+    # get legacy vuart information
+    vuart0_setting = common.get_vuart_info_id(common.SCENARIO_INFO_FILE, 0)
+    vuart1_setting = common.get_vuart_info_id(common.SCENARIO_INFO_FILE, 1)
+    for vm_i,vuart_list in vuarts.items():
+        vuarts_num[vm_i] = 0
+        for vuart_id in vuart_list:
+            if vuarts[vm_i][vuart_id]['base'] != "INVALID_PCI_BASE":
+                vuarts_num[vm_i] += 1
+
+    for vm_i in vuart0_setting:
+        vm_type = common.VM_TYPES[vm_i]
+        # Skip post-launched vm's pci base vuart0
+        if "POST_LAUNCHED_VM" == VM_DB[vm_type]['load_type'] and 0 in vuarts[vm_i].keys() \
+             and vuarts[vm_i][0]['base'] != "INVALID_PCI_BASE":
+            vuarts_num[vm_i] -= 1
+            continue
+        # Skip pci vuart 0 if the legacy vuart 0 is enabled
+        if vuart0_setting[vm_i]['base'] != "INVALID_COM_BASE" and 0 in vuarts[vm_i].keys() \
+             and vuarts[vm_i][0]['base'] != "INVALID_PCI_BASE":
+            vuarts_num[vm_i] -= 1
+    for vm_i in vuart1_setting:
+        # Skip pci vuart 1 if the legacy vuart 1 is enabled
+        if vuart1_setting[vm_i]['base'] != "INVALID_COM_BASE" and 1 in vuarts[vm_i].keys() \
+             and vuarts[vm_i][1]['base'] != "INVALID_PCI_BASE":
+            vuarts_num[vm_i] -= 1
+    return vuarts_num
+
+
+def get_pci_dev_num_per_vm():
+    pci_dev_num_per_vm = {}
+
+    pci_items = common.get_leaf_tag_map(common.SCENARIO_INFO_FILE, "pci_devs", "pci_dev")
+    pci_devs = get_pci_devs(pci_items)
+    pci_dev_num = get_pci_num(pci_devs)
+
+    ivshmem_region = common.get_hv_item_tag(common.SCENARIO_INFO_FILE,
+        "FEATURES", "IVSHMEM", "IVSHMEM_REGION")
+
+    shmem_enabled = common.get_hv_item_tag(common.SCENARIO_INFO_FILE,
+        "FEATURES", "IVSHMEM", "IVSHMEM_ENABLED")
+
+    shmem_regions = get_shmem_regions(ivshmem_region)
+    shmem_num = get_shmem_num(shmem_regions)
+
+    vuarts = common.get_vuart_info(common.SCENARIO_INFO_FILE)
+    vuarts_num = get_vuart_num(vuarts)
+
+    for vm_i,vm_type in common.VM_TYPES.items():
+        if "POST_LAUNCHED_VM" == VM_DB[vm_type]['load_type']:
+            shmem_num_i = 0
+            vuart_num = vuarts_num[vm_i]
+            if shmem_enabled == 'y' and vm_i in shmem_num.keys():
+                shmem_num_i = shmem_num[vm_i]
+            pci_dev_num_per_vm[vm_i] = shmem_num_i + vuart_num
+        elif "PRE_LAUNCHED_VM" == VM_DB[vm_type]['load_type']:
+            shmem_num_i = 0
+            if shmem_enabled == 'y' and vm_i in shmem_num.keys():
+                shmem_num_i = shmem_num[vm_i]
+            if pci_dev_num[vm_i] == 1:
+                # there is only vhostbridge but no passthrough device
+                # remove the count of vhostbridge, check get_pci_num definition
+                pci_dev_num[vm_i] -= 1
+            pci_dev_num_per_vm[vm_i] = pci_dev_num[vm_i] + shmem_num_i + vuarts_num[vm_i]
+        elif "SOS_VM" == VM_DB[vm_type]['load_type']:
+            shmem_num_i = 0
+            if shmem_enabled == 'y' and vm_i in shmem_num.keys():
+                shmem_num_i = shmem_num[vm_i]
+            pci_dev_num_per_vm[vm_i] = shmem_num_i + vuarts_num[vm_i]
+
+    return pci_dev_num_per_vm
 
 
 def check_board_private_info():
@@ -579,14 +663,14 @@ def avl_vuart_ui_select(scenario_info):
     for vm_i,vm_type in common.VM_TYPES.items():
 
         if "SOS_VM" == VM_DB[vm_type]['load_type']:
-            key = "vm={},vuart=0,base".format(vm_i)
+            key = "vm={},legacy_vuart=0,base".format(vm_i)
             tmp_vuart[key] = ['SOS_COM1_BASE', 'INVALID_COM_BASE']
-            key = "vm={},vuart=1,base".format(vm_i)
+            key = "vm={},legacy_vuart=1,base".format(vm_i)
             tmp_vuart[key] = ['SOS_COM2_BASE', 'INVALID_COM_BASE']
         else:
-            key = "vm={},vuart=0,base".format(vm_i)
+            key = "vm={},legacy_vuart=0,base".format(vm_i)
             tmp_vuart[key] = ['INVALID_COM_BASE', 'COM1_BASE']
-            key = "vm={},vuart=1,base".format(vm_i)
+            key = "vm={},legacy_vuart=1,base".format(vm_i)
             tmp_vuart[key] = ['INVALID_COM_BASE', 'COM2_BASE']
 
     return tmp_vuart
@@ -625,23 +709,23 @@ def check_vuart(v0_vuart, v1_vuart):
     for vm_i,vuart_dic in v1_vuart.items():
         # check target vm id
         if 'base' not in vuart_dic.keys():
-            key = "vm:id={},vuart:id=1,base".format(vm_i)
+            key = "vm:id={},legacy_vuart:id=1,base".format(vm_i)
             ERR_LIST[key] = "base should be in xml"
             return
 
         if not vuart_dic['base'] or vuart_dic['base'] not in VUART_BASE:
-            key = "vm:id={},vuart:id=1,base".format(vm_i)
+            key = "vm:id={},legacy_vuart:id=1,base".format(vm_i)
             ERR_LIST[key] = "base should be SOS/COM BASE"
 
         if vuart_dic['base'] == "INVALID_COM_BASE":
             continue
 
         if 'target_vm_id' not in vuart_dic.keys():
-            key = "vm:id={},vuart:id=1,target_vm_id".format(vm_i)
+            key = "vm:id={},legacy_vuart:id=1,target_vm_id".format(vm_i)
             ERR_LIST[key] = "target_vm_id should be in xml"
 
         if not vuart_dic['target_vm_id'] or not vuart_dic['target_vm_id'].isnumeric():
-            key = "vm:id={},vuart:id=1,target_vm_id".format(vm_i)
+            key = "vm:id={},legacy_vuart:id=1,target_vm_id".format(vm_i)
             ERR_LIST[key] = "target_vm_id should be numeric of vm id"
         vm_target_id_dic[vm_i] = vuart_dic['target_vm_id']
 
@@ -650,7 +734,7 @@ def check_vuart(v0_vuart, v1_vuart):
     i = 0
     for vm_i,t_vm_id in vm_target_id_dic.items():
         if t_vm_id.isnumeric() and int(t_vm_id) not in common.VM_TYPES.keys():
-            key = "vm:id={},vuart:id=1,target_vm_id".format(vm_i)
+            key = "vm:id={},legacy_vuart:id=1,target_vm_id".format(vm_i)
             ERR_LIST[key] = "target_vm_id which specified does not exist"
 
         idx = target_id_keys.index(vm_i)
@@ -661,8 +745,309 @@ def check_vuart(v0_vuart, v1_vuart):
                 connect_set = True
 
     if not connect_set and len(target_id_keys) >= 2:
-        key = "vm:id={},vuart:id=1,target_vm_id".format(i)
+        key = "vm:id={},legacy_vuart:id=1,target_vm_id".format(i)
         ERR_LIST[key] = "Creating the wrong configuration for target_vm_id."
+
+
+def get_legacy_vuart1_target_dict(legacy_vuart1):
+    vuart1_target_dict = {}
+    vuart1_visited = {}
+    for vm_i, vuart_dict in legacy_vuart1.items():
+        vuart_base = vuart_dict.get('base')
+        if vuart_base not in VUART_BASE:
+            continue
+        if vuart_base == INVALID_COM_BASE:
+            continue
+
+        try:
+            key = "vm:id={},legacy_vuart:id=1,target_vm_id".format(vm_i)
+            target_vm_id = get_target_vm_id(vuart_dict, vm_i)
+            err_key = "vm:id={},legacy_vuart:id=1,target_uart_id".format(vm_i)
+            target_uart_id = get_target_uart_id(vuart_dict)
+        except XmlError as exc:
+            ERR_LIST[err_key] = str(exc)
+            return vuart1_target_dict, vuart1_visited
+
+        if vm_i not in vuart1_target_dict:
+            vuart1_target_dict[vm_i] = (target_vm_id, target_uart_id)
+        else:
+            raise ValueError('vm id {} has more than one legacy vuart 1'.format(vm_i))
+
+        if vm_i not in vuart1_visited:
+            vuart1_visited[vm_i] = -1
+        else:
+            raise ValueError('vm id {} has more than one legacy vuart 1'.format(vm_i))
+
+    return vuart1_target_dict, vuart1_visited
+
+
+class InvalidError(Exception):
+    pass
+
+class LegacyVuartError(Exception):
+    pass
+
+class PciVuartError(Exception):
+    pass
+
+class TargetError(Exception):
+    pass
+class XmlError(Exception):
+    pass
+
+def check_vuart_id(vuart_id):
+    if not isinstance(vuart_id, int):
+        raise ValueError('vuart_id must be int: {}, {!r}'.format(type(vuart_id), vuart_id))
+
+
+def check_vuart_id_count(vm_pci_vuarts, legacy_vuart0, legacy_vuart1):
+    vuart_cnt = 0
+    for vuart_id in vm_pci_vuarts:
+        pci_vuart_base = vm_pci_vuarts.get(vuart_id, {}).get('base')
+        if pci_vuart_base == PCI_VUART:
+            vuart_cnt += 1
+
+    legacy_vuart_base0 = legacy_vuart0.get('base')
+    if legacy_vuart_base0 != INVALID_COM_BASE:
+        vuart_cnt += 1
+
+    legacy_vuart_base1 = legacy_vuart1.get('base')
+    if legacy_vuart_base1 != INVALID_COM_BASE:
+        vuart_cnt += 1
+
+    if vuart_cnt > common.MAX_VUART_NUM:
+        raise XmlError("enables more than {} vuarts, total number: {}".format(common.MAX_VUART_NUM, vuart_cnt))
+
+
+def check_against_coexistence(vm_pci_vuarts, vm_legacy_vuart, legacy_vuart_idx):
+    pci_vuart_base = vm_pci_vuarts.get(legacy_vuart_idx, {}).get('base')
+    legacy_base = vm_legacy_vuart.get('base')
+    if legacy_base not in VUART_BASE:
+        raise LegacyVuartError('legacy vuart base should be one of {}'.format(", ".join(VUART_BASE)))
+    if legacy_base == INVALID_COM_BASE:
+        return
+    if pci_vuart_base not in PCI_VUART_BASE:
+        raise PciVuartError('pci vuart base should be one of {}, last call: {!r}'.format(", ".join(PCI_VUART_BASE), pci_vuart_base))
+    if pci_vuart_base == INVALID_PCI_BASE:
+        return
+    raise PciVuartError('cannot enable legacy vuart {} and this vuart {} at the same time' \
+                    .format(legacy_vuart_idx, legacy_vuart_idx))
+
+
+def check_pci_vuart_base(pci_vuart):
+    if not isinstance(pci_vuart, dict):
+        raise TypeError('pci_vuart should be a dict: {}, {!r}'.format(type(pci_vuart), pci_vuart))
+    if 'base' not in pci_vuart:
+        raise ValueError('base should be in vuart: keys_found={}'.format(pci_vuart.keys()))
+
+    pci_vuart_base_str = pci_vuart['base']
+    if pci_vuart_base_str not in PCI_VUART_BASE:
+        raise ValueError("base should be one of {}, last called:  {!r}".format(", ".join(PCI_VUART_BASE), pci_vuart_base_str))
+    if pci_vuart_base_str == INVALID_PCI_BASE:
+        raise InvalidError
+
+
+def get_target_vm_id(vuart, vm_id):
+    if not isinstance(vuart, dict):
+        raise TypeError('vuart should be a dict: {}, {!r}'.format(type(vuart), vuart))
+    if not isinstance(vm_id, int):
+        raise TypeError('vm_id should be an int: {}, {!r}'.format(type(vm_id), vm_id))
+    if F_TARGET_VM_ID not in vuart:
+        raise ValueError('target_vm_id should be in vuart: keys_found={}'.format(vuart.keys()))
+
+    try:
+        target_vm_id_str = vuart.get(F_TARGET_VM_ID)
+        target_vm_id = int(target_vm_id_str)
+    except (TypeError, ValueError):
+        raise XmlError(
+            "target_vm_id should be present and numeric: {!r}".format(
+                target_vm_id_str))
+
+    if target_vm_id not in common.VM_TYPES:
+        raise XmlError(
+            'invalid target_vm_id: target_vm_id={!r}, vm_ids={}'.format(
+                target_vm_id, common.VM_TYPES.keys()))
+
+    if target_vm_id == vm_id:
+        raise XmlError(
+            "cannot connect to itself, target_vm_id: {}".format(vm_id))
+    return target_vm_id
+
+
+def get_target_uart_id(vuart):
+    if not isinstance(vuart, dict):
+        raise TypeError('vuart should be a dict: {}, {!r}'.format(type(vuart), vuart))
+    if F_TARGET_UART_ID not in vuart:
+        raise ValueError('target_uart_id should be in vuart: keys_found={}'.format(vuart.keys()))
+
+    try:
+        target_uart_id_str = vuart.get(F_TARGET_UART_ID)
+        target_uart_id = int(target_uart_id_str)
+    except (TypeError, ValueError):
+        raise XmlError(
+            "target_uart_id_str should be present and numeric: {!r}".format(
+                target_uart_id_str))
+    if target_uart_id == 0:
+        raise XmlError("cannot connect to any type of vuart 0")
+    return target_uart_id
+
+
+def check_pci_vuart(pci_vuarts, legacy_vuart0, legacy_vuart1):
+
+    vm_target_dict = {}
+    vm_visited = {}
+
+    for vm_id, vm_pci_vuarts in pci_vuarts.items():
+
+        try:
+            vuart_id = 0
+            check_against_coexistence(vm_pci_vuarts, legacy_vuart0.get(vm_id), vuart_id)
+            vuart_id = 1
+            check_against_coexistence(vm_pci_vuarts, legacy_vuart1.get(vm_id), vuart_id)
+            key = "vm:id={}".format(vm_id)
+            check_vuart_id_count(vm_pci_vuarts, legacy_vuart0.get(vm_id), legacy_vuart1.get(vm_id))
+        except XmlError as exc:
+            ERR_LIST[key] = str(exc)
+            return
+        except LegacyVuartError as exc:
+            key = "vm:id={},legacy_vuart:id={},base".format(vm_id, vuart_id)
+            ERR_LIST[key] = str(exc)
+            return
+        except PciVuartError as exc:
+            err_key = (
+                "vm:id={},console_vuart:id={},base".format(vm_id, vuart_id)
+                if vuart_id == 0
+                else "vm:id={},communication_vuart:id={},base".format(vm_id, vuart_id)
+                )
+            ERR_LIST[err_key] = str(exc)
+            return
+
+        for vuart_id, pci_vuart in vm_pci_vuarts.items():
+
+            check_vuart_id(vuart_id)
+
+            err_key = (
+                "vm:id={},console_vuart:id={},base".format(vm_id, vuart_id)
+                if vuart_id == 0
+                else "vm:id={},communication_vuart:id={},base".format(vm_id, vuart_id)
+                )
+            key = err_key
+
+            try:
+                check_pci_vuart_base(pci_vuart)
+            except ValueError as exc:
+                ERR_LIST[err_key] = str(exc)
+                return
+            except InvalidError:
+                continue
+
+            if vuart_id == 0:
+                continue
+
+            try:
+                err_key = "vm:id={},communication_vuart:id={},target_vm_id".format(vm_id, vuart_id)
+                target_vm_id = get_target_vm_id(pci_vuart, vm_id)
+                err_key = "vm:id={},communication_vuart:id={},target_uart_id".format(vm_id, vuart_id)
+                target_uart_id = get_target_uart_id(pci_vuart)
+            except XmlError as exc:
+                ERR_LIST[err_key] = str(exc)
+                return
+
+            if vm_id not in vm_target_dict:
+                vm_target_dict[vm_id] = {}
+            if vuart_id in vm_target_dict[vm_id]:
+                raise ValueError('Duplicated vm id {} and vuart id {}'.format(vm_id, vuart_id))
+            else:
+                vm_target_dict[vm_id][vuart_id] = (target_vm_id, target_uart_id)
+
+            if vm_id not in vm_visited:
+                vm_visited[vm_id] = {}
+            if vuart_id in vm_visited[vm_id]:
+                raise ValueError('vuart {} of vm {} is duplicated'.format(vuart_id, vm_id))
+            else:
+                vm_visited[vm_id][vuart_id] = -1
+
+
+    legacy_vuart1_target_dict, legacy_vuart1_visited = get_legacy_vuart1_target_dict(legacy_vuart1)
+
+    for vm_id, target in legacy_vuart1_target_dict.items():
+        try:
+            err_key = "vm:id={},legacy_vuart:id=1,target_vm_id".format(vm_id)
+            target_vm_id = int(target[0])
+            is_target_vm_available(target_vm_id, vm_visited, legacy_vuart1_visited)
+            err_key = "vm:id={},legacy_vuart:id=1,target_uart_id".format(vm_id)
+            target_uart_id = int(target[1])
+            check_target_connection(vm_id, target_vm_id, target_uart_id, vm_visited, legacy_vuart1_visited)
+        except TargetError as exc:
+            ERR_LIST[err_key] = str(exc)
+            continue
+
+    for vm_id, target_list in vm_target_dict.items():
+        for vuart_id, target in target_list.items():
+            try:
+                err_key = "vm:id={},communication_vuart:id={},target_vm_id".format(vm_id, vuart_id)
+                target_vm_id = int(target[0])
+                is_target_vm_available(target_vm_id, vm_visited, legacy_vuart1_visited)
+                err_key = "vm:id={},communication_vuart:id={},target_uart_id".format(vm_id, vuart_id)
+                target_uart_id = int(target[1])
+                check_target_connection(vm_id, target_vm_id, target_uart_id, vm_visited, legacy_vuart1_visited)
+            except TargetError as exc:
+                ERR_LIST[err_key] = str(exc)
+                continue
+
+
+def is_target_vm_available(target_vm_id, vm_visited, legacy_vuart1_visited):
+    if not isinstance(target_vm_id, int):
+        raise TypeError('target_vm_id should be an int: {}, {!r}'.format(type(target_vm_id), target_vm_id))
+    if not isinstance(vm_visited, dict):
+        raise TypeError('vm_visited should be a dict: {}, {!r}'.format(type(vm_visited), vm_visited))
+    if not isinstance(legacy_vuart1_visited, dict):
+        raise TypeError('legacy_vuart1_visited should be a dict: {}, {!r}' \
+                 .format(type(legacy_vuart1_visited), legacy_vuart1_visited))
+
+    if target_vm_id not in common.VM_TYPES:
+        raise TargetError("target vm {} is not present".format(target_vm_id))
+    if target_vm_id in vm_visited:
+        pass
+    elif target_vm_id in legacy_vuart1_visited:
+        pass
+    else:
+        raise TargetError("target vm {} disables legacy vuart 1 and all communication vuarts"\
+                         .format(target_vm_id))
+
+
+def check_target_connection(vm_id, target_vm_id, target_uart_id, vm_visited, legacy_vuart1_visited):
+    if not isinstance(vm_visited, dict):
+        raise TypeError('vm_visited should be a dict: {}, {!r}'.format(type(vm_visited), vm_visited))
+    if not isinstance(legacy_vuart1_visited, dict):
+        raise TypeError('legacy_vuart1_visited should be a dict: {}, {!r}' \
+                 .format(type(legacy_vuart1_visited), legacy_vuart1_visited))
+    if not isinstance(target_vm_id, int):
+        raise TypeError('vm_id should be an int: {}, {!r}'.format(type(vm_id), vm_id))
+    if not isinstance(target_vm_id, int):
+        raise TypeError('target_vm_id should be an int: {}, {!r}'.format(type(target_vm_id), target_vm_id))
+    if not isinstance(target_uart_id, int):
+        raise TypeError('target_uart_id should be an int: {}, {!r}'.format(type(target_uart_id), target_uart_id))
+
+    if target_uart_id == 0:
+        raise TargetError("cannot connect to any type of vuart 0")
+
+    if vm_visited.get(target_vm_id) and target_uart_id in vm_visited[target_vm_id]:
+        connected_vm = vm_visited[target_vm_id][target_uart_id]
+        if  connected_vm > -1:
+            raise TargetError("target vm{} : vuart{} is connected to vm {}" \
+                             .format(target_vm_id, target_uart_id, connected_vm))
+        else:
+            vm_visited[target_vm_id][target_uart_id] = vm_id
+    elif target_uart_id == 1 and target_vm_id in legacy_vuart1_visited:
+        connected_vm = legacy_vuart1_visited[target_vm_id]
+        if  connected_vm > -1:
+            raise TargetError("target vm{} : vuart{} is connected to vm {}" \
+                             .format(target_vm_id, target_uart_id, connected_vm))
+        else:
+            legacy_vuart1_visited[target_vm_id] = vm_id
+    else:
+        raise TargetError("target vm{}'s vuart{} is not present".format(target_vm_id ,target_uart_id))
 
 
 def vcpu_clos_check(cpus_per_vm, clos_per_vm, prime_item, item):
@@ -755,9 +1140,8 @@ def share_mem_check(shmem_regions, raw_shmem_regions, vm_type_info, prime_item, 
                 ERR_LIST[key] = "The communication VM IDs of the share memory should not be duplicated."
                 return
             for target_vm_id in int_vmid_list:
-                if curr_vm_id not in vm_type_info.keys() or target_vm_id not in vm_type_info.keys() \
-                        or vm_type_info[curr_vm_id] in ['SOS_VM'] or vm_type_info[target_vm_id] in ['SOS_VM']:
-                    ERR_LIST[key] = "Shared Memory can be only configured for existed Pre-launched VMs and Post-launched VMs."
+                if curr_vm_id not in vm_type_info.keys() or target_vm_id not in vm_type_info.keys():
+                    ERR_LIST[key] = "Shared Memory can be only configured for existed VMs."
                     return
 
             if name =='' or size == '':

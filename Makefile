@@ -103,18 +103,11 @@ else ifeq ($(BOARD), kbl-nuc-i7)
   override BOARD := nuc7i7dnb
 endif
 
-ifneq (,$(filter $(BOARD),apl-mrb))
-	FIRMWARE ?= sbl
-else
-	FIRMWARE ?= uefi
-endif
-
 SCENARIO ?= industry
 
 O ?= build
 ROOT_OUT := $(shell mkdir -p $(O);cd $(O);pwd)
 HV_OUT := $(ROOT_OUT)/hypervisor
-EFI_OUT := misc/efi-stub
 DM_OUT := $(ROOT_OUT)/devicemodel
 TOOLS_OUT := $(ROOT_OUT)/misc/tools
 DOC_OUT := $(ROOT_OUT)/doc
@@ -124,7 +117,7 @@ HV_CFG_LOG = $(HV_OUT)/cfg.log
 VM_CONFIGS_DIR = $(T)/misc/vm_configs
 DEFCONFIG_FILE = scenarios/$(SCENARIO)/$(BOARD)/$(BOARD).config
 
-export TOOLS_OUT BOARD SCENARIO FIRMWARE RELEASE
+export TOOLS_OUT BOARD SCENARIO RELEASE
 
 .PHONY: all hypervisor devicemodel tools doc
 all: hypervisor devicemodel tools
@@ -134,28 +127,18 @@ include $(T)/hypervisor/scripts/makefile/cfg_update.mk
 
 #help functions to build acrn and install acrn/acrn symbols
 define build_acrn
-	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)-$(1)/$(2) BOARD=$(2) FIRMWARE=$(1) SCENARIO=$(3) RELEASE=$(RELEASE) clean
-	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)-$(1)/$(2) BOARD=$(2) FIRMWARE=$(1) SCENARIO=$(3) RELEASE=$(RELEASE) defconfig
-	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)-$(1)/$(2) BOARD=$(2) FIRMWARE=$(1) SCENARIO=$(3) RELEASE=$(RELEASE) oldconfig
-	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)-$(1)/$(2) BOARD=$(2) FIRMWARE=$(1) SCENARIO=$(3) RELEASE=$(RELEASE)
-	echo "building hypervisor as EFI executable..."
-	@if [ "$(1)" = "uefi" ]; then \
-	$(MAKE) -C $(T)/misc/efi-stub HV_OBJDIR=$(HV_OUT)-$(1)/$(2) SCENARIO=$(3) EFI_OBJDIR=$(HV_OUT)-$(1)/$(2)/$(EFI_OUT); \
-	fi
+	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)/$(1) BOARD=$(1) SCENARIO=$(2) RELEASE=$(RELEASE) clean
+	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)/$(1) BOARD=$(1) SCENARIO=$(2) RELEASE=$(RELEASE) defconfig
+	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)/$(1) BOARD=$(1) SCENARIO=$(2) RELEASE=$(RELEASE) oldconfig
+	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)/$(1) BOARD=$(1) SCENARIO=$(2) RELEASE=$(RELEASE)
 endef
 
 define install_acrn
-	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)-$(1)/$(2) BOARD=$(2) FIRMWARE=$(1) SCENARIO=$(3) RELEASE=$(RELEASE) install
-	@if [ "$(1)" = "uefi" ]; then \
-	$(MAKE) -C $(T)/misc/efi-stub HV_OBJDIR=$(HV_OUT)-$(1)/$(2) BOARD=$(2) FIRMWARE=$(1) SCENARIO=$(3) RELEASE=$(RELEASE) EFI_OBJDIR=$(HV_OUT)-$(1)/$(2)/$(EFI_OUT) install; \
-	fi
+	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)/$(1) BOARD=$(1) SCENARIO=$(2) RELEASE=$(RELEASE) install
 endef
 
 define install_acrn_debug
-	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)-$(1)/$(2) BOARD=$(2) FIRMWARE=$(1) SCENARIO=$(3) RELEASE=$(RELEASE) install-debug
-	@if [ "$(1)" = "uefi" ]; then \
-	$(MAKE) -C $(T)/misc/efi-stub HV_OBJDIR=$(HV_OUT)-$(1)/$(2) BOARD=$(2) FIRMWARE=$(1) SCENARIO=$(3) RELEASE=$(RELEASE) EFI_OBJDIR=$(HV_OUT)-$(1)/$(2)/$(EFI_OUT) install-debug; \
-	fi
+	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT)/$(1) BOARD=$(1) SCENARIO=$(2) RELEASE=$(RELEASE) install-debug
 endef
 
 hypervisor:
@@ -165,34 +148,28 @@ hypervisor:
 	$(MAKE) -C $(T)/hypervisor BOARD=$(BOARD) HV_OBJDIR=$(HV_OUT) BOARD_FILE=$(BOARD_FILE) SCENARIO_FILE=$(SCENARIO_FILE) TARGET_DIR=$(TARGET_DIR) defconfig;
 	$(MAKE) -C $(T)/hypervisor BOARD=$(BOARD) HV_OBJDIR=$(HV_OUT) BOARD_FILE=$(BOARD_FILE) SCENARIO_FILE=$(SCENARIO_FILE) TARGET_DIR=$(TARGET_DIR) oldconfig;
 	$(MAKE) -C $(T)/hypervisor BOARD=$(BOARD) HV_OBJDIR=$(HV_OUT) BOARD_FILE=$(BOARD_FILE) SCENARIO_FILE=$(SCENARIO_FILE) TARGET_DIR=$(TARGET_DIR)
-#ifeq ($(FIRMWARE),uefi)
-	@if [ "$(SCENARIO)" != "logical_partition" ] && [ "$(SCENARIO)" != "hybrid" ]; then \
-		echo "building hypervisor as EFI executable..."; \
-		$(MAKE) -C $(T)/misc/efi-stub HV_OBJDIR=$(HV_OUT) EFI_OBJDIR=$(HV_OUT)/$(EFI_OUT); \
-	fi
-#endif
-	@echo -e "\n\033[47;30mACRN Configuration Summary:\033[0m \nBOARD = $(BOARD)\t SCENARIO = $(SCENARIO)" > $(HV_CFG_LOG); \
-	echo -e "BUILD type = \c" >> $(HV_CFG_LOG); \
-	if [ "$(RELEASE)" = "0" ]; then echo -e "DEBUG" >> $(HV_CFG_LOG); else echo -e "RELEASE" >> $(HV_CFG_LOG); fi; \
+	@echo "\n\033[47;30mACRN Configuration Summary:\033[0m \nBOARD = $(BOARD)\t SCENARIO = $(SCENARIO)" > $(HV_CFG_LOG); \
+	echo "BUILD type = \c" >> $(HV_CFG_LOG); \
+	if [ "$(RELEASE)" = "0" ]; then echo "DEBUG" >> $(HV_CFG_LOG); else echo "RELEASE" >> $(HV_CFG_LOG); fi; \
 	if [ -f $(KCONFIG_FILE) ]; then \
-		echo -e "Hypervisor configuration is based on:\n\tKconfig file:\t$(KCONFIG_FILE);" >> $(HV_CFG_LOG); \
+		echo "Hypervisor configuration is based on:\n\tKconfig file:\t$(KCONFIG_FILE);" >> $(HV_CFG_LOG); \
 	fi; \
-	echo -e "Hypervisor configuration is based on:" >> $(HV_CFG_LOG); \
+	echo "Hypervisor configuration is based on:" >> $(HV_CFG_LOG); \
 	if [ "$(TARGET_DIR)" = "" ]; then \
 		if [ ! -f $(KCONFIG_FILE) ]; then \
-			echo -e "\tdefconfig file:\t\t\t$(VM_CONFIGS_DIR)/$(DEFCONFIG_FILE);" >> $(HV_CFG_LOG); \
+			echo "\tdefconfig file:\t\t\t$(VM_CONFIGS_DIR)/$(DEFCONFIG_FILE);" >> $(HV_CFG_LOG); \
 		fi; \
 	elif [ ! -f $(KCONFIG_FILE) ]; then \
-		echo -e "\tdefconfig file:\t\t\t$(TARGET_DIR)/$(DEFCONFIG_FILE);" >> $(HV_CFG_LOG); \
+		echo "\tdefconfig file:\t\t\t$(TARGET_DIR)/$(DEFCONFIG_FILE);" >> $(HV_CFG_LOG); \
 	fi; \
-	echo -e "\tOthers are set by default in:\t$(T)/hypervisor/arch/x86/Kconfig;" >> $(HV_CFG_LOG); \
-	echo -e "VM configuration is based on:" >> $(HV_CFG_LOG); \
+	echo "\tOthers are set by default in:\t$(T)/hypervisor/arch/x86/Kconfig;" >> $(HV_CFG_LOG); \
+	echo "VM configuration is based on:" >> $(HV_CFG_LOG); \
 	if [ "$(CONFIG_XML_ENABLED)" = "true" ]; then \
-		echo -e "\tBOARD File:\t\t$(BOARD_FILE);\n\t\tSCENARIO File:\t$(SCENARIO_FILE);" >> $(HV_CFG_LOG); \
+		echo "\tBOARD File:\t\t$(BOARD_FILE);\n\t\tSCENARIO File:\t$(SCENARIO_FILE);" >> $(HV_CFG_LOG); \
 	elif [ "$(TARGET_DIR)" = "" ]; then \
-		echo -e "\tSource code at:\t\t\t$(VM_CONFIGS_DIR)" >> $(HV_CFG_LOG); \
+		echo "\tSource code at:\t\t\t$(VM_CONFIGS_DIR)" >> $(HV_CFG_LOG); \
 	else \
-		echo -e "\tSource code at:\t\t\t$(TARGET_DIR)" >> $(HV_CFG_LOG); \
+		echo "\tSource code at:\t\t\t$(TARGET_DIR)" >> $(HV_CFG_LOG); \
 	fi;
 	@cat $(HV_CFG_LOG)
 
@@ -217,40 +194,34 @@ clean:
 install: hypervisor-install devicemodel-install tools-install
 
 hypervisor-install:
-	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT) BOARD=$(BOARD) FIRMWARE=$(FIRMWARE) SCENARIO=$(SCENARIO) RELEASE=$(RELEASE) install
-ifeq ($(FIRMWARE),uefi)
-	$(MAKE) -C $(T)/misc/efi-stub HV_OBJDIR=$(HV_OUT) BOARD=$(BOARD) FIRMWARE=$(FIRMWARE) SCENARIO=$(SCENARIO) EFI_OBJDIR=$(HV_OUT)/$(EFI_OUT) all install
-endif
+	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT) BOARD=$(BOARD) SCENARIO=$(SCENARIO) RELEASE=$(RELEASE) install
 
 hypervisor-install-debug:
-	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT) BOARD=$(BOARD) FIRMWARE=$(FIRMWARE) SCENARIO=$(SCENARIO) RELEASE=$(RELEASE) install-debug
-ifeq ($(FIRMWARE),uefi)
-	$(MAKE) -C $(T)/misc/efi-stub HV_OBJDIR=$(HV_OUT) BOARD=$(BOARD) FIRMWARE=$(FIRMWARE) SCENARIO=$(SCENARIO) EFI_OBJDIR=$(HV_OUT)/$(EFI_OUT) all install-debug
-endif
+	$(MAKE) -C $(T)/hypervisor HV_OBJDIR=$(HV_OUT) BOARD=$(BOARD) SCENARIO=$(SCENARIO) RELEASE=$(RELEASE) install-debug
 
-kbl-nuc-i7-uefi-industry:
-	$(call build_acrn,uefi,nuc7i7dnb,industry)
-apl-up2-uefi-hybrid:
-	$(call build_acrn,uefi,apl-up2,hybrid)
+kbl-nuc-i7-industry:
+	$(call build_acrn,nuc7i7dnb,industry)
+apl-up2-hybrid:
+	$(call build_acrn,apl-up2,hybrid)
 
-sbl-hypervisor: kbl-nuc-i7-uefi-industry \
-                apl-up2-uefi-hybrid
+sbl-hypervisor: kbl-nuc-i7-industry \
+                apl-up2-hybrid
 
-kbl-nuc-i7-uefi-industry-install:
-	$(call install_acrn,uefi,nuc7i7dnb,industry)
-apl-up2-uefi-hybrid-install:
-	$(call install_acrn,uefi,apl-up2,hybrid)
+kbl-nuc-i7-industry-install:
+	$(call install_acrn,nuc7i7dnb,industry)
+apl-up2-hybrid-install:
+	$(call install_acrn,apl-up2,hybrid)
 
-sbl-hypervisor-install: kbl-nuc-i7-uefi-industry-install \
-                        apl-up2-uefi-hybrid-install
+sbl-hypervisor-install: kbl-nuc-i7-industry-install \
+                        apl-up2-hybrid-install
 
-kbl-nuc-i7-uefi-industry-install-debug:
-	$(call install_acrn_debug,uefi,nuc7i7dnb,industry)
-apl-up2-uefi-hybrid-install-debug:
-	$(call install_acrn_debug,uefi,apl-up2,hybrid)
+kbl-nuc-i7-industry-install-debug:
+	$(call install_acrn_debug,nuc7i7dnb,industry)
+apl-up2-hybrid-install-debug:
+	$(call install_acrn_debug,apl-up2,hybrid)
 
-sbl-hypervisor-install-debug: kbl-nuc-i7-uefi-industry-install-debug \
-			      apl-up2-uefi-hybrid-install-debug
+sbl-hypervisor-install-debug: kbl-nuc-i7-industry-install-debug \
+			      apl-up2-hybrid-install-debug
 
 devicemodel-install:
 	$(MAKE) -C $(T)/devicemodel DM_OBJDIR=$(DM_OUT) install

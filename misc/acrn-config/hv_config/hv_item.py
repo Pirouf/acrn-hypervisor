@@ -86,15 +86,12 @@ class MisCfg:
     def __init__(self, hv_file):
         self.hv_file = hv_file
         self.gpu_sbdf = 0
-        self.uefi_os_loader_name = ''
 
     def get_info(self):
         self.gpu_sbdf =  common.get_hv_item_tag(self.hv_file, "MISC_CFG", "GPU_SBDF")
-        self.uefi_os_loader_name = common.get_hv_item_tag(self.hv_file, "MISC_CFG", "UEFI_OS_LOADER_NAME")
 
     def check_item(self):
         hv_cfg_lib.hv_size_check(self.gpu_sbdf, "MISC_CFG", "GPU_SBDF")
-        hv_cfg_lib.uefi_load_name_check(self.uefi_os_loader_name, "MISC_CFG", "UEFI_OS_LOADER_NAME")
 
 
 class Features:
@@ -112,6 +109,7 @@ class Features:
         self.acpi_parse_enabled = ''
         self.l1d_flush_vmentry_enabled = ''
         self.mce_on_psc_workaround_disabled = ''
+        self.psram_enabled = ''
 
     def get_info(self):
         self.multiboot2 = common.get_hv_item_tag(self.hv_file, "FEATURES", "MULTIBOOT2")
@@ -126,6 +124,7 @@ class Features:
         self.l1d_flush_vmentry_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "L1D_VMENTRY_ENABLED")
         self.mce_on_psc_workaround_disabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "MCE_ON_PSC_DISABLED")
         self.iommu_enforce_snp = common.get_hv_item_tag(self.hv_file, "FEATURES", "IOMMU_ENFORCE_SNP")
+        self.psram_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "PSRAM", "PSRAM_ENABLED")
 
     def check_item(self):
         hv_cfg_lib.ny_support_check(self.multiboot2, "FEATURES", "MULTIBOOT2")
@@ -140,6 +139,8 @@ class Features:
         hv_cfg_lib.ny_support_check(self.l1d_flush_vmentry_enabled, "FEATURES", "L1D_VMENTRY_ENABLED")
         hv_cfg_lib.ny_support_check(self.mce_on_psc_workaround_disabled, "FEATURES", "MCE_ON_PSC_DISABLED")
         hv_cfg_lib.ny_support_check(self.iommu_enforce_snp, "FEATURES", "IOMMU_ENFORCE_SNP")
+        # hv_cfg_lib.ny_support_check(self.psram_enabled, "FEATURES", "PSRAM", "PSRAM_ENABLED")
+        hv_cfg_lib.hv_psram_check(self.psram_enabled, self.cdp_enabled, "FEATURES", "PSRAM", "PSRAM_ENABLED")
 
 
 class Memory:

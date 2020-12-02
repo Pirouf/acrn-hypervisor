@@ -78,15 +78,21 @@ struct acrn_vuart {
 	bool active;
 	struct acrn_vuart *target_vu; /* Pointer to target vuart */
 	struct acrn_vm *vm;
+	struct pci_vdev *vdev;	/* pci vuart */
 	spinlock_t lock;	/* protects all softc elements */
 };
 
-void init_vuart(struct acrn_vm *vm, const struct vuart_config *vu_config);
-void deinit_vuart(struct acrn_vm *vm);
+void init_legacy_vuarts(struct acrn_vm *vm, const struct vuart_config *vu_config);
+void deinit_legacy_vuarts(struct acrn_vm *vm);
+void init_pci_vuart(struct pci_vdev *vdev);
+void deinit_pci_vuart(struct pci_vdev *vdev);
 
 void vuart_putchar(struct acrn_vuart *vu, char ch);
 char vuart_getchar(struct acrn_vuart *vu);
 void vuart_toggle_intr(const struct acrn_vuart *vu);
 
 bool is_vuart_intx(const struct acrn_vm *vm, uint32_t intx_gsi);
+
+uint8_t vuart_read_reg(struct acrn_vuart *vu, uint16_t offset);
+void vuart_write_reg(struct acrn_vuart *vu, uint16_t offset, uint8_t value);
 #endif /* VUART_H */

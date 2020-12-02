@@ -9,6 +9,7 @@ import os, re, argparse, shutil
 import xml.etree.ElementTree as ElementTree
 from acpi_const import *
 import board_cfg_lib
+import collections
 
 def calculate_checksum8():
     '''
@@ -50,6 +51,7 @@ def gen_xsdt(dest_vm_acpi_path, passthru_devices):
     p_mcfg_addr = r'ACPI Table Address   1 : ([0-9a-fA-F]{16})'
     p_madt_addr = r'ACPI Table Address   2 : ([0-9a-fA-F]{16})'
     p_tpm2_addr = r'ACPI Table Address   3 : ([0-9a-fA-F]{16})'
+    p_ptct_addr = r'ACPI Table Address   4 : ([0-9a-fA-F]{16})'
 
     with open(os.path.join(dest_vm_acpi_path, xsdt_asl), 'w') as dest:
         lines = []
@@ -64,6 +66,9 @@ def gen_xsdt(dest_vm_acpi_path, passthru_devices):
                 elif re.search(p_tpm2_addr, line):
                     if 'TPM2' in passthru_devices:
                         lines.append(re.sub(p_tpm2_addr, 'ACPI Table Address   3 : {0:016X}'.format(ACPI_TPM2_ADDR), line))
+                elif re.search(p_ptct_addr, line):
+                    if 'PTCT' in passthru_devices:
+                        lines.append(re.sub(p_ptct_addr, 'ACPI Table Address   4 : {0:016X}'.format(ACPI_PTCT_ADDR), line))
                 else:
                     lines.append(line)
 
@@ -80,24 +85,6 @@ def gen_fadt(dest_vm_acpi_path, board_root):
     fadt_asl = 'facp.asl'
     p_facs_addr = r'FACS Address : ([0-9a-fA-F]{8})'
     p_dsdt_addr = r'DSDT Address : ([0-9a-fA-F]{8})$'
-    p_pm1a_event_block_addr = r'PM1A Event Block Address : (\d+)'
-    p_pm1a_control_block_addr = r'PM1A Control Block Address : (\d+)'
-    p_pm1_event_length = r'PM1 Event Block Length : (\d+)'
-    p_pm1_control_length = r'PM1 Control Block Length : (\d+)'
-    p_flasg = r'      Flags (decoded below) : (\d+)'
-
-    PM1A_EVT_ADDRESS = 0x0
-    PM1A_CNT_ADDRESS = 0x0
-    e_pm_info = board_root.find('PM_INFO')
-    for line in e_pm_info.text.split('\n'):
-        s = re.search(r'#define PM1A_EVT_ADDRESS        (0x\d+)UL', line)
-        if s is not None and len(s.groups()) > 0:
-            PM1A_EVT_ADDRESS = int(s.groups()[0], 16)
-            continue
-        s = re.search(r'#define PM1A_CNT_ADDRESS        (0x\d+)UL', line)
-        if s is not None and len(s.groups()) > 0:
-            PM1A_CNT_ADDRESS = int(s.groups()[0], 16)
-            continue
 
     with open(os.path.join(dest_vm_acpi_path, fadt_asl), 'w') as dest:
         lines = []
@@ -107,16 +94,6 @@ def gen_fadt(dest_vm_acpi_path, board_root):
                     lines.append(re.sub(p_facs_addr, 'FACS Address : {0:08X}'.format(ACPI_FACS_ADDR), line))
                 elif re.search(p_dsdt_addr, line):
                     lines.append(re.sub(p_dsdt_addr, 'DSDT Address : {0:08X}'.format(ACPI_DSDT_ADDR), line))
-                elif re.search(p_pm1a_event_block_addr, line):
-                    lines.append(re.sub(p_pm1a_event_block_addr, 'PM1A Event Block Address : {0:08X}'.format(PM1A_EVT_ADDRESS), line))
-                elif re.search(p_pm1a_control_block_addr, line):
-                    lines.append(re.sub(p_pm1a_control_block_addr, 'PM1A Control Block Address : {0:08X}'.format(PM1A_CNT_ADDRESS), line))
-                elif re.search(p_pm1_event_length, line):
-                    lines.append(re.sub(p_pm1_event_length, 'PM1 Event Block Length : {0:02X}'.format(PM1A_EVN_LEN), line))
-                elif re.search(p_pm1_control_length, line):
-                    lines.append(re.sub(p_pm1_control_length, 'PM1 Control Block Length : {0:02X}'.format(PM1A_CNT_LEN), line))
-                elif re.search(p_flasg, line):
-                    lines.append(re.sub(p_flasg, 'Flags (decoded below) : {0:08X}'.format(FADT_FLAGS), line))
                 else:
                     lines.append(line)
         dest.writelines(lines)
@@ -434,8 +411,8 @@ def main(args):
             if config.startswith('VM') and os.path.isdir(os.path.join(DEST_ACPI_PATH, config)):
                 shutil.rmtree(os.path.join(DEST_ACPI_PATH, config))
 
-    dict_passthru_devices = {}
-    dict_vcpu_list = {}
+    dict_passthru_devices = collections.OrderedDict()
+    dict_vcpu_list = collections.OrderedDict()
     for vm in scenario_root.findall('vm'):
         vm_id = vm.attrib['id']
         vm_type_node = vm.find('vm_type')
@@ -454,11 +431,35 @@ def main(args):
                 if pcpu_id is not None and pcpu_id.text.strip() in pcpu_list:
                     dict_vcpu_list[vm_id].append(pcpu_id)
 
+    PASSTHROUGH_PTCT = False
+    PRELAUNCHED_RTVM_ID = None
+    try:
+        if scenario_root.find('hv/FEATURES/PSRAM/PSRAM_ENABLED').text.strip() == 'y':
+            PASSTHROUGH_PTCT = True
+        for vm in scenario_root.findall('vm'):
+            vm_id = vm.attrib['id']
+            vm_type_node = vm.find('vm_type')
+            if (vm_type_node is not None) and (vm_type_node.text in ['PRE_RT_VM']):
+                PRELAUNCHED_RTVM_ID = vm_id
+                break
+    except:
+        PASSTHROUGH_PTCT = False
+
+    kern_args = common.get_leaf_tag_map(scenario, "os_config", "bootargs")
     for vm_id, passthru_devices in dict_passthru_devices.items():
+        if kern_args[int(vm_id)].find('reboot=acpi') == -1:
+            emsg = "you need to specify 'reboot=acpi' in scenario file's bootargs for VM{}".format(vm_id)
+            print(emsg)
+            err_dic['vm,bootargs'] = emsg
+            break
+
         print('start to generate ACPI ASL code for VM{}'.format(vm_id))
         dest_vm_acpi_path = os.path.join(DEST_ACPI_PATH, 'VM'+vm_id)
         if not os.path.isdir(dest_vm_acpi_path):
             os.makedirs(dest_vm_acpi_path)
+        if PASSTHROUGH_PTCT is True and vm_id == PRELAUNCHED_RTVM_ID:
+            passthru_devices.append(PTCT)
+            shutil.copy(os.path.join(VM_CONFIGS_PATH, 'acpi', board_type, PTCT), dest_vm_acpi_path)
         gen_rsdp(dest_vm_acpi_path)
         gen_xsdt(dest_vm_acpi_path, passthru_devices)
         gen_fadt(dest_vm_acpi_path, board_root)

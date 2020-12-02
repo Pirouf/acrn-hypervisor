@@ -194,9 +194,9 @@ void enable_smap(void)
 }
 
 /*
- * Update memory pages to be owned by hypervisor.
+ * Clean USER bit in page table to update memory pages to be owned by hypervisor.
  */
-void hv_access_memory_region_update(uint64_t base, uint64_t size)
+void ppt_clear_user_bit(uint64_t base, uint64_t size)
 {
 	uint64_t base_aligned;
 	uint64_t size_aligned;
@@ -208,6 +208,21 @@ void hv_access_memory_region_update(uint64_t base, uint64_t size)
 
 	mmu_modify_or_del((uint64_t *)ppt_mmu_pml4_addr, base_aligned,
 		round_pde_up(size_aligned), 0UL, PAGE_USER, &ppt_mem_ops, MR_MODIFY);
+}
+
+void ppt_set_nx_bit(uint64_t base, uint64_t size, bool add)
+{
+	uint64_t region_end = base + size;
+	uint64_t base_aligned = round_pde_down(base);
+	uint64_t size_aligned = round_pde_up(region_end - base_aligned);
+
+	if (add) {
+		mmu_modify_or_del((uint64_t *)ppt_mmu_pml4_addr,
+			base_aligned, size_aligned, PAGE_NX, 0UL, &ppt_mem_ops, MR_MODIFY);
+	} else {
+		mmu_modify_or_del((uint64_t *)ppt_mmu_pml4_addr,
+			base_aligned, size_aligned, 0UL, PAGE_NX, &ppt_mem_ops, MR_MODIFY);
+	}
 }
 
 void init_paging(void)

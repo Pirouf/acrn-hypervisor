@@ -81,6 +81,8 @@ char *vmname;
 char *guest_uuid_str;
 char *vsbl_file_name;
 char *ovmf_file_name;
+char *ovmf_code_file_name;
+char *ovmf_vars_file_name;
 char *kernel_file_name;
 char *elf_file_name;
 uint8_t trusty_enabled;
@@ -89,6 +91,7 @@ bool stdio_in_use;
 bool lapic_pt;
 bool is_rtvm;
 bool pt_tpm2;
+bool pt_ptct;
 bool is_winvm;
 bool skip_pci_mem64bar_workaround = false;
 
@@ -142,8 +145,9 @@ usage(int code)
 		"       %*s [--part_info part_info_name] [--enable_trusty] [--intr_monitor param_setting]\n"
 		"       %*s [--acpidev_pt HID] [--mmiodev_pt MMIO_Regions]\n"
 		"       %*s [--vtpm2 sock_path] [--virtio_poll interval] [--mac_seed seed_string]\n"
-		"       %*s [--vmcfg sub_options] [--dump vm_idx] [--debugexit] \n"
-		"       %*s [--logger-setting param_setting] [--pm_notify_channel]\n"
+		"       %*s [--cpu_affinity pCPUs] [--lapic_pt] [--rtvm] [--windows]\n"
+		"       %*s [--debugexit] [--logger-setting param_setting] [--pm_notify_channel]\n"
+		"       %*s [--psram]\n"
 		"       %*s [--pm_by_vuart vuart_node] <vm>\n"
 		"       -A: create ACPI tables\n"
 		"       -B: bootargs for kernel\n"
@@ -161,11 +165,8 @@ usage(int code)
 		"       -W: force virtio to use single-vector MSI\n"
 		"       -Y: disable MPtable generation\n"
 		"       --mac_seed: set a platform unique string as a seed for generate mac address\n"
-#ifdef CONFIG_VM_CFG
-		"       --vmcfg: build-in VM configurations\n"
-		"       --dump: show build-in VM configurations\n"
-#endif
 		"       --vsbl: vsbl file path\n"
+		"       --psram: Enable pSRAM passthrough\n"
 		"       --ovmf: ovmf file path\n"
 		"       --cpu_affinity: list of pCPUs assigned to this VM\n"
 		"       --part_info: guest partition info file path\n"
@@ -184,7 +185,7 @@ usage(int code)
 		"       --pm_by_vuart:pty,/run/acrn/vuart_vmname or tty,/dev/ttySn\n"
 		"       --windows: support Oracle virtio-blk, virtio-net and virtio-input devices\n"
 		"            for windows guest with secure boot\n",
-		progname, (int)strnlen(progname, PATH_MAX), "",
+		progname, (int)strnlen(progname, PATH_MAX), "", (int)strnlen(progname, PATH_MAX), "",
 		(int)strnlen(progname, PATH_MAX), "", (int)strnlen(progname, PATH_MAX), "",
 		(int)strnlen(progname, PATH_MAX), "", (int)strnlen(progname, PATH_MAX), "",
 		(int)strnlen(progname, PATH_MAX), "", (int)strnlen(progname, PATH_MAX), "",
@@ -227,10 +228,7 @@ virtio_uses_msix(void)
 size_t
 high_bios_size(void)
 {
-	size_t size = 0;
-
-	if (ovmf_file_name)
-		size = ovmf_image_size();
+	size_t size = ovmf_image_size();
 
 	return roundup2(size, 2 * MB);
 }
@@ -749,6 +747,7 @@ enum {
 	CMD_OPT_VTPM2,
 	CMD_OPT_LAPIC_PT,
 	CMD_OPT_RTVM,
+	CMD_OPT_PSRAM,
 	CMD_OPT_LOGGER_SETTING,
 	CMD_OPT_PM_NOTIFY_CHANNEL,
 	CMD_OPT_PM_BY_VUART,
@@ -785,11 +784,12 @@ static struct option long_options[] = {
 	{"mac_seed",		required_argument,	0, CMD_OPT_MAC_SEED},
 	{"debugexit",		no_argument,		0, CMD_OPT_DEBUGEXIT},
 	{"intr_monitor",	required_argument,	0, CMD_OPT_INTR_MONITOR},
-	{"apcidev_pt",		required_argument,	0, CMD_OPT_ACPIDEV_PT},
+	{"acpidev_pt",		required_argument,	0, CMD_OPT_ACPIDEV_PT},
 	{"mmiodev_pt",		required_argument,	0, CMD_OPT_MMIODEV_PT},
 	{"vtpm2",		required_argument,	0, CMD_OPT_VTPM2},
 	{"lapic_pt",		no_argument,		0, CMD_OPT_LAPIC_PT},
 	{"rtvm",		no_argument,		0, CMD_OPT_RTVM},
+	{"psram",		no_argument,		0, CMD_OPT_PSRAM},
 	{"logger_setting",	required_argument,	0, CMD_OPT_LOGGER_SETTING},
 	{"pm_notify_channel",	required_argument,	0, CMD_OPT_PM_NOTIFY_CHANNEL},
 	{"pm_by_vuart",	required_argument,	0, CMD_OPT_PM_BY_VUART},
@@ -932,6 +932,10 @@ main(int argc, char *argv[])
 			break;
 		case CMD_OPT_RTVM:
 			is_rtvm = true;
+			break;
+		case CMD_OPT_PSRAM:
+			/* TODO: we need to support parameter to specify pSRAM size in the future */
+			pt_ptct = true;
 			break;
 		case CMD_OPT_ACPIDEV_PT:
 			if (parse_pt_acpidev(optarg) != 0)

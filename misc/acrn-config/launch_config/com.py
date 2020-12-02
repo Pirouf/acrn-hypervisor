@@ -587,8 +587,10 @@ def dm_arg_set(names, sel, virt_io, dm, vmid, config):
                 err_key = "uos:id={}:poweroff_channel".format(vmid)
                 launch_cfg_lib.ERR_LIST[err_key] = "vuart1 of VM{} in scenario file should select 'SOS_COM2_BASE'".format(sos_vmid + vmid)
                 return
-        scenario_cfg_lib.get_sos_vuart_settings()
-        print("   {} \\".format(launch_cfg_lib.PM_CHANNEL_DIC[pm_key] + scenario_cfg_lib.SOS_UART1_VALID_NUM), file=config)
+            scenario_cfg_lib.get_sos_vuart_settings()
+            print("   {} \\".format(launch_cfg_lib.PM_CHANNEL_DIC[pm_key] + scenario_cfg_lib.SOS_UART1_VALID_NUM), file=config)
+        else:
+            print("   {} \\".format(launch_cfg_lib.PM_CHANNEL_DIC[pm_key]), file=config)
 
     # set logger_setting for all VMs
     print("   $logger_setting \\", file=config)
@@ -624,8 +626,6 @@ def dm_arg_set(names, sel, virt_io, dm, vmid, config):
         print("   -l com1,stdio \\", file=config)
 
     if launch_cfg_lib.is_linux_like(uos_type) or uos_type in ("ANDROID", "ALIOS"):
-        if uos_type != "PREEMPT-RT LINUX":
-            print("   -s {},virtio-hyper_dmabuf \\".format(launch_cfg_lib.virtual_dev_slot("virtio-hyper_dmabuf")), file=config)
         if board_name == "apl-mrb":
             print("   -i /run/acrn/ioc_$vm_name,0x20 \\", file=config)
             print("   -l com2,/run/acrn/ioc_$vm_name \\", file=config)
@@ -634,6 +634,16 @@ def dm_arg_set(names, sel, virt_io, dm, vmid, config):
             print("   -s {},wdt-i6300esb \\".format(launch_cfg_lib.virtual_dev_slot("wdt-i6300esb")), file=config)
 
     set_dm_pt(names, sel, vmid, config)
+
+    if dm['console_vuart'][vmid] == "Enable":
+        print("   -s {},uart,vuart_idx:0 \\".format(launch_cfg_lib.virtual_dev_slot("console_vuart")), file=config)
+    for vuart_id in dm["communication_vuarts"][vmid]:
+        if not vuart_id:
+            break
+        print("   -s {},uart,vuart_idx:{} \\".format(
+            launch_cfg_lib.virtual_dev_slot("communication_vuart_{}".format(vuart_id)), vuart_id), file=config)
+
+
     print("   $vm_name", file=config)
     print("}", file=config)
 

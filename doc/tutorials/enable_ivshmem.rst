@@ -7,7 +7,7 @@ You can use inter-VM communication based on the ``ivshmem`` dm-land
 solution or hv-land solution, according to the usage scenario needs.
 (See :ref:`ivshmem-hld` for a high-level description of these solutions.)
 While both solutions can be used at the same time, VMs using different
-solutions can not communicate with each other.
+solutions cannot communicate with each other.
 
 ivshmem dm-land usage
 *********************
@@ -50,21 +50,47 @@ enable it using the  :ref:`acrn_configuration_tool` with these steps:
      communication VMs in ACRN scenario XML configuration. The ``IVSHMEM_REGION``
      format is ``shm_name,shm_size,VM IDs``:
 
-	-  ``shm_name`` - Specify a shared memory name. The name needs to start
-	   with the ``hv:/`` prefix. For example, ``hv:/shm_region_0``
+     -  ``shm_name`` - Specify a shared memory name. The name needs to start
+        with the ``hv:/`` prefix. For example, ``hv:/shm_region_0``
 
-	-  ``shm_size`` - Specify a shared memory size. The unit is megabyte. The
-	   size ranges from 2 megabytes to 512 megabytes and must be a power of 2 megabytes.
-	   For example, to set up a shared memory of 2 megabytes, use ``2``
-	   instead of ``shm_size``.
+     -  ``shm_size`` - Specify a shared memory size. The unit is megabyte. The
+        size ranges from 2 megabytes to 512 megabytes and must be a power of 2 megabytes.
+        For example, to set up a shared memory of 2 megabytes, use ``2``
+        instead of ``shm_size``.
 
-	-  ``VM IDs``   - Specify the VM IDs to use the same shared memory
-	   communication and separate it with ``:``. For example, the
-	   communication between VM0 and VM2, it can be written as ``0:2``
+     -  ``VM IDs``   - Specify the VM IDs to use the same shared memory
+        communication and separate it with ``:``. For example, the
+        communication between VM0 and VM2, it can be written as ``0:2``
 
    .. note:: You can define up to eight ``ivshmem`` hv-land shared regions.
 
 - Build the XML configuration, refer to :ref:`getting-started-building`
+
+ivshmem notification mechanism
+******************************
+
+Notification (doorbell) of ivshmem device allows VMs with ivshmem
+devices enabled to notify (interrupt) each other following this flow:
+
+Notification Sender (VM):
+   VM triggers the notification to target VM by writing target Peer ID
+   (Equals to VM ID of target VM) and vector index to doorbell register of
+   ivshmem device, the layout of doorbell register is described in
+   :ref:`ivshmem-hld`.
+
+Hypervisor:
+   When doorbell register is programmed, hypervisor will search the
+   target VM by target Peer ID and inject MSI interrupt to the target VM.
+
+Notification Receiver (VM):
+   VM receives MSI interrupt and forward it to related application.
+
+ACRN supports up to 8 (MSI-X) interrupt vectors for ivshmem device.
+Guest VMs shall implement their own mechanism to forward MSI interrupts
+to applications.
+
+.. note:: Notification is supported only for HV-land ivshmem devices. (Future
+   support may include notification for DM-land ivshmem devices.)
 
 Inter-VM Communication Examples
 *******************************
@@ -75,7 +101,8 @@ dm-land example
 This example uses dm-land inter-VM communication between two
 Linux-based post-launched VMs (VM1 and VM2).
 
-.. note:: An ``ivshmem`` Windows driver exists and can be found `here <https://github.com/virtio-win/kvm-guest-drivers-windows/tree/master/ivshmem>`_
+.. note:: An ``ivshmem`` Windows driver exists and can be found
+   `here <https://github.com/virtio-win/kvm-guest-drivers-windows/tree/master/ivshmem>`_.
 
 1. Add a new virtual PCI device for both VMs: the device type is
    ``ivshmem``, shared memory name is ``dm:/test``, and shared memory
@@ -168,5 +195,22 @@ Linux-based VMs (VM0 is a pre-launched VM and VM2 is a post-launched VM).
 	make BOARD_FILE=acrn-hypervisor/misc/vm_configs/xmls/board-xmls/whl-ipc-i5.xml \
 	SCENARIO_FILE=acrn-hypervisor/misc/vm_configs/xmls/config-xmls/whl-ipc-i5/hybrid_rt.xml TARGET_DIR=xxx
 
-3. Continue following the dm-land steps 2-4 and the ``ivshmem`` device BDF may be different
+3. Add a new virtual PCI device for VM2 (post-launched VM): the device type is
+   ``ivshmem``, shared memory name is ``hv:/shm_region_0``, and shared memory
+   size is 2MB.
+
+   - VM2 Launch Script Sample
+
+     .. code-block:: none
+        :emphasize-lines: 5
+
+        acrn-dm -A -m $mem_size -s 0:0,hostbridge \
+         -s 2,pci-gvt -G "$2" \
+         -s 3,virtio-blk,/home/acrn/uos2.img \
+         -s 4,virtio-net,tap0 \
+         -s 5,ivshmem,hv:/shm_region_0,2 \
+         --ovmf /usr/share/acrn/bios/OVMF.fd \
+         $vm_name
+
+4. Continue following the dm-land steps 2-4 and the ``ivshmem`` device BDF may be different
    depending on the configuration.

@@ -206,13 +206,13 @@ endif
 
 # platform boot component
 BOOT_S_SRCS += arch/x86/boot/cpu_primary.S
-BOOT_S_SRCS += arch/x86/boot/cpu_save_boot_ctx.S
 BOOT_S_SRCS += arch/x86/boot/trampoline.S
 BOOT_C_SRCS += boot/multiboot.c
 ifeq ($(CONFIG_MULTIBOOT2),y)
 BOOT_C_SRCS += boot/multiboot2.c
 endif
 BOOT_C_SRCS += boot/reloc.c
+BOOT_C_SRCS += arch/x86/ptcm.c
 
 # hardware management component
 HW_S_SRCS += arch/x86/idt.S
@@ -261,9 +261,6 @@ ifeq ($(CONFIG_ACPI_PARSE_ENABLED),y)
 HW_C_SRCS += acpi_parser/dmar_parse.c
 HW_C_SRCS += acpi_parser/acpi_ext.c
 endif
-HW_C_SRCS += boot/guest/vboot_wrapper.c
-HW_C_SRCS += boot/guest/deprivilege_boot.c
-HW_C_SRCS += boot/guest/direct_boot.c
 
 # VM Configuration
 VM_CFG_C_SRCS += $(BOARD_INFO_DIR)/board.c
@@ -313,6 +310,7 @@ VP_DM_C_SRCS += dm/vpci/vmsi.c
 VP_DM_C_SRCS += dm/vpci/vmsix.c
 VP_DM_C_SRCS += dm/vpci/vmsix_on_msi.c
 VP_DM_C_SRCS += dm/vpci/vsriov.c
+VP_DM_C_SRCS += dm/vpci/vmcs9900.c
 VP_DM_C_SRCS += dm/mmio_dev.c
 VP_DM_C_SRCS += dm/vgpio.c
 VP_DM_C_SRCS += arch/x86/guest/vlapic.c
@@ -354,9 +352,7 @@ SYS_INIT_C_OBJS := $(patsubst %.c,$(HV_OBJDIR)/%.o,$(SYS_INIT_C_SRCS))
 ifneq ($(CONFIG_RELEASE),y)
 CFLAGS += -DHV_DEBUG -DPROFILING_ON -fno-omit-frame-pointer
 endif
-ifneq ($(FIRMWARE),uefi)
 CFLAGS += -DCONFIG_LAST_LEVEL_EPT_AT_BOOT
-endif
 
 MODULES += $(LIB_MOD)
 MODULES += $(BOOT_MOD)
@@ -385,15 +381,15 @@ PRE_BUILD_DIR := ../misc/hv_prebuild
 all: pre_build $(HV_OBJDIR)/$(HV_FILE).32.out $(HV_OBJDIR)/$(HV_FILE).bin
 
 install: $(HV_OBJDIR)/$(HV_FILE).32.out
-	install -D $(HV_OBJDIR)/$(HV_FILE).32.out $(DESTDIR)$(libdir)/acrn/$(HV_FILE).$(BOARD).$(FIRMWARE).$(SCENARIO).32.out
-	install -D $(HV_OBJDIR)/$(HV_FILE).bin $(DESTDIR)$(libdir)/acrn/$(HV_FILE).$(BOARD).$(FIRMWARE).$(SCENARIO).bin
+	install -D $(HV_OBJDIR)/$(HV_FILE).32.out $(DESTDIR)$(libdir)/acrn/$(HV_FILE).$(BOARD).$(SCENARIO).32.out
+	install -D $(HV_OBJDIR)/$(HV_FILE).bin $(DESTDIR)$(libdir)/acrn/$(HV_FILE).$(BOARD).$(SCENARIO).bin
 	@if [ -e "$(HV_OBJDIR)/acpi" ];then \
 		install -D $(HV_OBJDIR)/acpi/*.bin -t $(DESTDIR)$(libdir)/acrn/acpi/; \
 	fi
 
 install-debug: $(HV_OBJDIR)/$(HV_FILE).map $(HV_OBJDIR)/$(HV_FILE).out
-	install -D $(HV_OBJDIR)/$(HV_FILE).out $(DESTDIR)$(libdir)/acrn/$(HV_FILE).$(BOARD).$(FIRMWARE).$(SCENARIO).out
-	install -D $(HV_OBJDIR)/$(HV_FILE).map $(DESTDIR)$(libdir)/acrn/$(HV_FILE).$(BOARD).$(FIRMWARE).$(SCENARIO).map
+	install -D $(HV_OBJDIR)/$(HV_FILE).out $(DESTDIR)$(libdir)/acrn/$(HV_FILE).$(BOARD).$(SCENARIO).out
+	install -D $(HV_OBJDIR)/$(HV_FILE).map $(DESTDIR)$(libdir)/acrn/$(HV_FILE).$(BOARD).$(SCENARIO).map
 
 .PHONY: pre_build
 pre_build: $(HV_OBJDIR)/$(HV_CONFIG_H)

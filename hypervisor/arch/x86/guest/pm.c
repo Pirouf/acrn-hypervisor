@@ -150,20 +150,25 @@ static bool pm1ab_io_read(struct acrn_vcpu *vcpu, uint16_t addr, size_t width)
 	return true;
 }
 
-static inline void enter_s5(struct acrn_vm *vm, uint32_t pm1a_cnt_val, uint32_t pm1b_cnt_val)
+static inline void enter_s5(struct acrn_vcpu *vcpu, uint32_t pm1a_cnt_val, uint32_t pm1b_cnt_val)
 {
+	struct acrn_vm *vm = vcpu->vm;
+	uint16_t pcpu_id = pcpuid_from_vcpu(vcpu);
+
 	get_vm_lock(vm);
 	/*
-	 * It's possible that ACRN come here from SOS and pre-launched VM. Currently, we
-	 * assume SOS has full ACPI power management stack. That means the value from SOS
-	 * should be saved and used to shutdown the system.
+	 * Currently, we assume SOS has full ACPI power management stack.
+	 * That means the value from SOS should be saved and used to shut
+	 * down the system.
 	 */
 	if (is_sos_vm(vm)) {
 		save_s5_reg_val(pm1a_cnt_val, pm1b_cnt_val);
 	}
 	pause_vm(vm);
-	(void)shutdown_vm(vm);
 	put_vm_lock(vm);
+
+	bitmap_set_nolock(vm->vm_id, &per_cpu(shutdown_vm_bitmap, pcpu_id));
+	make_shutdown_vm_request(pcpu_id);
 }
 
 static inline void enter_s3(struct acrn_vm *vm, uint32_t pm1a_cnt_val, uint32_t pm1b_cnt_val)
@@ -206,7 +211,7 @@ static bool pm1ab_io_write(struct acrn_vcpu *vcpu, uint16_t addr, size_t width, 
 				if (vm->pm.sx_state_data->s3_pkg.val_pm1a == val) {
 					enter_s3(vm, v, 0U);
 				} else if (vm->pm.sx_state_data->s5_pkg.val_pm1a == val) {
-					enter_s5(vm, v, 0U);
+					enter_s5(vcpu, v, 0U);
 				}
 			}
 
@@ -220,7 +225,7 @@ static bool pm1ab_io_write(struct acrn_vcpu *vcpu, uint16_t addr, size_t width, 
 				if (vm->pm.sx_state_data->s3_pkg.val_pm1b == val) {
 					enter_s3(vm, pm1a_cnt_val, v);
 				} else if (vm->pm.sx_state_data->s5_pkg.val_pm1b == val) {
-					enter_s5(vm, pm1a_cnt_val, v);
+					enter_s5(vcpu, pm1a_cnt_val, v);
 				}
 			} else {
 				/* the case broke ACPI spec */
@@ -286,7 +291,7 @@ static bool rt_vm_pm1a_io_write(struct acrn_vcpu *vcpu, uint16_t addr, size_t wi
 		pr_dbg("Invalid address (0x%x) or width (0x%x)", addr, width);
 	} else {
 		if ((((v & VIRTUAL_PM1A_SLP_EN) != 0U) && (((v & VIRTUAL_PM1A_SLP_TYP) >> 10U) == 5U)) != 0U) {
-			vcpu->vm->state = VM_READY_TO_POWEROFF;
+			poweroff_if_rt_vm(vcpu->vm);
 		}
 	}
 
@@ -304,8 +309,86 @@ static void register_rt_vm_pm1a_ctl_handler(struct acrn_vm *vm)
 					&rt_vm_pm1a_io_read, &rt_vm_pm1a_io_write);
 }
 
+/*
+ * @pre vcpu != NULL
+ */
+static bool prelaunched_vm_sleep_io_read(struct acrn_vcpu *vcpu, __unused uint16_t addr, __unused size_t width)
+{
+	vcpu->req.reqs.pio.value = 0U;
+
+	return true;
+}
+
+/*
+ * @pre vcpu != NULL
+ * @pre vcpu->vm != NULL
+ */
+static bool prelaunched_vm_sleep_io_write(struct acrn_vcpu *vcpu, uint16_t addr, size_t width, uint32_t v)
+{
+	if ((width == 1U) && (addr == VIRTUAL_SLEEP_CTL_ADDR)) {
+		bool slp_en;
+		uint32_t slp_type;
+		struct acrn_vm *vm = vcpu->vm;
+
+		/* ACPI sleep control register:
+		 *
+		 * Bits 2~4: SLP_TYPx, defines the type of sleeping state the system enters when the
+		 * SLP_EN bit is set to one. This 3-bit field defines the type of hardware sleep state
+		 * the system enters when the SLP_EN bit is set. The \_S5 object contains 3-bit binary
+		 * value (0x5) associated with the S5 sleeping state
+		 *
+		 * Bit 5: SLP_EN, This is a write-only bit and reads to it always return a zero. Setting
+		 * this bit causes the system to sequence into the sleeping state associated with the
+		 * SLP_TYPx fields programmed with the values from the \_S5 object
+		 */
+		slp_type = (v >> 2U) & 0x7U;
+		slp_en  = (v >> 5U) & 0x1U;
+
+		if (slp_en && (slp_type == 5U)) {
+			get_vm_lock(vm);
+			poweroff_if_rt_vm(vm);
+			pause_vm(vm);
+			put_vm_lock(vm);
+
+			bitmap_set_nolock(vm->vm_id, &per_cpu(shutdown_vm_bitmap, pcpuid_from_vcpu(vcpu)));
+			make_shutdown_vm_request(pcpuid_from_vcpu(vcpu));
+		}
+	}
+
+	return true;
+}
+
+static void register_prelaunched_vm_sleep_handler(struct acrn_vm *vm)
+{
+	struct vm_io_range io_range;
+
+	/* ACPI reduced HW mode is used for pre-launched VM
+	 *
+	 * The optional ACPI sleep registers (SLEEP_CONTROL_REG and SLEEP_STATUS_REG) specify
+	 * a standard mechanism for system sleep state entry on HW-Reduced ACPI systems. When
+	 * implemented, the Sleep registers are a replacement for the SLP_TYP, SLP_EN and WAK_STS
+	 * registers in the PM1_BLK.
+	 */
+	io_range.base = VIRTUAL_SLEEP_CTL_ADDR;
+	io_range.len = 2U;
+
+	register_pio_emulation_handler(vm, SLEEP_CTL_PIO_IDX, &io_range,
+					&prelaunched_vm_sleep_io_read, &prelaunched_vm_sleep_io_write);
+}
+
 void init_guest_pm(struct acrn_vm *vm)
 {
+	struct pm_s_state_data *sx_data = get_host_sstate_data();
+
+	/*
+	 * In enter_s5(), it will call save_s5_reg_val() to initialize system_pm1a_cnt_val/system_pm1b_cnt_val when the
+	 * vm is SOS.
+	 * If there is no SOS, save_s5_reg_val() will not be called and these 2 variables will not be initialized properly
+	 * so shutdown_system() will fail, explicitly init here to avoid this
+	 */
+	save_s5_reg_val((sx_data->s5_pkg.val_pm1a << BIT_SLP_TYPx) | (1U << BIT_SLP_EN),
+		(sx_data->s5_pkg.val_pm1b << BIT_SLP_TYPx) | (1U << BIT_SLP_EN));
+
 	vm_setup_cpu_state(vm);
 
 	if (is_sos_vm(vm)) {
@@ -313,10 +396,11 @@ void init_guest_pm(struct acrn_vm *vm)
 		if (vm_load_pm_s_state(vm) == 0) {
 			register_pm1ab_handler(vm);
 		}
-	}
-
-	/* Intercept the virtual pm port for RTVM */
-	if (is_rt_vm(vm)) {
+	} else if (is_postlaunched_vm(vm) && is_rt_vm(vm)) {
+		/* Intercept the virtual pm port for post launched RTVM */
 		register_rt_vm_pm1a_ctl_handler(vm);
+	} else if (is_prelaunched_vm(vm)) {
+		/* Intercept the virtual sleep control/status registers for pre-launched VM */
+		register_prelaunched_vm_sleep_handler(vm);
 	}
 }

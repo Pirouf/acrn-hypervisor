@@ -33,6 +33,15 @@
 #include <list.h>
 #include <pci.h>
 
+/*
+ * For hypervisor emulated PCI devices, vMSIX Table contains 128 entries
+ * at most. vMSIX Table begins at an offset of 0, and maps the vMSIX PBA
+ * beginning at an offset of 2 KB.
+ */
+#define VMSIX_MAX_TABLE_ENTRY_NUM  128U
+#define VMSIX_MAX_ENTRY_TABLE_SIZE 2048U
+#define VMSIX_ENTRY_TABLE_PBA_BAR_SIZE 4096U
+
 static inline struct acrn_vm *vpci2vm(const struct acrn_vpci *vpci)
 {
 	return container_of(vpci, struct acrn_vm, vpci);
@@ -62,6 +71,14 @@ static inline bool has_msix_cap(const struct pci_vdev *vdev)
 static inline bool msixcap_access(const struct pci_vdev *vdev, uint32_t offset)
 {
 	return (has_msix_cap(vdev) && in_range(offset, vdev->msix.capoff, vdev->msix.caplen));
+}
+
+/**
+ * @pre vdev != NULL
+ */
+static inline bool msixtable_access(const struct pci_vdev *vdev, uint32_t offset)
+{
+	return in_range(offset, vdev->msix.table_offset, vdev->msix.table_count * MSIX_TABLE_ENTRY_SIZE);
 }
 
 /*
@@ -132,15 +149,17 @@ void vdev_pt_write_vbar(struct pci_vdev *vdev, uint32_t idx, uint32_t val);
 void vdev_pt_map_msix(struct pci_vdev *vdev, bool hold_lock);
 
 void init_vmsi(struct pci_vdev *vdev);
-void read_vmsi_cap_reg(const struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t *val);
 void write_vmsi_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
 void deinit_vmsi(const struct pci_vdev *vdev);
 
-void init_vmsix(struct pci_vdev *vdev);
-int32_t vmsix_handle_table_mmio_access(struct io_request *io_req, void *handler_private_data);
-void read_vmsix_cap_reg(const struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t *val);
-void write_vmsix_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
-void deinit_vmsix(struct pci_vdev *vdev);
+void init_vmsix_pt(struct pci_vdev *vdev);
+int32_t add_vmsix_capability(struct pci_vdev *vdev, uint32_t entry_num, uint8_t bar_num);
+bool write_vmsix_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
+void write_pt_vmsix_cap_reg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
+uint32_t rw_vmsix_table(struct pci_vdev *vdev, struct io_request *io_req);
+int32_t vmsix_handle_table_mmio_access(struct io_request *io_req, void *priv_data);
+bool vpci_vmsix_enabled(const struct pci_vdev *vdev);
+void deinit_vmsix_pt(struct pci_vdev *vdev);
 
 void init_vmsix_on_msi(struct pci_vdev *vdev);
 void write_vmsix_cap_reg_on_msi(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
@@ -153,6 +172,7 @@ uint32_t sriov_bar_offset(const struct pci_vdev *vdev, uint32_t bar_idx);
 
 uint32_t pci_vdev_read_vcfg(const struct pci_vdev *vdev, uint32_t offset, uint32_t bytes);
 void pci_vdev_write_vcfg(struct pci_vdev *vdev, uint32_t offset, uint32_t bytes, uint32_t val);
+uint32_t vpci_add_capability(struct pci_vdev *vdev, uint8_t *capdata, uint8_t caplen);
 
 uint32_t pci_vdev_read_vbar(const struct pci_vdev *vdev, uint32_t idx);
 void pci_vdev_write_vbar(struct pci_vdev *vdev, uint32_t idx, uint32_t val);

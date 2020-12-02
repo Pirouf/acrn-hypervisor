@@ -27,6 +27,9 @@
             <IVSHMEM_ENABLED desc="Enable Share Memory between VMs by IVSHMEM.">y</IVSHMEM_ENABLED>
             <IVSHMEM_REGION desc="the shared memory region name (starting with hv:/, size (in MB), and IDs of all VMs (separated by a colon) sharing this region, for example hv:/sharename,2,0:2">hv:/shm_region_0, 2, 0:2</IVSHMEM_REGION>
         </IVSHMEM>
+        <PSRAM desc="Pseudo SRAM configuration.">
+            <PSRAM_ENABLED desc="Enable PTCM (Platform Tuning Configuration Manager).">n</PSRAM_ENABLED>
+        </PSRAM>
     </FEATURES>
 
     <MEMORY>
@@ -47,12 +50,11 @@
         <MAX_IOAPIC_LINES desc="Maximum number of interrupt lines per IOAPIC.">120</MAX_IOAPIC_LINES>
         <MAX_PT_IRQ_ENTRIES desc="Maximum number of interrupt source for PT devices.">64</MAX_PT_IRQ_ENTRIES>
         <MAX_MSIX_TABLE_NUM desc="Maximum number of MSI-X tables per device. Please leave it blank if not sure.">64</MAX_MSIX_TABLE_NUM>
-        <MAX_EMULATED_MMIO desc="Maximum number of emulated MMIO regions.">16</MAX_EMULATED_MMIO>
+        <MAX_EMULATED_MMIO desc="Maximum number of emulated MMIO regions.">32</MAX_EMULATED_MMIO>
     </CAPACITIES>
 
     <MISC_CFG>
         <GPU_SBDF desc="Segment, Bus, Device, and function of the GPU.">0x00000010</GPU_SBDF>
-        <UEFI_OS_LOADER_NAME desc="UEFI OS loader name."></UEFI_OS_LOADER_NAME>
     </MISC_CFG>
   </hv>
 
@@ -85,23 +87,32 @@
         <kern_type desc="Specify the kernel image type so that hypervisor could load it correctly. Currently support KERNEL_BZIMAGE and KERNEL_ZEPHYR.">KERNEL_BZIMAGE</kern_type>
         <kern_mod desc="The tag for kernel image which act as multiboot module, it must exactly match the module tag in GRUB multiboot cmdline.">RT_bzImage</kern_mod>
         <ramdisk_mod desc="The tag for ramdisk image which act as multiboot module, it must exactly match the module tag in GRUB multiboot cmdline."></ramdisk_mod>
-        <bootargs desc="Specify kernel boot arguments">rw rootwait root=/dev/sda3 earlyprintk=serial,ttyS0,115200 console=ttyS0,115200n8 log_buf_len=2M ignore_loglevel noxsave nohpet no_timer_check tsc=reliable</bootargs>
+        <bootargs desc="Specify kernel boot arguments">rw rootwait root=/dev/sda3 earlyprintk=serial,ttyS0,115200 console=ttyS0,115200n8 log_buf_len=2M
+        ignore_loglevel noxsave nohpet no_timer_check tsc=reliable reboot=acpi</bootargs>
     </os_config>
-    <vuart id="0">
+    <legacy_vuart id="0">
         <type configurable="0" desc="vCOM1 type">VUART_LEGACY_PIO</type>
         <base desc="vUART0 (A.K.A COM1) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">COM1_BASE</base>
         <irq configurable="0" desc="vCOM1 irq">COM1_IRQ</irq>
-    </vuart>
-    <vuart id="1">
+    </legacy_vuart>
+    <legacy_vuart id="1">
         <type configurable="0" desc="vCOM2 type">VUART_LEGACY_PIO</type>
         <base desc="vUART1 (A.K.A COM2) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">COM2_BASE</base>
         <irq configurable="0" desc="vCOM2 irq">COM2_IRQ</irq>
         <target_vm_id desc="COM2 is used for VM communications. When it is enabled, please specify which target VM that current VM connect to.">1</target_vm_id>
         <target_uart_id configurable="0" desc="target vUART ID that vCOM2 connect to">1</target_uart_id>
-    </vuart>
+    </legacy_vuart>
+    <console_vuart id="0">
+        <base desc="Console vuart (PCI based) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_PCI_BASE</base>
+    </console_vuart>
+    <communication_vuart id="1">
+        <base desc="Communicatin vuart (PCI based) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_PCI_BASE</base>
+        <target_vm_id desc="This vuart is used for VM communications. When it is enabled, please specify which target VM that current VM connect to.">1</target_vm_id>
+        <target_uart_id desc="target vUART ID that this vuart connects to">1</target_uart_id>
+    </communication_vuart>
     <pci_devs desc="pci devices list">
         <pci_dev desc="pci device">00:17.0 SATA controller: Intel Corporation Device a0d3 (rev 20)</pci_dev>
-        <pci_dev desc="pci device">aa:00.0 Ethernet controller: Intel Corporation Device 15f2 (rev 03)</pci_dev>
+        <pci_dev desc="pci device">00:1e.4 Ethernet controller: Intel Corporation Device a0ac (rev 20)</pci_dev>
     </pci_devs>
     <mmio_resources desc="mmio devices list to passthrough">
         <TPM2 desc="TPM2 device">y</TPM2>
@@ -131,18 +142,26 @@
         <pcpu_id>0</pcpu_id>
         <pcpu_id>1</pcpu_id>
     </cpu_affinity>
-    <vuart id="0">
+    <legacy_vuart id="0">
         <type configurable="0" desc="vCOM1 type">VUART_LEGACY_PIO</type>
-        <base desc="vUART0 (A.K.A COM1) enabling switch. Enable by exposing its base address, disable by returning invalid base address." readonly="true">SOS_COM1_BASE</base>
+        <base desc="vUART0 (A.K.A COM1) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">SOS_COM1_BASE</base>
         <irq configurable="0" desc="vCOM1 irq">SOS_COM1_IRQ</irq>
-    </vuart>
-    <vuart id="1">
+    </legacy_vuart>
+    <legacy_vuart id="1">
         <type configurable="0" desc="vCOM2 type">VUART_LEGACY_PIO</type>
         <base desc="vUART1 (A.K.A COM2) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">SOS_COM2_BASE</base>
         <irq configurable="0" desc="vCOM2 irq">SOS_COM2_IRQ</irq>
         <target_vm_id desc="COM2 is used for VM communications. When it is enabled, please specify which target VM that current VM connect to.">0</target_vm_id>
         <target_uart_id configurable="0" desc="target vUART ID that vCOM2 connect to">1</target_uart_id>
-    </vuart>
+    </legacy_vuart>
+    <console_vuart id="0">
+        <base desc="Console vuart (PCI based) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_PCI_BASE</base>
+    </console_vuart>
+    <communication_vuart id="1">
+        <base desc="Communicatin vuart (PCI based) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_PCI_BASE</base>
+        <target_vm_id desc="This vuart is used for VM communications. When it is enabled, please specify which target VM that current VM connect to.">1</target_vm_id>
+        <target_uart_id desc="target vUART ID that this vuart connects to">1</target_uart_id>
+    </communication_vuart>
     <pci_devs configurable="0" desc="pci devices list">
         <pci_dev desc="pci device"></pci_dev>
     </pci_devs>
@@ -171,18 +190,26 @@
         <base desc="SGX EPC section base, must be page aligned">0</base>
         <size desc="SGX EPC section size in Bytes, must be page aligned">0</size>
     </epc_section>
-    <vuart id="0">
+    <legacy_vuart id="0">
         <type configurable="0" desc="vCOM1 type">VUART_LEGACY_PIO</type>
         <base desc="vUART0 (A.K.A COM1) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">COM1_BASE</base>
         <irq configurable="0" desc="vCOM1 irq">COM1_IRQ</irq>
-    </vuart>
-    <vuart id="1">
+    </legacy_vuart>
+    <legacy_vuart id="1">
         <type configurable="0" desc="vCOM2 type">VUART_LEGACY_PIO</type>
         <base desc="vUART1 (A.K.A COM2) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_COM_BASE</base>
         <irq configurable="0" desc="vCOM2 irq">COM2_IRQ</irq>
         <target_vm_id desc="COM2 is used for VM communications. When it is enabled, please specify which target VM that current VM connect to.">0</target_vm_id>
         <target_uart_id configurable="0" desc="target vUART ID that vCOM2 connect to">0</target_uart_id>
-    </vuart>
+    </legacy_vuart>
+    <console_vuart id="0">
+        <base desc="Console vuart (PCI based) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_PCI_BASE</base>
+    </console_vuart>
+    <communication_vuart id="1">
+        <base desc="Communicatin vuart (PCI based) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_PCI_BASE</base>
+        <target_vm_id desc="This vuart is used for VM communications. When it is enabled, please specify which target VM that current VM connect to.">1</target_vm_id>
+        <target_uart_id desc="target vUART ID that this vuart connects to">1</target_uart_id>
+    </communication_vuart>
   </vm>
   <vm id="3">
     <vm_type desc="Specify the VM type" readonly="true">POST_STD_VM</vm_type>
@@ -199,17 +226,25 @@
         <base desc="SGX EPC section base, must be page aligned">0</base>
         <size desc="SGX EPC section size in Bytes, must be page aligned">0</size>
     </epc_section>
-    <vuart id="0">
+    <legacy_vuart id="0">
         <type configurable="0" desc="vCOM1 type">VUART_LEGACY_PIO</type>
         <base desc="vUART0 (A.K.A COM1) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">COM1_BASE</base>
         <irq configurable="0" desc="vCOM1 irq">COM1_IRQ</irq>
-    </vuart>
-    <vuart id="1">
+    </legacy_vuart>
+    <legacy_vuart id="1">
         <type configurable="0" desc="vCOM2 type">VUART_LEGACY_PIO</type>
         <base desc="vUART1 (A.K.A COM2) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_COM_BASE</base>
         <irq configurable="0" desc="vCOM2 irq">COM2_IRQ</irq>
         <target_vm_id desc="COM2 is used for VM communications. When it is enabled, please specify which target VM that current VM connect to.">0</target_vm_id>
         <target_uart_id configurable="0" desc="target vUART ID that vCOM2 connect to">0</target_uart_id>
-    </vuart>
+    </legacy_vuart>
+    <console_vuart id="0">
+        <base desc="Console vuart (PCI based) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_PCI_BASE</base>
+    </console_vuart>
+    <communication_vuart id="1">
+        <base desc="Communicatin vuart (PCI based) enabling switch. Enable by exposing its base address, disable by returning invalid base address.">INVALID_PCI_BASE</base>
+        <target_vm_id desc="This vuart is used for VM communications. When it is enabled, please specify which target VM that current VM connect to.">1</target_vm_id>
+        <target_uart_id desc="target vUART ID that this vuart connects to">1</target_uart_id>
+    </communication_vuart>
   </vm>
 </acrn-config>

@@ -97,14 +97,6 @@ def ir_entries_check(str_num, cap, cap_ir_entries):
         ERR_LIST[key] = "{} should be a value of 2^n".format(cap_ir_entries)
 
 
-def uefi_load_name_check(str_name, mis, mis_uefi_name):
-
-    name_len = len(str_name)
-    if name_len > 256 or name_len < 0:
-        key = 'hv,{},{}'.format(mis, mis_uefi_name)
-        ERR_LIST[key] = "{} length should be in range[0, 256]".format(mis_uefi_name)
-
-
 def ny_support_check(sel_str, feat, feat_item, feat_sub_leaf=''):
     if empty_check(sel_str, feat, feat_item, feat_sub_leaf):
         return
@@ -239,3 +231,10 @@ def max_msix_table_num_check(max_msix_table_num, cap_str, max_msi_num_str):
     if native_max_msix_line:
         native_max_msix_num = native_max_msix_line[0].strip()
         range_check(native_max_msix_num, "In board xml", max_msi_num_str, RANGE_DB['MSIX_TABLE_NUM'])
+
+
+def hv_psram_check(psram_enabled, cpd_enabled, feature, tag, leaf):
+    key = 'hv,{},{},{}'.format(feature, tag, leaf)
+    if psram_enabled == 'y' and cpd_enabled == 'y':
+        ERR_LIST[key] = "PSRAM_ENABLED should not be y when CDP_ENABLED is y."
+        return

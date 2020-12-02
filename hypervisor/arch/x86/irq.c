@@ -15,7 +15,6 @@
 #include <ioapic.h>
 #include <lapic.h>
 #include <softirq.h>
-#include <vboot.h>
 #include <dump.h>
 #include <logmsg.h>
 #include <vmx.h>
@@ -262,7 +261,7 @@ void set_irq_trigger_mode(uint32_t irq, bool is_level_triggered)
 	if (irq < NR_IRQS) {
 		desc = &irq_desc_array[irq];
 		spinlock_irqsave_obtain(&desc->lock, &rflags);
-		if (is_level_triggered == true) {
+		if (is_level_triggered) {
 			desc->flags |= IRQF_LEVEL;
 		} else {
 			desc->flags &= ~IRQF_LEVEL;
@@ -502,5 +501,5 @@ void init_interrupt(uint16_t pcpu_id)
 	init_lapic(pcpu_id);
 	init_default_irqs(pcpu_id);
 
-	init_vboot_irq();
+	CPU_IRQ_ENABLE();
 }

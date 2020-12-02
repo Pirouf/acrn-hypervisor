@@ -58,6 +58,8 @@ def get_scenario_item_values(board_info, scenario_info):
     scenario_item_values["vm,mmio_resources,p2sb"] = hv_cfg_lib.N_Y
     scenario_item_values["vm,mmio_resources,TPM2"] = hv_cfg_lib.N_Y
     scenario_item_values.update(scenario_cfg_lib.avl_vuart_ui_select(scenario_info))
+    scenario_item_values["vm,console_vuart,base"] = ['INVALID_PCI_BASE', 'PCI_VUART']
+    scenario_item_values["vm,communication_vuart,base"] = ['INVALID_PCI_BASE', 'PCI_VUART']
 
     # board
     (scenario_item_values["vm,board_private,rootfs"], num) = board_cfg_lib.get_rootfs(board_info)
@@ -82,6 +84,7 @@ def get_scenario_item_values(board_info, scenario_info):
     scenario_item_values["hv,FEATURES,MCE_ON_PSC_DISABLED"] = hv_cfg_lib.N_Y
     scenario_item_values["hv,FEATURES,IOMMU_ENFORCE_SNP"] = hv_cfg_lib.N_Y
     scenario_item_values["hv,FEATURES,IVSHMEM,IVSHMEM_ENABLED"] = hv_cfg_lib.N_Y
+    scenario_item_values["hv,FEATURES,PSRAM,PSRAM_ENABLED"] = hv_cfg_lib.N_Y
 
     scenario_cfg_lib.ERR_LIST.update(hv_cfg_lib.ERR_LIST)
     return scenario_item_values
@@ -211,7 +214,8 @@ def main(args):
 
 
     # generate ASL code of ACPI tables for Pre-launched VMs
-    asl_gen.main(args)
+    if not err_dic:
+        err_dic = asl_gen.main(args)
 
     if not err_dic:
         print("Scenario configuration files were created successfully.")

@@ -21,7 +21,7 @@ PY_CACHES = ["__pycache__", "../board_config/__pycache__", "../scenario_config/_
 GUEST_FLAG = ["0UL", "GUEST_FLAG_SECURE_WORLD_ENABLED", "GUEST_FLAG_LAPIC_PASSTHROUGH",
               "GUEST_FLAG_IO_COMPLETION_POLLING", "GUEST_FLAG_HIDE_MTRR", "GUEST_FLAG_RT"]
 
-MULTI_ITEM = ["guest_flag", "pcpu_id", "vcpu_clos", "input", "block", "network", "pci_dev", "shm_region"]
+MULTI_ITEM = ["guest_flag", "pcpu_id", "vcpu_clos", "input", "block", "network", "pci_dev", "shm_region", "communication_vuart"]
 
 SIZE_K = 1024
 SIZE_M = SIZE_K * 1024
@@ -36,6 +36,8 @@ LAUNCH_INFO_FILE = ""
 VM_TYPES = {}
 MAX_VM_NUM = 8
 
+MAX_VUART_NUM = 8
+
 class MultiItem():
 
     def __init__(self):
@@ -48,6 +50,7 @@ class MultiItem():
         self.vir_network = []
         self.pci_dev = []
         self.shm_region = []
+        self.communication_vuart = []
 
 class TmpItem():
 
@@ -289,6 +292,10 @@ def get_leaf_value(tmp, tag_str, leaf):
     if leaf.tag == "shm_region" and tag_str == "shm_region":
         tmp.multi.shm_region.append(leaf.text)
 
+    # get communication_vuart for vm
+    if leaf.tag == "communication_vuart" and tag_str == "communication_vuart":
+        tmp.multi.communication_vuart.append(leaf.text)
+
 
 def get_sub_value(tmp, tag_str, vm_id):
 
@@ -324,6 +331,10 @@ def get_sub_value(tmp, tag_str, vm_id):
     if tmp.multi.shm_region and tag_str == "shm_region":
         tmp.tag[vm_id] = tmp.multi.shm_region
 
+    # append communication_vuart for vm
+    if tmp.multi.communication_vuart and tag_str == "communication_vuart":
+        tmp.tag[vm_id] = tmp.multi.communication_vuart
+
 
 def get_leaf_tag_map(config_file, branch_tag, tag_str=''):
     """
@@ -352,7 +363,7 @@ def get_leaf_tag_map(config_file, branch_tag, tag_str=''):
 
                 # for each 3rd level item
                 for leaf in sub:
-                    if leaf.tag == tag_str and tag_str not in MULTI_ITEM and sub.tag != "vuart":
+                    if leaf.tag == tag_str and tag_str not in MULTI_ITEM and sub.tag not in ["legacy_vuart","vuart"]:
                         if leaf.text == None or not leaf.text:
                             tmp.tag[vm_id] = ''
                         else:
@@ -406,12 +417,33 @@ def get_vuart_info_id(config_file, idx):
         for sub in item:
             tmp_vuart = {}
             for leaf in sub:
-                if sub.tag == "vuart" and int(sub.attrib['id']) == idx:
+                if sub.tag in ["legacy_vuart","vuart"] and int(sub.attrib['id']) == idx:
                     tmp_vuart = get_vuart_id(tmp_vuart, leaf.tag, leaf.text)
 
             # append vuart for each vm
-            if tmp_vuart and sub.tag == "vuart":
+            if tmp_vuart and sub.tag in ["legacy_vuart","vuart"]:
                 tmp_tag[vm_id] = tmp_vuart
+
+    return tmp_tag
+
+def get_vuart_info(config_file):
+    tmp_tag = {}
+    vm_id = 0
+    root = get_config_root(config_file)
+    for item in root:
+        if item.tag == "vm":
+            vm_id = int(item.attrib['id'])
+            tmp_tag[vm_id] = {}
+
+        for sub in item:
+            tmp_vuart = {}
+            for leaf in sub:
+                if sub.tag == "console_vuart" or sub.tag == "communication_vuart":
+                    vuart_id = int(sub.attrib['id'])
+                    tmp_vuart = get_vuart_id(tmp_vuart, leaf.tag, leaf.text)
+
+                    if tmp_vuart:
+                        tmp_tag[vm_id][vuart_id] = tmp_vuart
 
     return tmp_tag
 

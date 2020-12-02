@@ -41,6 +41,8 @@ extern char *guest_uuid_str;
 extern uint8_t trusty_enabled;
 extern char *vsbl_file_name;
 extern char *ovmf_file_name;
+extern char *ovmf_code_file_name;
+extern char *ovmf_vars_file_name;
 extern char *kernel_file_name;
 extern char *elf_file_name;
 extern char *vmname;
@@ -49,6 +51,7 @@ extern char *mac_seed;
 extern bool lapic_pt;
 extern bool is_rtvm;
 extern bool pt_tpm2;
+extern bool pt_ptct;
 extern bool is_winvm;
 
 int vmexit_task_switch(struct vmctx *ctx, struct vhm_request *vhm_req,
