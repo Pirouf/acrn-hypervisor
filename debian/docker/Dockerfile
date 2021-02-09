@@ -22,14 +22,7 @@ RUN apt-get install -y --no-install-recommends \
 	devscripts \
 	debhelper \
 	python3 \
-	dh-python \
-	python3-setuptools \
-	python3-all \
-	python3-pip \
-	python3-wheel
-
-# ACRN build needs kconfiglib, not available as Debian package
-RUN pip3 install kconfiglib
+	dh-python
 
 # install additional build dependencies for ACRN
 RUN apt-get install -y --no-install-recommends \
@@ -45,8 +38,10 @@ RUN apt-get install -y --no-install-recommends \
 	libblkid-dev \
 	e2fslibs-dev \
 	pkg-config \
-	libnuma-dev
-
+	libnuma-dev \
+	libxml2-utils \
+        xsltproc \
+	python3-lxml
 
 RUN apt-get install --no-install-recommends -y -t unstable acpica-tools
 

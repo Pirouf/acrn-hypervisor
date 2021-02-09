@@ -18,7 +18,10 @@ Build-Depends:
    e2fslibs-dev,
    pkg-config,
    libnuma-dev,
-   acpica-tools (>= 20200326)
+   acpica-tools (>= 20200326),
+   python3-lxml,
+   libxml2-utils,
+   xsltproc
 Standards-Version: 4.3.0
 Homepage: https://projectacrn.org/
 Vcs-Browser: https://github.com/projectacrn/acrn-hypervisor
