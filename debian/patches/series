@@ -12,9 +12,10 @@
 0012-vboot_info-load-ramdisk-at-highest-possible-memory-l.patch
 0013-acrn-config-fix-internal-BDF-format-for-hidden-pci-d.patch
 0014-acrn-config-add-new-HV-config-HIDDEN_PDEV-BDF.patch
-0015-doc-fix-typo-at-MCE_ON_PSC_DISABLED.patch
 0016-doc-add-documentation-for-HIDDEN_PDEVS-BDF.patch
+0015-doc-fix-typo-at-MCE_ON_PSC_DISABLED.patch
 0017-life_mngr-fix-life_mngr-service.patch
 0018-hv-hypercall-return-0-for-empty-PX-or-CX-tables.patch
 0019-devicemodel-fix-invalid-name-for-disk-log.patch
 0020-acrn-config-remove-dependencies-on-HV-console.patch
+0021-hv-vm_load-Do-not-add-hugepage-if-not-supported.patch

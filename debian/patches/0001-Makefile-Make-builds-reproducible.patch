@@ -8,17 +8,17 @@ recommendations at https://reproducible-builds.org/
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- devicemodel/Makefile                        | 4 ++--
- hypervisor/Makefile                         | 4 ++--
- misc/tools/acrn-crashlog/acrnprobe/Makefile | 4 ++--
- misc/tools/acrn-crashlog/usercrash/Makefile | 4 ++--
+ devicemodel/Makefile                              | 4 ++--
+ hypervisor/Makefile                               | 4 ++--
+ misc/debug_tools/acrn_crashlog/acrnprobe/Makefile | 4 ++--
+ misc/debug_tools/acrn_crashlog/usercrash/Makefile | 4 ++--
  4 files changed, 8 insertions(+), 8 deletions(-)
 
 diff --git a/devicemodel/Makefile b/devicemodel/Makefile
-index 18dfab3..f36efb9 100644
+index d4157ba..ee5e54b 100644
 --- a/devicemodel/Makefile
 +++ b/devicemodel/Makefile
-@@ -209,8 +209,8 @@ $(VERSION_H):
+@@ -210,8 +210,8 @@ $(VERSION_H):
  		PATCH=$(DM_BUILD_VERSION);\
  		DAILY_TAG=$(DM_BUILD_TAG);\
  	fi;\
@@ -30,10 +30,10 @@ index 18dfab3..f36efb9 100644
  	sed 's/^/ * /' ../LICENSE >> $(VERSION_H);\
  	echo " */" >> $(VERSION_H);\
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index c2ff410..9677b41 100644
+index 8566789..0e09ae4 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -481,8 +481,8 @@ $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
+@@ -465,8 +465,8 @@ $(VERSION): $(HV_CONFIG_H)
  	DIRTY=`git diff-index --name-only HEAD`;\
  	if [ -n "$$DIRTY" ];then PATCH="$$COMMIT-dirty";else PATCH="$$COMMIT";fi;\
  	DAILY_TAG=`git tag --merged HEAD|grep "acrn"|tail -n 1`;\
@@ -44,10 +44,10 @@ index c2ff410..9677b41 100644
  	if [ x$(CONFIG_RELEASE) = "xy" ];then BUILD_TYPE="REL";else BUILD_TYPE="DBG";fi;\
  	echo "/*" > $(VERSION); \
  	sed 's/^/ * /' ../LICENSE >> $(VERSION); \
-diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
+diff --git a/misc/debug_tools/acrn_crashlog/acrnprobe/Makefile b/misc/debug_tools/acrn_crashlog/acrnprobe/Makefile
 index 86f6f49..52692f3 100644
---- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
-+++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
+--- a/misc/debug_tools/acrn_crashlog/acrnprobe/Makefile
++++ b/misc/debug_tools/acrn_crashlog/acrnprobe/Makefile
 @@ -66,8 +66,8 @@ $(VERSION_H):
  	@COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
  	DIRTY=`git diff --name-only $(CURDIR)`;\
@@ -59,10 +59,10 @@ index 86f6f49..52692f3 100644
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
  	echo "#define AP_MAJOR_VERSION $(MAJOR_VERSION)" >> $(VERSION_H);\
  	echo "#define AP_MINOR_VERSION $(MINOR_VERSION)" >> $(VERSION_H);\
-diff --git a/misc/tools/acrn-crashlog/usercrash/Makefile b/misc/tools/acrn-crashlog/usercrash/Makefile
+diff --git a/misc/debug_tools/acrn_crashlog/usercrash/Makefile b/misc/debug_tools/acrn_crashlog/usercrash/Makefile
 index dec5a0f..a7e5471 100644
---- a/misc/tools/acrn-crashlog/usercrash/Makefile
-+++ b/misc/tools/acrn-crashlog/usercrash/Makefile
+--- a/misc/debug_tools/acrn_crashlog/usercrash/Makefile
++++ b/misc/debug_tools/acrn_crashlog/usercrash/Makefile
 @@ -45,8 +45,8 @@ $(VERSION_H):
  	@COMMIT=`git log -1 --pretty=format:%h . 2>/dev/null`;\
  	DIRTY=`git diff --name-only $(CURDIR)`;\

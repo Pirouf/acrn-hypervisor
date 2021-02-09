@@ -1,5 +1,5 @@
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
-Date: Wed, 16 Sep 2020 12:12:50 +0200
+Date: Tue, 9 Feb 2021 12:08:50 +0100
 Subject: hv: add vm_console command line parameter
 
 To be able to debug the startup of a VM (e.g. the SOS), provide the
@@ -13,24 +13,24 @@ the VM is started.
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
  hypervisor/arch/x86/guest/vm.c   |  2 ++
- hypervisor/boot/cmdline.c        | 16 +++++++++++++---
+ hypervisor/debug/console.c       | 14 ++++++++++++--
  hypervisor/debug/shell.c         | 36 ++++++++++++++++++++++++++++++------
  hypervisor/include/debug/shell.h |  4 ++++
- 4 files changed, 49 insertions(+), 9 deletions(-)
+ 4 files changed, 48 insertions(+), 8 deletions(-)
 
 diff --git a/hypervisor/arch/x86/guest/vm.c b/hypervisor/arch/x86/guest/vm.c
-index 4818fe6..c1585f1 100644
+index a7299b2..b26ccfb 100644
 --- a/hypervisor/arch/x86/guest/vm.c
 +++ b/hypervisor/arch/x86/guest/vm.c
 @@ -36,6 +36,7 @@
  #include <assign.h>
  #include <vgpio.h>
- #include <ptcm.h>
+ #include <rtcm.h>
 +#include <shell.h>
  
  /* Local variables */
  
-@@ -807,6 +808,7 @@ void prepare_vm(uint16_t vm_id, struct acrn_vm_config *vm_config)
+@@ -876,6 +877,7 @@ void prepare_vm(uint16_t vm_id, struct acrn_vm_config *vm_config)
  		start_vm(vm);
  
  		pr_acrnlog("Start VM id: %x name: %s", vm_id, vm_config->name);
@@ -38,13 +38,13 @@ index 4818fe6..c1585f1 100644
  	}
  }
  
-diff --git a/hypervisor/boot/cmdline.c b/hypervisor/boot/cmdline.c
-index 72bed57..edb4886 100644
---- a/hypervisor/boot/cmdline.c
-+++ b/hypervisor/boot/cmdline.c
-@@ -9,6 +9,13 @@
- #include <boot.h>
- #include <pgtable.h>
+diff --git a/hypervisor/debug/console.c b/hypervisor/debug/console.c
+index 686235b..3b9a9e6 100644
+--- a/hypervisor/debug/console.c
++++ b/hypervisor/debug/console.c
+@@ -16,6 +16,13 @@
+ #include <console.h>
+ #include <multiboot.h>
  #include <dbg_cmd.h>
 +#include <shell.h>
 +
@@ -54,9 +54,9 @@ index 72bed57..edb4886 100644
 +	handle_console_cmd,
 +};
  
- void parse_hv_cmdline(void)
- {
-@@ -23,15 +30,18 @@ void parse_hv_cmdline(void)
+ struct hv_timer console_timer;
+ 
+@@ -38,12 +45,15 @@ static void parse_hvdbg_cmdline(void)
  		while ((*start) == ' ')
  			start++;
  		if ((*start) != '\0') {
@@ -72,12 +72,8 @@ index 72bed57..edb4886 100644
 +				if (cmd_handler[i](start, (int32_t)(end - start)))
 +					break;
  			}
-+
  			start = end;
  		}
- 	}
--
- }
 diff --git a/hypervisor/debug/shell.c b/hypervisor/debug/shell.c
 index 63fd401..ed438e7 100644
 --- a/hypervisor/debug/shell.c

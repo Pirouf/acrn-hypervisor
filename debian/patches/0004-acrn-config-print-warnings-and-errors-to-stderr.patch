@@ -7,14 +7,14 @@ to avoid loosing errors and warnings print them to stderr.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- misc/acrn-config/library/common.py | 8 ++++----
+ misc/config_tools/library/common.py | 8 ++++----
  1 file changed, 4 insertions(+), 4 deletions(-)
 
-diff --git a/misc/acrn-config/library/common.py b/misc/acrn-config/library/common.py
-index f3c79ec..86b618f 100644
---- a/misc/acrn-config/library/common.py
-+++ b/misc/acrn-config/library/common.py
-@@ -72,9 +72,9 @@ def print_yel(msg, warn=False):
+diff --git a/misc/config_tools/library/common.py b/misc/config_tools/library/common.py
+index c3e7a36..0c129cc 100644
+--- a/misc/config_tools/library/common.py
++++ b/misc/config_tools/library/common.py
+@@ -74,9 +74,9 @@ def print_yel(msg, warn=False):
      :param warn: the condition if needs to be output the color of yellow with 'Warning'
      """
      if warn:
@@ -26,7 +26,7 @@ index f3c79ec..86b618f 100644
  
  
  def print_red(msg, err=False):
-@@ -84,9 +84,9 @@ def print_red(msg, err=False):
+@@ -86,9 +86,9 @@ def print_red(msg, err=False):
      :param err: the condition if needs to be output the color of red with 'Error'
      """
      if err:

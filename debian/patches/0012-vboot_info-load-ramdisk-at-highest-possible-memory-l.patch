@@ -19,7 +19,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 87 insertions(+), 5 deletions(-)
 
 diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
-index 605fad5..964b449 100644
+index d7e0f93..0a6c15c 100644
 --- a/hypervisor/boot/guest/vboot_info.c
 +++ b/hypervisor/boot/guest/vboot_info.c
 @@ -21,19 +21,101 @@

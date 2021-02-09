@@ -7,18 +7,18 @@ acrnprobe and crashlog.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/Makefile                         | 13 +++++++++----
- misc/tools/acrn-crashlog/acrnprobe/Makefile | 10 +++++++---
- misc/tools/acrn-crashlog/usercrash/Makefile | 10 +++++++---
+ hypervisor/Makefile                               | 13 +++++++++----
+ misc/debug_tools/acrn_crashlog/acrnprobe/Makefile | 10 +++++++---
+ misc/debug_tools/acrn_crashlog/usercrash/Makefile | 10 +++++++---
  3 files changed, 23 insertions(+), 10 deletions(-)
 
 diff --git a/hypervisor/Makefile b/hypervisor/Makefile
-index 9677b41..76dd3a1 100644
+index 0e09ae4..cda456c 100644
 --- a/hypervisor/Makefile
 +++ b/hypervisor/Makefile
-@@ -477,10 +477,15 @@ distclean:
+@@ -461,10 +461,15 @@ distclean:
  PHONY: (VERSION)
- $(VERSION): $(HV_OBJDIR)/$(HV_CONFIG_H)
+ $(VERSION): $(HV_CONFIG_H)
  	touch $(VERSION)
 -	@COMMIT=`git rev-parse --verify --short HEAD 2>/dev/null`;\
 -	DIRTY=`git diff-index --name-only HEAD`;\
@@ -36,10 +36,10 @@ index 9677b41..76dd3a1 100644
  	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%F %T"); \
  	USER="$${USER:-$$(id -u -n)}"; \
  	if [ x$(CONFIG_RELEASE) = "xy" ];then BUILD_TYPE="REL";else BUILD_TYPE="DBG";fi;\
-diff --git a/misc/tools/acrn-crashlog/acrnprobe/Makefile b/misc/tools/acrn-crashlog/acrnprobe/Makefile
+diff --git a/misc/debug_tools/acrn_crashlog/acrnprobe/Makefile b/misc/debug_tools/acrn_crashlog/acrnprobe/Makefile
 index 52692f3..6e1cbbc 100644
---- a/misc/tools/acrn-crashlog/acrnprobe/Makefile
-+++ b/misc/tools/acrn-crashlog/acrnprobe/Makefile
+--- a/misc/debug_tools/acrn_crashlog/acrnprobe/Makefile
++++ b/misc/debug_tools/acrn_crashlog/acrnprobe/Makefile
 @@ -63,9 +63,13 @@ $(VERSION_H):
  		mkdir -p $(BUILDDIR)/include/acrnprobe ; \
  	fi
@@ -57,10 +57,10 @@ index 52692f3..6e1cbbc 100644
  	TIME=$$(date -u -d "@$${SOURCE_DATE_EPOCH:-$$(date +%s)}" "+%Y-%m-%d %H:%M:%S"); \
  	USER="$${USER:-$$(id -u -n)}"; \
  	cat $(CURDIR)/../license_header > $(VERSION_H);\
-diff --git a/misc/tools/acrn-crashlog/usercrash/Makefile b/misc/tools/acrn-crashlog/usercrash/Makefile
+diff --git a/misc/debug_tools/acrn_crashlog/usercrash/Makefile b/misc/debug_tools/acrn_crashlog/usercrash/Makefile
 index a7e5471..d21d4a9 100644
---- a/misc/tools/acrn-crashlog/usercrash/Makefile
-+++ b/misc/tools/acrn-crashlog/usercrash/Makefile
+--- a/misc/debug_tools/acrn_crashlog/usercrash/Makefile
++++ b/misc/debug_tools/acrn_crashlog/usercrash/Makefile
 @@ -42,9 +42,13 @@ $(VERSION_H):
  		mkdir -p $(BUILDDIR)/include/usercrash ; \
  	fi

@@ -11,7 +11,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 7 insertions(+), 2 deletions(-)
 
 diff --git a/devicemodel/core/main.c b/devicemodel/core/main.c
-index ce050cd..d254cec 100644
+index a767721..02fce16 100644
 --- a/devicemodel/core/main.c
 +++ b/devicemodel/core/main.c
 @@ -807,6 +807,7 @@ main(int argc, char *argv[])

@@ -99,7 +99,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 4 insertions(+)
 
 diff --git a/hypervisor/arch/x86/e820.c b/hypervisor/arch/x86/e820.c
-index a835150..bcc449f 100644
+index 23899a2..e0f5b02 100644
 --- a/hypervisor/arch/x86/e820.c
 +++ b/hypervisor/arch/x86/e820.c
 @@ -38,6 +38,10 @@ static void obtain_mem_range_info(void)

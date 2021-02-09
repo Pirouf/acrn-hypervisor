@@ -1,5 +1,5 @@
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
-Date: Wed, 23 Sep 2020 09:13:21 +0200
+Date: Tue, 9 Feb 2021 12:14:19 +0100
 Subject: hv: vm_load: avoid overwriting source images
 
 Since large ramdisks might have been loaded by the bootloader to a
@@ -49,7 +49,7 @@ Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.c
  1 file changed, 113 insertions(+), 11 deletions(-)
 
 diff --git a/hypervisor/common/vm_load.c b/hypervisor/common/vm_load.c
-index 75cecd9..3074808 100644
+index 5e14dbe..59de6ba 100644
 --- a/hypervisor/common/vm_load.c
 +++ b/hypervisor/common/vm_load.c
 @@ -178,6 +178,93 @@ static void prepare_loading_rawimage(struct acrn_vm *vm)
@@ -139,7 +139,7 @@ index 75cecd9..3074808 100644
 +	}
 +
 +	ret = finished ? 0 : -1;
-+out:
++	out:
 +	return ret;
 +}
 +
@@ -171,7 +171,7 @@ index 75cecd9..3074808 100644
  	}
 +
  	/* Copy Guest OS bootargs to its load location */
- 	if (bootargs_info->size != 0U) {
+ 	if ((bootargs_info->size != 0U) && (bootargs_info->load_addr != NULL)) {
 -		(void)copy_to_gpa(vm, bootargs_info->src_addr,
 -			(uint64_t)bootargs_info->load_addr,
 -			(strnlen_s((char *)bootargs_info->src_addr, MAX_BOOTARGS_SIZE) + 1U));

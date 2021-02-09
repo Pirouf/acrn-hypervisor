@@ -13,13 +13,13 @@ make[4]: [Makefile:47: all-win] Error 127 (ignored)
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- misc/life_mngr/Makefile | 17 +++++++++++++++--
+ misc/services/life_mngr/Makefile | 17 +++++++++++++++--
  1 file changed, 15 insertions(+), 2 deletions(-)
 
-diff --git a/misc/life_mngr/Makefile b/misc/life_mngr/Makefile
+diff --git a/misc/services/life_mngr/Makefile b/misc/services/life_mngr/Makefile
 index bffeb83..64048b7 100644
---- a/misc/life_mngr/Makefile
-+++ b/misc/life_mngr/Makefile
+--- a/misc/services/life_mngr/Makefile
++++ b/misc/services/life_mngr/Makefile
 @@ -37,12 +37,24 @@ LIFEMNGR_LDFLAGS += -Wl,-z,relro,-z,now
  LIFEMNGR_LDFLAGS += -pie
  LIFEMNGR_LDFLAGS += $(LDFLAGS)

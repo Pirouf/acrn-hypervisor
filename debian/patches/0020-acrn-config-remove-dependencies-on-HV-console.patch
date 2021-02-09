@@ -18,14 +18,14 @@ calculation based on a physical UARTs.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- misc/acrn-config/library/scenario_cfg_lib.py | 80 ++--------------------------
+ misc/config_tools/library/scenario_cfg_lib.py | 80 +--------------------------
  1 file changed, 3 insertions(+), 77 deletions(-)
 
-diff --git a/misc/acrn-config/library/scenario_cfg_lib.py b/misc/acrn-config/library/scenario_cfg_lib.py
-index cd87a0a..185ae8f 100644
---- a/misc/acrn-config/library/scenario_cfg_lib.py
-+++ b/misc/acrn-config/library/scenario_cfg_lib.py
-@@ -1256,87 +1256,13 @@ def check_pt_intx(phys_gsi, virt_gsi):
+diff --git a/misc/config_tools/library/scenario_cfg_lib.py b/misc/config_tools/library/scenario_cfg_lib.py
+index ca60906..507934e 100644
+--- a/misc/config_tools/library/scenario_cfg_lib.py
++++ b/misc/config_tools/library/scenario_cfg_lib.py
+@@ -1250,87 +1250,13 @@ def check_pt_intx(phys_gsi, virt_gsi):
              return
  
  
