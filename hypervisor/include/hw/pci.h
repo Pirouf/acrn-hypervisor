@@ -203,12 +203,23 @@ union pci_bdf {
 	} fields;
 };
 
-enum pci_bar_type {
-	PCIBAR_NONE = 0,
-	PCIBAR_IO_SPACE,
-	PCIBAR_MEM32,
-	PCIBAR_MEM64,
-	PCIBAR_MEM64HI,
+/*
+ * The next data structure is to reflect the format of PCI BAR base on the PCI sepc.
+ */
+
+union pci_bar_type {
+	uint32_t bits;
+	struct {
+		uint32_t indicator :1;               /* BITs[0], mapped to I/O space if read as 1 */
+		uint32_t reserved :1;               /* BITs[1], reserved and must be "0" per spec. */
+		uint32_t reserved2 : 30;
+	} io_space;
+	struct {
+		uint32_t indicator :1;               /* BITs[0], mapped to memory space if read as 0 */
+		uint32_t mem_type :2;            /* BITs[1:2], 32-bit address if read as 00b, 64-bit address as 01b */
+		uint32_t prefetchable :1;        /* BITs[3], set to 1b if the data is prefetchable and set to 0b otherwise */
+		uint32_t reserved2 : 28;
+	} mem_space;
 };
 
 struct pci_mmcfg_region {
@@ -235,6 +246,14 @@ struct pci_sriov_cap {
 	bool hide_sriov;
 };
 
+/* PCI BAR size is detected at run time. We don't want to re-detect it to avoid malfunction of
+ * the device. We have record physical bar values, we need to record size_mask.
+ */
+struct pci_bar_resource {
+	uint32_t phy_bar;	/* the origional raw data read from physical BAR */
+	uint32_t size_mask;	/* read value of physical BAR after write 0xffffffff */
+};
+
 struct pci_pdev {
 	uint8_t hdr_type;
 	uint8_t base_class;
@@ -248,7 +267,7 @@ struct pci_pdev {
 
 	/* The bar info of the physical PCI device. */
 	uint32_t nr_bars; /* 6 for normal device, 2 for bridge, 1 for cardbus */
-	uint32_t bars[PCI_STD_NUM_BARS];
+	struct pci_bar_resource bars[PCI_STD_NUM_BARS];	/* For common bar resource recording */
 
 	/* The bus/device/function triple of the physical PCI device. */
 	union pci_bdf bdf;
@@ -304,31 +323,6 @@ static inline bool is_bar_offset(uint32_t nr_bars, uint32_t offset)
 	return ret;
 }
 
-static inline enum pci_bar_type pci_get_bar_type(uint32_t val)
-{
-	enum pci_bar_type type = PCIBAR_NONE;
-
-	if ((val & PCIM_BAR_SPACE) == PCIM_BAR_IO_SPACE) {
-		type = PCIBAR_IO_SPACE;
-	} else {
-		switch (val & PCIM_BAR_MEM_TYPE) {
-		case PCIM_BAR_MEM_32:
-			type = PCIBAR_MEM32;
-			break;
-
-		case PCIM_BAR_MEM_64:
-			type = PCIBAR_MEM64;
-			break;
-
-		default:
-			/*no actions are required for other cases.*/
-			break;
-		}
-	}
-
-	return type;
-}
-
 static inline bool bdf_is_equal(union pci_bdf a, union pci_bdf b)
 {
 	return (a.value == b.value);
@@ -344,11 +338,14 @@ void set_mmcfg_region(struct pci_mmcfg_region *region);
 #endif
 struct pci_mmcfg_region *get_mmcfg_region(void);
 
-struct pci_pdev *init_pdev(uint16_t pbdf, uint32_t drhd_index);
+struct pci_pdev *pci_init_pdev(union pci_bdf pbdf, uint32_t drhd_index);
 uint32_t pci_pdev_read_cfg(union pci_bdf bdf, uint32_t offset, uint32_t bytes);
 void pci_pdev_write_cfg(union pci_bdf bdf, uint32_t offset, uint32_t bytes, uint32_t val);
 void enable_disable_pci_intx(union pci_bdf bdf, bool enable);
 
+bool is_hv_owned_pdev(union pci_bdf pbdf);
+uint32_t get_hv_owned_pdev_num(void);
+const struct pci_pdev **get_hv_owned_pdevs(void);
 /*
  * @brief Walks the PCI heirarchy and initializes array of pci_pdev structs
  * Uses DRHD info from ACPI DMAR tables to cover the endpoints and
@@ -398,4 +395,5 @@ bool pdev_need_bar_restore(const struct pci_pdev *pdev);
 void pdev_restore_bar(const struct pci_pdev *pdev);
 void pci_switch_to_mmio_cfg_ops(void);
 void reserve_vmsix_on_msi_irtes(struct pci_pdev *pdev);
+
 #endif /* PCI_H_ */

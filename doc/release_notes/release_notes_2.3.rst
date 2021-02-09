@@ -35,20 +35,20 @@ ACRN v2.3 requires Ubuntu 18.04.  Follow the instructions in the
 What's New in v2.3
 ******************
 
-Enhanced GPU passthru (GVT-d)
-  GPU passthru (GVT-d) to Windows as a guest is now enabled for 11th Gen
+Enhanced GPU passthrough (GVT-d)
+  GPU passthrough (GVT-d) to Windows as a guest is now enabled for 11th Gen
   Intel® Core™ processors (codenamed Tiger Lake-UP3).
 
 Shared memory based inter-VM communication (ivshmem) is extended
   ivshmem now supports interrupts (See :ref:`ivshmem-hld`).
 
 Enhanced vUART support
-  Added console support using legacy vUART (0x3F8-like) and
-  added PCI vUART (up to 8) for VM-to-VM communication.
+  Added PCI vUART (up to 8) for VM-to-VM communication.  Legacy vUART
+  (0x3F8-like) is available for console (debugging) support.
 
 End-to-end secure boot improvement
   OVMF can be loaded now as two blobs, one for code and the other for data.
-  The code blob can be verified by the Service VM's ``dm-verify`` as
+  The code blob can be verified by the Service VM's ``dm-verity`` as
   a step in the end-to-end secure boot.
 
 Enhanced system shutdown
@@ -72,6 +72,7 @@ New and updated reference documents are available, including:
 
 .. rst-class:: rst-columns2
 
+* :ref:`asa`
 * :ref:`GVT-g-porting`
 * :ref:`vbsk-overhead`
 * :ref:`asm_coding_guidelines`
@@ -88,9 +89,11 @@ New and updated reference documents are available, including:
 * :ref:`l1tf`
 * :ref:`modularity`
 * :ref:`sw_design_guidelines`
+* :ref:`getting-started-building`
 * :ref:`rt_industry_ubuntu_setup`
 * :ref:`introduction`
-* :ref:`release_notes_2.2`
+* :ref:`release_notes_2.3`
+* :ref:`how-to-enable-acrn-secure-boot-with-grub`
 * :ref:`acrn_configuration_tool`
 * :ref:`acrn_on_qemu`
 * :ref:`acrn-debug`
@@ -101,6 +104,7 @@ New and updated reference documents are available, including:
 * :ref:`rt_performance_tuning`
 * :ref:`rt_perf_tips_rtvm`
 * :ref:`run-kata-containers`
+* :ref:`running_deb_as_serv_vm`
 * :ref:`running_deb_as_user_vm`
 * :ref:`running_ubun_as_user_vm`
 * :ref:`setup_openstack_libvirt`
@@ -115,19 +119,33 @@ New and updated reference documents are available, including:
 * :ref:`how-to-enable-secure-boot-for-windows`
 * :ref:`acrn-dm_parameters`
 
-Because we're dropped deprivileged boot mode support,
-we're also switching our Service VM of choice away from Clear
-Linux and have removed
-Clear Linux-specific tutorials.  Deleted documents are still
+Because we're dropped deprivileged boot mode support, we're also
+switching our Service VM of choice away from Clear Linux and have
+removed Clear Linux-specific tutorials.  Deleted documents are still
 available in the `version-specific v2.1 documentation
 <https://projectacrn.github.io/v2.1/>`_.
 
 
 Fixed Issues Details
 ********************
-
-.. comment list items look like this (not indented)
-   - :acrn-issue:`5008` -  Slowdown in UOS (Zephyr)
+- :acrn-issue:`4958` - clean up spin lock for hypervisor
+- :acrn-issue:`5316` - add default BAR GPA for vmsi over msi
+- :acrn-issue:`5346` - Hide PCI bridge 00:1c.0 from SOS
+- :acrn-issue:`5411` - Supporting power off for pre-launched VMs
+- :acrn-issue:`5461` - DM: gvt: Identical mapping for GPU DSM
+- :acrn-issue:`5463` - WaaG hang in boot loading screen in cold boot test.
+- :acrn-issue:`5482` - acrn-config: insert vbdf in hex format and vuart vbdf logic
+- :acrn-issue:`5490` - Unhandled Exception happened in HV console when shutdown YaaG with shm device enabled
+- :acrn-issue:`5491` - TGL can't setup 6 pci-vuarts
+- :acrn-issue:`5498` - Hide IO 0x3f8 for SOS
+- :acrn-issue:`5501` - [WHL][Yocto][Hybrid] in hybrid mode ACRN HV env, can not shutdown pre-launched RTVM
+- :acrn-issue:`5506` - [EHL][SBL][hybrid_rt] in hybrid_rt, TPM can not work in pre-launched RTVM
+- :acrn-issue:`5508` - hv-bugfix-for-hv-emulated-device-de-init_v2.3
+- :acrn-issue:`5514` - Coding style issue for xhci.c
 
 Known Issues
 ************
+- :acrn-issue:`5151` - [WHL][VxWorks] Launch VxWorks fails due to no suitable video mode found
+- :acrn-issue:`5369` - [TGL][qemu] Cannot launch qemu on TGL
+- :acrn-issue:`5572` - [WHL][Hybrid_rt] build hybrid_rt hv from source, boot RTVM fail
+- :acrn-issue:`5573` - [EHL][logical_partition] build EHL logical_partition hv from source Fail

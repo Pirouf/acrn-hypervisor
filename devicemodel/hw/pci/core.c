@@ -26,6 +26,7 @@
  * $FreeBSD$
  */
 
+#include <sys/user.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -564,6 +565,13 @@ pci_emul_alloc_resource(uint64_t *baseptr, uint64_t limit, uint64_t size,
 		return -1;
 	}
 
+	/* PCI spec said that BAR base should be naturally aligned. On ACRN
+	 * if the bar size < PAGE_SIZE, BAR base should be aligned with
+	 * PAGE_SIZE. This is because the minimal size that EPT can map/unmap
+	 * is PAGE_SIZE.
+	 */
+	if (size < PAGE_SIZE)
+		size = PAGE_SIZE;
 	base = roundup2(*baseptr, size);
 
 	/* TODO:Currently, we only reserve gvt mmio regions,
@@ -1677,7 +1685,6 @@ pci_bus_write_dsdt(int bus)
 	dsdt_line("  Device (PCI%01X)", bus);
 	dsdt_line("  {");
 	dsdt_line("    Name (_HID, EisaId (\"PNP0A03\"))");
-	dsdt_line("    Name (_ADR, Zero)");
 
 	dsdt_line("    Method (_BBN, 0, NotSerialized)");
 	dsdt_line("    {");

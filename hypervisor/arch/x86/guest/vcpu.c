@@ -10,6 +10,7 @@
 #include <bits.h>
 #include <vmx.h>
 #include <logmsg.h>
+#include <cpufeatures.h>
 #include <cpu_caps.h>
 #include <per_cpu.h>
 #include <init.h>
@@ -194,6 +195,48 @@ void vcpu_reset_eoi_exit_bitmaps(struct acrn_vcpu *vcpu)
 	vcpu_make_request(vcpu, ACRN_REQUEST_EOI_EXIT_BITMAP_UPDATE);
 }
 
+static void init_iwkey(struct acrn_vcpu *vcpu)
+{
+	/* Initial a random iwkey */
+	if (pcpu_has_cap(X86_FEATURE_KEYLOCKER)) {
+		vcpu->arch.IWKey.integrity_key[0] = get_random_value();
+		vcpu->arch.IWKey.integrity_key[1] = get_random_value();
+		vcpu->arch.IWKey.encryption_key[0] = get_random_value();
+		vcpu->arch.IWKey.encryption_key[1] = get_random_value();
+		vcpu->arch.IWKey.encryption_key[2] = get_random_value();
+		vcpu->arch.IWKey.encryption_key[3] = get_random_value();
+		/* It's always safe to clear whose_iwkey */
+		per_cpu(whose_iwkey, pcpuid_from_vcpu(vcpu)) = NULL;
+	}
+}
+
+void load_iwkey(struct acrn_vcpu *vcpu)
+{
+	uint64_t xmm_save[6];
+
+	/* Only load IWKey with vCPU CR4 keylocker bit enabled */
+	if (pcpu_has_cap(X86_FEATURE_KEYLOCKER) && vcpu->arch.cr4_kl_enabled &&
+	    (get_cpu_var(whose_iwkey) != vcpu)) {
+		/* Save/restore xmm0/xmm1/xmm2 during the process */
+		asm volatile (	"movdqu %%xmm0, %0\n"
+				"movdqu %%xmm1, %1\n"
+				"movdqu %%xmm2, %2\n"
+				"movdqu %3, %%xmm0\n"
+				"movdqu %4, %%xmm1\n"
+				"movdqu %5, %%xmm2\n"
+				: "=m"(xmm_save[0]), "=m"(xmm_save[2]), "=m"(xmm_save[4])
+				: "m"(vcpu->arch.IWKey.integrity_key[0]),
+				"m"(vcpu->arch.IWKey.encryption_key[0]),
+				"m"(vcpu->arch.IWKey.encryption_key[2]));
+		asm_loadiwkey(0);
+		asm volatile (	"movdqu %2, %%xmm2\n"
+				"movdqu %1, %%xmm1\n"
+				"movdqu %0, %%xmm0\n"
+				: : "m"(xmm_save[0]), "m"(xmm_save[2]), "m"(xmm_save[4]));
+		get_cpu_var(whose_iwkey) = vcpu;
+	}
+}
+
 /* As a vcpu reset internal API, DO NOT touch any vcpu state transition in this function. */
 static void vcpu_reset_internal(struct acrn_vcpu *vcpu, enum reset_mode mode)
 {
@@ -206,6 +249,7 @@ static void vcpu_reset_internal(struct acrn_vcpu *vcpu, enum reset_mode mode)
 	vcpu->arch.exception_info.exception = VECTOR_INVALID;
 	vcpu->arch.cur_context = NORMAL_WORLD;
 	vcpu->arch.irq_window_enabled = false;
+	vcpu->arch.emulating_lock = false;
 	(void)memset((void *)vcpu->arch.vmcs, 0U, PAGE_SIZE);
 
 	for (i = 0; i < NR_WORLD; i++) {
@@ -224,6 +268,9 @@ static void vcpu_reset_internal(struct acrn_vcpu *vcpu, enum reset_mode mode)
 	for (i = 0; i < VCPU_EVENT_NUM; i++) {
 		reset_event(&vcpu->events[i]);
 	}
+
+	init_iwkey(vcpu);
+	vcpu->arch.iwkey_copy_status = 0UL;
 }
 
 struct acrn_vcpu *get_running_vcpu(uint16_t pcpu_id)
@@ -392,6 +439,20 @@ static struct acrn_vcpu_regs protect_mode_init_vregs = {
 	.ss_sel = 0x18U,
 	.es_sel = 0x18U,
 };
+
+bool sanitize_cr0_cr4_pattern(void)
+{
+	bool ret = false;
+
+	if (is_valid_cr0_cr4(realmode_init_vregs.cr0, realmode_init_vregs.cr4) &&
+			is_valid_cr0_cr4(protect_mode_init_vregs.cr0, protect_mode_init_vregs.cr4)) {
+		ret = true;
+	} else {
+		pr_err("Wrong CR0/CR4 pattern: real %lx %lx; protected %lx %lx\n", realmode_init_vregs.cr0,
+			realmode_init_vregs.cr4, protect_mode_init_vregs.cr0, protect_mode_init_vregs.cr4);
+	}
+	return ret;
+}
 
 void reset_vcpu_regs(struct acrn_vcpu *vcpu)
 {
@@ -794,6 +855,8 @@ static void context_switch_in(struct thread_object *next)
 	msr_write(MSR_IA32_LSTAR, ectx->ia32_lstar);
 	msr_write(MSR_IA32_FMASK, ectx->ia32_fmask);
 	msr_write(MSR_IA32_KERNEL_GS_BASE, ectx->ia32_kernel_gs_base);
+
+	load_iwkey(vcpu);
 
 	rstore_xsave_area(vcpu, ectx);
 }

@@ -26,6 +26,8 @@ static void init_guest_vmx(struct acrn_vcpu *vcpu, uint64_t cr0, uint64_t cr3,
 	struct guest_cpu_context *ctx = &vcpu->arch.contexts[vcpu->arch.cur_context];
 	struct ext_context *ectx = &ctx->ext_ctx;
 
+	pr_dbg("%s,cr0:0x%lx, cr4:0x%lx.", __func__, cr0, cr4);
+
 	vcpu_set_cr4(vcpu, cr4);
 	vcpu_set_cr0(vcpu, cr0);
 	exec_vmwrite(VMX_GUEST_CR3, cr3);
@@ -70,6 +72,9 @@ static void init_guest_vmx(struct acrn_vcpu *vcpu, uint64_t cr0, uint64_t cr3,
 static void init_guest_state(struct acrn_vcpu *vcpu)
 {
 	struct guest_cpu_context *ctx = &vcpu->arch.contexts[vcpu->arch.cur_context];
+
+	pr_dbg("%s, cr0:0x%lx, cr4:0x%lx.\n", __func__,
+	ctx->run_ctx.cr0, ctx->run_ctx.cr4);
 
 	init_guest_vmx(vcpu, ctx->run_ctx.cr0, ctx->ext_ctx.cr3,
 			ctx->run_ctx.cr4 & ~(CR4_VMXE | CR4_SMXE | CR4_MCE));
@@ -232,6 +237,25 @@ static uint32_t check_vmx_ctrl(uint32_t msr, uint32_t ctrl_req)
 
 }
 
+static uint32_t check_vmx_ctrl_64(uint32_t msr, uint64_t ctrl_req)
+{
+	uint64_t vmx_msr;
+	uint32_t ctrl = ctrl_req;
+
+	vmx_msr = msr_read(msr);
+
+	/* 64 bits are allowed 1-setting */
+	ctrl &= vmx_msr;
+
+	if ((ctrl_req & ~ctrl) != 0U) {
+		pr_err("VMX ctrl 0x%x not fully enabled: "
+			"request 0x%llx but get 0x%llx\n",
+			msr, ctrl_req, ctrl);
+	}
+
+	return ctrl;
+}
+
 static void init_exec_ctrl(struct acrn_vcpu *vcpu)
 {
 	uint32_t value32;
@@ -261,6 +285,7 @@ static void init_exec_ctrl(struct acrn_vcpu *vcpu)
 	 * guest access to IO bit-mapped ports causes VM exit
 	 * guest access to MSR causes VM exit
 	 * Activate secondary controls
+	 * Activate tertiary controls
 	 */
 	/* These are bits 1,4-6,8,13-16, and 26, the corresponding bits of
 	 * the IA32_VMX_PROCBASED_CTRLS MSR are always read as 1 --- A.3.2
@@ -268,7 +293,7 @@ static void init_exec_ctrl(struct acrn_vcpu *vcpu)
 	value32 = check_vmx_ctrl(MSR_IA32_VMX_PROCBASED_CTLS,
 			 VMX_PROCBASED_CTLS_TSC_OFF | VMX_PROCBASED_CTLS_TPR_SHADOW |
 			 VMX_PROCBASED_CTLS_IO_BITMAP | VMX_PROCBASED_CTLS_MSR_BITMAP |
-			 VMX_PROCBASED_CTLS_HLT | VMX_PROCBASED_CTLS_SECONDARY);
+			 VMX_PROCBASED_CTLS_HLT | VMX_PROCBASED_CTLS_SECONDARY | VMX_PROCBASED_CTLS_TERTIARY);
 
 	/*Disable VM_EXIT for CR3 access*/
 	value32 &= ~(VMX_PROCBASED_CTLS_CR3_LOAD | VMX_PROCBASED_CTLS_CR3_STORE);
@@ -283,7 +308,7 @@ static void init_exec_ctrl(struct acrn_vcpu *vcpu)
 	 * Enable VM_EXIT for rdpmc execution.
 	 */
 	value32 |= VMX_PROCBASED_CTLS_RDPMC;
-
+	vcpu->arch.proc_vm_exec_ctrls = value32;
 	exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, value32);
 	pr_dbg("VMX_PROC_VM_EXEC_CONTROLS: 0x%x ", value32);
 
@@ -330,6 +355,15 @@ static void init_exec_ctrl(struct acrn_vcpu *vcpu)
 	exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS2, value32);
 	pr_dbg("VMX_PROC_VM_EXEC_CONTROLS2: 0x%x ", value32);
 
+	/* Set up tertiary processor based VM execution controls */
+	if ((exec_vmread32(VMX_PROC_VM_EXEC_CONTROLS) & VMX_PROCBASED_CTLS_TERTIARY) != 0U) {
+		/* Enable KeyLocker if support */
+		value64 = check_vmx_ctrl_64(MSR_IA32_VMX_PROCBASED_CTLS3, VMX_PROCBASED_CTLS3_LOADIWKEY);
+
+		exec_vmwrite64(VMX_PROC_VM_EXEC_CONTROLS3_FULL, value64);
+		pr_dbg("VMX_PROC_VM_EXEC_CONTROLS3: 0x%llx ", value64);
+	}
+
 	/*APIC-v, config APIC-access address*/
 	value64 = vlapic_apicv_get_apic_access_addr();
 	exec_vmwrite64(VMX_APIC_ACCESS_ADDR_FULL, value64);
@@ -362,9 +396,13 @@ static void init_exec_ctrl(struct acrn_vcpu *vcpu)
 
 	/* Set up guest exception mask bitmap setting a bit * causes a VM exit
 	 * on corresponding guest * exception - pg 2902 24.6.3
-	 * enable VM exit on MC only
+	 * enable VM exit on MC always
+	 * enable AC for split-lock emulation when split-lock detection is enabled on physical platform.
 	 */
 	value32 = (1U << IDT_MC);
+	if (is_ac_enabled()) {
+		value32 = (value32 | (1U << IDT_AC));
+	}
 	exec_vmwrite32(VMX_EXCEPTION_BITMAP, value32);
 
 	/* Set up page fault error code mask - second paragraph * pg 2902
@@ -411,7 +449,7 @@ static void init_exec_ctrl(struct acrn_vcpu *vcpu)
 	/* Natural-width */
 	pr_dbg("Natural-width*********");
 
-	init_cr0_cr4_host_mask();
+	init_cr0_cr4_host_guest_mask();
 
 	/* The CR3 target registers work in concert with VMX_CR3_TARGET_COUNT
 	 * field. Using these registers guest CR3 access can be managed. i.e.,
@@ -586,10 +624,9 @@ void switch_apicv_mode_x2apic(struct acrn_vcpu *vcpu)
 		value32 &= ~VMX_EXIT_CTLS_ACK_IRQ;
 		exec_vmwrite32(VMX_EXIT_CONTROLS, value32);
 
-		value32 = exec_vmread32(VMX_PROC_VM_EXEC_CONTROLS);
-		value32 &= ~VMX_PROCBASED_CTLS_TPR_SHADOW;
-		value32 &= ~VMX_PROCBASED_CTLS_HLT;
-		exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, value32);
+		vcpu->arch.proc_vm_exec_ctrls &= ~VMX_PROCBASED_CTLS_TPR_SHADOW;
+		vcpu->arch.proc_vm_exec_ctrls &= ~VMX_PROCBASED_CTLS_HLT;
+		exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, vcpu->arch.proc_vm_exec_ctrls);
 
 		exec_vmwrite32(VMX_TPR_THRESHOLD, 0U);
 

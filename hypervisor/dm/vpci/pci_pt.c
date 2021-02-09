@@ -292,18 +292,10 @@ void vdev_pt_write_vbar(struct pci_vdev *vdev, uint32_t idx, uint32_t val)
 {
 	struct pci_vbar *vbar = &vdev->vbars[idx];
 
-	switch (vbar->type) {
-	case PCIBAR_IO_SPACE:
+	if (is_pci_io_bar(vbar)) {
 		vpci_update_one_vbar(vdev, idx, val, vdev_pt_allow_io_vbar, vdev_pt_deny_io_vbar);
-		break;
-
-	case PCIBAR_NONE:
-		/* Nothing to do */
-		break;
-
-	default:
+	} else if (is_pci_mem_bar(vbar)) {
 		vpci_update_one_vbar(vdev, idx, val, vdev_pt_map_mem_vbar, vdev_pt_unmap_mem_vbar);
-		break;
 	}
 }
 
@@ -343,7 +335,6 @@ void vdev_pt_write_vbar(struct pci_vdev *vdev, uint32_t idx, uint32_t val)
  */
 static void init_bars(struct pci_vdev *vdev, bool is_sriov_bar)
 {
-	enum pci_bar_type type;
 	uint32_t idx, bar_cnt;
 	struct pci_vbar *vbar;
 	uint32_t size32, offset, lo, hi = 0U;
@@ -367,15 +358,15 @@ static void init_bars(struct pci_vdev *vdev, bool is_sriov_bar)
 			offset = pci_bar_offset(idx);
 		}
 		lo = pci_pdev_read_cfg(pbdf, offset, 4U);
+		vbar->bar_type.bits = lo;
 
-		type = pci_get_bar_type(lo);
-		if (type == PCIBAR_NONE) {
+		if (is_pci_reserved_bar(vbar)) {
 			continue;
 		}
-		mask = (type == PCIBAR_IO_SPACE) ? PCI_BASE_ADDRESS_IO_MASK : PCI_BASE_ADDRESS_MEM_MASK;
+		mask = (is_pci_io_bar(vbar)) ? PCI_BASE_ADDRESS_IO_MASK : PCI_BASE_ADDRESS_MEM_MASK;
 		vbar->base_hpa = (uint64_t)lo & mask;
 
-		if (type == PCIBAR_MEM64) {
+		if (is_pci_mem64lo_bar(vbar)) {
 			hi = pci_pdev_read_cfg(pbdf, offset + 4U, 4U);
 			vbar->base_hpa |= ((uint64_t)hi << 32U);
 		}
@@ -385,16 +376,15 @@ static void init_bars(struct pci_vdev *vdev, bool is_sriov_bar)
 			size32 = pci_pdev_read_cfg(pbdf, offset, 4U);
 			pci_pdev_write_cfg(pbdf, offset, 4U, lo);
 
-			vbar->type = type;
 			vbar->mask = size32 & mask;
-			vbar->fixed = lo & (~mask);
+			vbar->bar_type.bits &= (~mask);
 			vbar->size = (uint64_t)size32 & mask;
 
 			if (is_prelaunched_vm(vpci2vm(vdev->vpci))) {
 				lo = (uint32_t)vdev->pci_dev_config->vbar_base[idx];
 			}
 
-			if (type == PCIBAR_MEM64) {
+			if (is_pci_mem64lo_bar(vbar)) {
 				idx++;
 				if (is_sriov_bar) {
 					offset = sriov_bar_offset(vdev, idx);
@@ -416,7 +406,7 @@ static void init_bars(struct pci_vdev *vdev, bool is_sriov_bar)
 				}
 
 				vbar->mask = size32;
-				vbar->type = PCIBAR_MEM64HI;
+				vbar->is_mem64hi = true;
 
 				if (is_prelaunched_vm(vpci2vm(vdev->vpci))) {
 					hi = (uint32_t)(vdev->pci_dev_config->vbar_base[idx - 1U] >> 32U);
@@ -428,9 +418,10 @@ static void init_bars(struct pci_vdev *vdev, bool is_sriov_bar)
 				}
 			} else {
 				vbar->size = vbar->size & ~(vbar->size - 1UL);
-				if (type == PCIBAR_MEM32) {
+				if (is_pci_mem32_bar(vbar)) {
 					vbar->size = round_page_up(vbar->size);
 				}
+
 				/* if it is parsing SRIOV VF BARs, no need to write vdev bar */
 				if (!is_sriov_bar) {
 					pci_vdev_write_vbar(vdev, idx, lo);

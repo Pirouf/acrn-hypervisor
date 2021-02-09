@@ -11,9 +11,9 @@ Verified version
 ****************
 
 - Ubuntu version: **18.04**
-- GCC version: **7.4**
-- ACRN-hypervisor branch: **release_2.2 (acrn-2020w40.1-180000p)**
-- ACRN-Kernel (Service VM kernel): **release_2.2 (5.4.43-PKT-200203T060100Z)**
+- GCC version: **7.5**
+- ACRN-hypervisor branch: **release_2.3 (v2.3)**
+- ACRN-Kernel (Service VM kernel): **release_2.3 (v2.3)**
 - RT kernel for Ubuntu User OS: **4.19/preempt-rt (4.19.72-rt25)**
 - HW: Maxtang Intel WHL-U i7-8665U (`AX8665U-A2 <http://www.maxtangpc.com/fanlessembeddedcomputers/140.html>`_)
 
@@ -115,6 +115,8 @@ Install the Ubuntu Service VM on the NVMe disk
 
 .. rst-class:: numbered-step
 
+.. _build-and-install-acrn-on-ubuntu:
+
 Build and Install ACRN on Ubuntu
 ********************************
 
@@ -144,7 +146,6 @@ Build the ACRN Hypervisor on Ubuntu
       $ sudo -E apt install gcc \
         git \
         make \
-        gnu-efi \
         libssl-dev \
         libpciaccess-dev \
         uuid-dev \
@@ -174,7 +175,6 @@ Build the ACRN Hypervisor on Ubuntu
 
    .. code-block:: none
 
-      $ sudo -E apt-get install iasl
       $ cd /home/acrn/work
       $ wget https://acpica.org/sites/acpica/files/acpica-unix-20191018.tar.gz
       $ tar zxvf acpica-unix-20191018.tar.gz
@@ -194,11 +194,11 @@ Build the ACRN Hypervisor on Ubuntu
       $ git clone https://github.com/projectacrn/acrn-hypervisor
       $ cd acrn-hypervisor
 
-#. Switch to the v2.2 version:
+#. Switch to the v2.3 version:
 
    .. code-block:: none
 
-      $ git checkout -b v2.2 remotes/origin/release_2.2
+      $ git checkout v2.3
 
 #. Build ACRN:
 
@@ -206,6 +206,7 @@ Build the ACRN Hypervisor on Ubuntu
 
       $ make all BOARD_FILE=misc/vm_configs/xmls/board-xmls/whl-ipc-i7.xml SCENARIO_FILE=misc/vm_configs/xmls/config-xmls/whl-ipc-i7/industry.xml RELEASE=0
       $ sudo make install
+      $ sudo mkdir -p /boot/acrn
       $ sudo cp build/hypervisor/acrn.bin /boot/acrn/
 
 Build and install the ACRN kernel
@@ -223,7 +224,7 @@ Build and install the ACRN kernel
 
    .. code-block:: none
 
-      $ git checkout -b v2.2 remotes/origin/release_2.2
+      $ git checkout v2.3 
       $ cp kernel_config_uefi_sos .config
       $ make olddefconfig
       $ make all
@@ -263,10 +264,13 @@ Update Grub for the Ubuntu Service VM
    .. note::
       Update this to use the UUID (``--set``) and PARTUUID (``root=`` parameter)
       (or use the device node directly) of the root partition (e.g.
-      ``/dev/nvme0n1p2). Hint: use ``sudo blkid /dev/sda*``.
+      ``/dev/nvme0n1p2``). Hint: use ``sudo blkid <device node>``.
 
       Update the kernel name if you used a different name as the source
       for your Service VM kernel.
+
+      Add the ``menuentry`` at the bottom of :file:`40_custom`, keep the
+      ``exec tail`` line at the top intact.
 
 #. Modify the ``/etc/default/grub`` file to make the Grub menu visible when
    booting and make it load the Service VM kernel by default. Modify the
@@ -342,32 +346,6 @@ The User VM will be launched by OVMF, so copy it to the specific folder:
 
    $ sudo mkdir -p /usr/share/acrn/bios
    $ sudo cp /home/acrn/work/acrn-hypervisor/devicemodel/bios/OVMF.fd  /usr/share/acrn/bios
-
-Install IASL in Ubuntu for User VM launch
------------------------------------------
-
-Starting with the ACRN v2.2 release, we use the ``iasl`` tool to
-compile an offline ACPI binary for pre-launched VMs while building ACRN,
-so we need to install the ``iasl`` tool in the ACRN build environment.
-
-Follow these steps to install ``iasl`` (and its dependencies) and
-then update the ``iasl`` binary with a newer version not available
-in Ubuntu 18.04:
-
-.. code-block:: none
-
-   $ sudo -E apt-get install iasl
-   $ cd /home/acrn/work
-   $ wget https://acpica.org/sites/acpica/files/acpica-unix-20191018.tar.gz
-   $ tar zxvf acpica-unix-20191018.tar.gz
-   $ cd acpica-unix-20191018
-   $ make clean && make iasl
-   $ sudo cp ./generate/unix/bin/iasl /usr/sbin/
-
-.. note:: While there are newer versions of software available from
-   the `ACPICA downloads site <https://acpica.org/downloads>`_, this
-   20191018 version has been verified to work.
-
 
 Build and Install the RT kernel for the Ubuntu User VM
 ------------------------------------------------------
@@ -454,6 +432,9 @@ Update the Grub file
       Update the kernel name if you used a different name as the source
       for your Service VM kernel.
 
+      Add the ``menuentry`` at the bottom of :file:`40_custom`, keep the
+      ``exec tail`` line at the top intact.
+
 #. Modify the ``/etc/default/grub`` file to make the grub menu visible when
    booting and make it load the RT kernel by default. Modify the
    lines shown below:
@@ -477,7 +458,8 @@ Launch the RTVM
 
   .. code-block:: none
 
-     $ sudo /usr/share/acrn/samples/nuc/launch_hard_rt_vm.sh
+     $ sudo cp /home/acrn/work/acrn-hyperviso/misc/vm_configs/sample_launch_scripts/nuc/launch_hard_rt_vm.sh  /usr/share/acrn/
+     $ sudo /usr/share/acrn/launch_hard_rt_vm.sh
 
 Recommended BIOS settings for RTVM
 ----------------------------------
@@ -541,13 +523,13 @@ this, follow the below steps to allocate all housekeeping tasks to core 0:
 #. Prepare the RTVM launch script
 
    Follow the `Passthrough a hard disk to RTVM`_ section to make adjustments to
-   the ``/usr/share/acrn/samples/nuc/launch_hard_rt_vm.sh`` launch script.
+   the ``/usr/share/acrn/launch_hard_rt_vm.sh`` launch script.
 
 #. Launch the RTVM:
 
    .. code-block:: none
 
-      $ sudo /usr/share/acrn/samples/nuc/launch_hard_rt_vm.sh
+      $ sudo /usr/share/acrn/launch_hard_rt_vm.sh
 
 #. Log in to the RTVM as root and run the script as below:
 
@@ -677,7 +659,7 @@ Passthrough a hard disk to RTVM
 
    .. code-block:: none
 
-      # vim /usr/share/acrn/samples/nuc/launch_hard_rt_vm.sh
+      # vim /usr/share/acrn/launch_hard_rt_vm.sh
 
       passthru_vpid=(
       ["eth"]="8086 156f"
@@ -719,4 +701,4 @@ Passthrough a hard disk to RTVM
 
    .. code-block:: none
 
-      $ sudo /usr/share/acrn/samples/nuc/launch_hard_rt_vm.sh
+      $ sudo /usr/share/acrn/launch_hard_rt_vm.sh

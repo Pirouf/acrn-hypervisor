@@ -35,6 +35,7 @@
 #define X86_FEATURE_XSAVE	((FEAT_1_ECX << 5U) + 26U)
 #define X86_FEATURE_OSXSAVE	((FEAT_1_ECX << 5U) + 27U)
 #define X86_FEATURE_AVX		((FEAT_1_ECX << 5U) + 28U)
+#define X86_FEATURE_RDRAND	((FEAT_1_ECX << 5U) + 30U)
 
 /* Intel-defined CPU features, CPUID level 0x00000001 (EDX)*/
 #define X86_FEATURE_FPU		((FEAT_1_EDX << 5U) +  0U)
@@ -77,6 +78,9 @@
 #define X86_FEATURE_RDT_A	((FEAT_7_0_EBX << 5U) + 15U)
 #define X86_FEATURE_SMAP	((FEAT_7_0_EBX << 5U) + 20U)
 #define X86_FEATURE_CLFLUSHOPT	((FEAT_7_0_EBX << 5U) + 23U)
+
+/* Intel-defined CPU features, CPUID level 0x00000007 (ECX)*/
+#define X86_FEATURE_KEYLOCKER	((FEAT_7_0_ECX << 5U) + 23U)
 
 /* Intel-defined CPU features, CPUID level 0x00000007 (EDX)*/
 #define X86_FEATURE_MDS_CLEAR	((FEAT_7_0_EDX << 5U) + 10U)

@@ -14,17 +14,19 @@
 #include <vmexit.h>
 #include <vm_reset.h>
 #include <vmx_io.h>
+#include <splitlock.h>
 #include <ept.h>
 #include <vtd.h>
+#include <cpuid.h>
 #include <vcpuid.h>
 #include <trace.h>
-#include <ptcm.h>
+#include <rtcm.h>
 
 /*
  * According to "SDM APPENDIX C VMX BASIC EXIT REASONS",
  * there are 65 Basic Exit Reasons.
  */
-#define NR_VMX_EXIT_REASONS	65U
+#define NR_VMX_EXIT_REASONS	70U
 
 static int32_t triple_fault_vmexit_handler(struct acrn_vcpu *vcpu);
 static int32_t unhandled_vmexit_handler(struct acrn_vcpu *vcpu);
@@ -33,6 +35,8 @@ static int32_t wbinvd_vmexit_handler(struct acrn_vcpu *vcpu);
 static int32_t undefined_vmexit_handler(struct acrn_vcpu *vcpu);
 static int32_t pause_vmexit_handler(__unused struct acrn_vcpu *vcpu);
 static int32_t hlt_vmexit_handler(struct acrn_vcpu *vcpu);
+static int32_t mtf_vmexit_handler(struct acrn_vcpu *vcpu);
+static int32_t loadiwkey_vmexit_handler(struct acrn_vcpu *vcpu);
 
 /* VM Dispatch table for Exit condition handling */
 static const struct vm_exit_dispatch dispatch_table[NR_VMX_EXIT_REASONS] = {
@@ -112,7 +116,7 @@ static const struct vm_exit_dispatch dispatch_table[NR_VMX_EXIT_REASONS] = {
 	[VMX_EXIT_REASON_MWAIT] = {
 		.handler = unhandled_vmexit_handler},
 	[VMX_EXIT_REASON_MONITOR_TRAP] = {
-		.handler = unhandled_vmexit_handler},
+		.handler = mtf_vmexit_handler},
 	[VMX_EXIT_REASON_MONITOR] = {
 		.handler = unhandled_vmexit_handler},
 	[VMX_EXIT_REASON_PAUSE] = {
@@ -167,7 +171,9 @@ static const struct vm_exit_dispatch dispatch_table[NR_VMX_EXIT_REASONS] = {
 	[VMX_EXIT_REASON_XSAVES] = {
 		.handler = unhandled_vmexit_handler},
 	[VMX_EXIT_REASON_XRSTORS] = {
-		.handler = unhandled_vmexit_handler}
+		.handler = unhandled_vmexit_handler},
+	[VMX_EXIT_REASON_LOADIWKEY] = {
+		.handler = loadiwkey_vmexit_handler}
 };
 
 int32_t vmexit_handler(struct acrn_vcpu *vcpu)
@@ -267,6 +273,22 @@ static int32_t unhandled_vmexit_handler(struct acrn_vcpu *vcpu)
 			exec_vmread(VMX_EXIT_QUALIFICATION));
 
 	TRACE_2L(TRACE_VMEXIT_UNHANDLED, vcpu->arch.exit_reason, 0UL);
+
+	return 0;
+}
+
+/* MTF is currently only used for split-lock emulation */
+static int32_t mtf_vmexit_handler(struct acrn_vcpu *vcpu)
+{
+	vcpu->arch.proc_vm_exec_ctrls &= ~(VMX_PROCBASED_CTLS_MON_TRAP);
+	exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, vcpu->arch.proc_vm_exec_ctrls);
+
+	vcpu_retain_rip(vcpu);
+
+	if (vcpu->arch.emulating_lock) {
+		vcpu->arch.emulating_lock = false;
+		vcpu_complete_splitlock_emulation(vcpu);
+	}
 
 	return 0;
 }
@@ -386,7 +408,7 @@ static int32_t wbinvd_vmexit_handler(struct acrn_vcpu *vcpu)
 	struct acrn_vcpu *other;
 
 	/* GUEST_FLAG_RT has not set in post-launched RTVM before it has been created */
-	if ((!is_psram_initialized) && (!has_rt_vm())) {
+	if ((!is_sw_sram_initialized) && (!has_rt_vm())) {
 		cache_flush_invalidate_all();
 	} else {
 		if (is_rt_vm(vcpu->vm)) {
@@ -407,6 +429,32 @@ static int32_t wbinvd_vmexit_handler(struct acrn_vcpu *vcpu)
 				}
 			}
 		}
+	}
+
+	return 0;
+}
+
+static int32_t loadiwkey_vmexit_handler(struct acrn_vcpu *vcpu)
+{
+	uint64_t xmm[6] = {0};
+
+	/* Wrapping key nobackup and randomization are not supported */
+	if ((vcpu_get_gpreg(vcpu, CPU_REG_RAX) != 0UL)) {
+		vcpu_inject_gp(vcpu, 0);
+	} else {
+		asm volatile ("movdqu %%xmm0, %0\n"
+			      "movdqu %%xmm1, %1\n"
+			      "movdqu %%xmm2, %2\n"
+			      : : "m"(xmm[0]), "m"(xmm[2]), "m"(xmm[4]));
+		vcpu->arch.IWKey.encryption_key[0] = xmm[2];
+		vcpu->arch.IWKey.encryption_key[1] = xmm[3];
+		vcpu->arch.IWKey.encryption_key[2] = xmm[4];
+		vcpu->arch.IWKey.encryption_key[3] = xmm[5];
+		vcpu->arch.IWKey.integrity_key[0] = xmm[0];
+		vcpu->arch.IWKey.integrity_key[1] = xmm[1];
+
+		asm_loadiwkey(0);
+		get_cpu_var(whose_iwkey) = vcpu;
 	}
 
 	return 0;

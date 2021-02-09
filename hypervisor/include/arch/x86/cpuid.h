@@ -72,16 +72,30 @@
 #define CPUID_EDX_TM1           (1U<<29U)
 #define CPUID_EDX_IA64          (1U<<30U)
 #define CPUID_EDX_PBE           (1U<<31U)
+/* CPUID.07H:EBX.FSGSBASE*/
+#define CPUID_EBX_FSGSBASE      (1U<<0U)
 /* CPUID.07H:EBX.TSC_ADJUST*/
 #define CPUID_EBX_TSC_ADJ       (1U<<1U)
 /* CPUID.07H:EBX.SGX */
 #define CPUID_EBX_SGX           (1U<<2U)
+/* CPUID.07H:EBX.SMEP*/
+#define CPUID_EBX_SMEP          (1U<<7U)
 /* CPUID.07H:EBX.MPX */
 #define CPUID_EBX_MPX           (1U<<14U)
+/* CPUID.07H:EBX.SMAP*/
+#define CPUID_EBX_SMAP          (1U<<20U)
+/* CPUID.07H:ECX.UMIP */
+#define CPUID_ECX_UMIP		(1U<<2U)
+/* CPUID.07H:ECX.PKE */
+#define CPUID_ECX_PKE		(1U<<3U)
 /* CPUID.07H:ECX.CET_SS */
 #define CPUID_ECX_CET_SS        (1U<<7U)
+/* CPUID.07H:ECX.LA57 */
+#define CPUID_ECX_LA57		(1U<<16U)
 /* CPUID.07H:ECX.SGX_LC*/
 #define CPUID_ECX_SGX_LC        (1U<<30U)
+/* CPUID.07H:ECX.PKS*/
+#define CPUID_ECX_PKS           (1U<<31U)
 /* CPUID.07H:EDX.CET_IBT */
 #define CPUID_EDX_CET_IBT       (1U<<20U)
 /* CPUID.07H:EDX.IBRS_IBPB*/
@@ -112,6 +126,14 @@
 #define CPUID_EAX_SGX1          (1U<<0U)
 /* CPUID.12H.EAX.SGX2 */
 #define CPUID_EAX_SGX2          (1U<<1U)
+/* CPUID.19H.EBX.KL_AES_ENABLED */
+#define CPUID_EBX_KL_AES_EN	(1U<<0U)
+/* CPUID.19H.EBX.KL_BACKUP_MSR */
+#define CPUID_EBX_KL_BACKUP_MSR	(1U<<4U)
+/* CPUID.19H.ECX.KL_NOBACKUP */
+#define CPUID_ECX_KL_NOBACKUP	(1U<<0U)
+/* CPUID.19H.ECX.KL_RANDOM_KS */
+#define CPUID_ECX_KL_RANDOM_KS	(1U<<1U)
 /* CPUID.80000001H.EDX.XD_BIT_AVAILABLE */
 #define CPUID_EDX_XD_BIT_AVIL   (1U<<20U)
 

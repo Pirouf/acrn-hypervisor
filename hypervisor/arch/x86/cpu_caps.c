@@ -119,6 +119,17 @@ bool has_core_cap(uint32_t bit_mask)
 	return ((cpu_caps.core_caps & bit_mask) != 0U);
 }
 
+bool is_ac_enabled(void)
+{
+	bool ac_enabled = false;
+
+	if (has_core_cap(1U << 5U) && (msr_read(MSR_TEST_CTL) & (1U << 29U))) {
+		ac_enabled = true;
+	}
+
+	return ac_enabled;
+}
+
 static void detect_ept_cap(void)
 {
 	uint64_t msr_val;
@@ -479,6 +490,9 @@ int32_t detect_hardware_support(void)
 		ret = -ENODEV;
 	} else if (!pcpu_has_cap(X86_FEATURE_COMPACTION_EXT)) {
 		printf("%s, Compaction extensions in XSAVE is not supported\n", __func__);
+		ret = -ENODEV;
+	} else if (!pcpu_has_cap(X86_FEATURE_RDRAND)) {
+		printf("%s, RDRAND is not supported\n", __func__);
 		ret = -ENODEV;
 	} else {
 		ret = check_vmx_mmu_cap();

@@ -14,6 +14,7 @@
 #include <vcpu.h>
 #include <vmcs.h>
 #include <vm.h>
+#include <splitlock.h>
 #include <trace.h>
 #include <logmsg.h>
 
@@ -251,8 +252,10 @@ static bool vcpu_inject_exception(struct acrn_vcpu *vcpu)
 
 		vcpu->arch.exception_info.exception = VECTOR_INVALID;
 
-		/* retain rip for exception injection */
-		vcpu_retain_rip(vcpu);
+		/* If this is a fault, we should retain the RIP */
+		if (get_exception_type(vector) == EXCEPTION_FAULT) {
+			vcpu_retain_rip(vcpu);
+		}
 
 		/* SDM 17.3.1.1 For any fault-class exception except a debug exception generated in response to an
 		 * instruction breakpoint, the value pushed for RF is 1.
@@ -309,17 +312,14 @@ void vcpu_inject_ss(struct acrn_vcpu *vcpu)
 
 int32_t interrupt_window_vmexit_handler(struct acrn_vcpu *vcpu)
 {
-	uint32_t value32;
-
 	TRACE_2L(TRACE_VMEXIT_INTERRUPT_WINDOW, 0UL, 0UL);
 
 	/* Disable interrupt-window exiting first.
 	 * acrn_handle_pending_request will continue handle for this vcpu
 	 */
 	vcpu->arch.irq_window_enabled = false;
-	value32 = exec_vmread32(VMX_PROC_VM_EXEC_CONTROLS);
-	value32 &= ~(VMX_PROCBASED_CTLS_IRQ_WIN);
-	exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, value32);
+	vcpu->arch.proc_vm_exec_ctrls &= ~(VMX_PROCBASED_CTLS_IRQ_WIN);
+	exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, vcpu->arch.proc_vm_exec_ctrls);
 
 	vcpu_retain_rip(vcpu);
 	return 0;
@@ -361,7 +361,6 @@ int32_t acrn_handle_pending_request(struct acrn_vcpu *vcpu)
 {
 	bool injected = false;
 	int32_t ret = 0;
-	uint32_t tmp;
 	struct acrn_vcpu_arch *arch = &vcpu->arch;
 	uint64_t *pending_req_bits = &arch->pending_req;
 
@@ -376,6 +375,10 @@ int32_t acrn_handle_pending_request(struct acrn_vcpu *vcpu)
 	} else {
 		if (bitmap_test_and_clear_lock(ACRN_REQUEST_WAIT_WBINVD, pending_req_bits)) {
 			wait_event(&vcpu->events[VCPU_EVENT_SYNC_WBINVD]);
+		}
+
+		if (bitmap_test_and_clear_lock(ACRN_REQUEST_SPLIT_LOCK, pending_req_bits)) {
+			wait_event(&vcpu->events[VCPU_EVENT_SPLIT_LOCK]);
 		}
 
 		if (bitmap_test_and_clear_lock(ACRN_REQUEST_EPT_FLUSH, pending_req_bits)) {
@@ -426,7 +429,13 @@ int32_t acrn_handle_pending_request(struct acrn_vcpu *vcpu)
 			}
 		}
 
-		acrn_inject_pending_intr(vcpu, pending_req_bits, injected);
+		/*
+		 * Defer injection of interrupt to be after MTF VM exit,
+		 * when emulating the split-lock.
+		 */
+		if (!vcpu->arch.emulating_lock) {
+			acrn_inject_pending_intr(vcpu, pending_req_bits, injected);
+		}
 
 		/*
 		 * If "virtual-interrupt delivered" is enabled, CPU will evaluate
@@ -450,9 +459,8 @@ int32_t acrn_handle_pending_request(struct acrn_vcpu *vcpu)
 			if (bitmap_test(ACRN_REQUEST_EXTINT, pending_req_bits) ||
 				bitmap_test(ACRN_REQUEST_NMI, pending_req_bits) ||
 				vlapic_has_pending_delivery_intr(vcpu)) {
-				tmp = exec_vmread32(VMX_PROC_VM_EXEC_CONTROLS);
-				tmp |= VMX_PROCBASED_CTLS_IRQ_WIN;
-				exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, tmp);
+				vcpu->arch.proc_vm_exec_ctrls |= VMX_PROCBASED_CTLS_IRQ_WIN;
+				exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, vcpu->arch.proc_vm_exec_ctrls);
 				arch->irq_window_enabled = true;
 			}
 		}
@@ -489,6 +497,7 @@ int32_t exception_vmexit_handler(struct acrn_vcpu *vcpu)
 	uint32_t exception_vector = VECTOR_INVALID;
 	uint32_t cpl;
 	int32_t status = 0;
+	bool queue_exception;
 
 	pr_dbg(" Handling guest exception");
 
@@ -515,10 +524,11 @@ int32_t exception_vmexit_handler(struct acrn_vcpu *vcpu)
 		}
 	}
 
-	/* Handle all other exceptions */
-	vcpu_retain_rip(vcpu);
-
-	status = vcpu_queue_exception(vcpu, exception_vector, int_err_code);
+	status = emulate_splitlock(vcpu, exception_vector, &queue_exception);
+	if ((status == 0) && queue_exception) {
+		vcpu_retain_rip(vcpu);
+		status = vcpu_queue_exception(vcpu, exception_vector, int_err_code);
+	}
 
 	if (exception_vector == IDT_MC) {
 		/* just print error message for #MC, it then will be injected
@@ -534,15 +544,12 @@ int32_t exception_vmexit_handler(struct acrn_vcpu *vcpu)
 
 int32_t nmi_window_vmexit_handler(struct acrn_vcpu *vcpu)
 {
-	uint32_t value32;
-
 	/*
 	 * Disable NMI-window exiting here. We will process
 	 * the pending request in acrn_handle_pending_request later
 	 */
-	value32 = exec_vmread32(VMX_PROC_VM_EXEC_CONTROLS);
-	value32 &= ~VMX_PROCBASED_CTLS_NMI_WINEXIT;
-	exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, value32);
+	vcpu->arch.proc_vm_exec_ctrls &= ~VMX_PROCBASED_CTLS_NMI_WINEXIT;
+	exec_vmwrite32(VMX_PROC_VM_EXEC_CONTROLS, vcpu->arch.proc_vm_exec_ctrls);
 
 	vcpu_retain_rip(vcpu);
 

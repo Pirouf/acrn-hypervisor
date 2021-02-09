@@ -18,6 +18,8 @@
 #
 import os
 import sys
+from datetime import datetime
+
 sys.path.insert(0, os.path.abspath('.'))
 
 RELEASE = ""
@@ -75,7 +77,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'Project ACRN™'
-copyright = u'2020, Project ACRN'
+copyright = u'2018-' + str(datetime.now().year) + u', ' + project
 author = u'Project ACRN developers'
 
 # The version info for the project you're documenting, acts as replacement for
@@ -197,6 +199,7 @@ html_context = {
    'docs_title': docs_title,
    'is_release': is_release,
    'versions': ( ("latest", "/latest/"),
+                 ("2.3", "/2.3/"),
                  ("2.2", "/2.2/"),
                  ("2.1", "/2.1/"),
                  ("2.0", "/2.0/"),
@@ -228,10 +231,18 @@ numfig_format = {'figure': 'Figure %s', 'table': 'Table %s', 'code-block': 'Code
 html_static_path = ['static']
 
 def setup(app):
-   app.add_stylesheet("acrn-custom.css")
-   app.add_javascript("https://www.googletagmanager.com/gtag/js?id=UA-831873-64")
-   # note more GA tag manager calls are in acrn-custom.js
-   app.add_javascript("acrn-custom.js")
+   import sphinx
+
+   if float(sphinx.__version__[0:3]) < 3.0:
+      app.add_stylesheet("acrn-custom.css")
+      app.add_javascript("https://www.googletagmanager.com/gtag/js?id=UA-831873-64")
+      # note more GA tag manager calls are in acrn-custom.js
+      app.add_javascript("acrn-custom.js")
+   else:
+      app.add_css_file("acrn-custom.css")
+      app.add_js_file("https://www.googletagmanager.com/gtag/js?id=UA-831873-64")
+      # note more GA tag manager calls are in acrn-custom.js
+      app.add_js_file("acrn-custom.js")
 
 # Custom sidebar templates, must be a dictionary that maps document names
 # to template names.

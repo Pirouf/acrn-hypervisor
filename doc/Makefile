@@ -48,19 +48,18 @@ doxy: copy-to-sourcedir
 
 content: copy-to-sourcedir
 	$(Q)scripts/extract_content.py $(SOURCEDIR) misc
-
-kconfig: copy-to-sourcedir
-	$(Q)srctree=../hypervisor \
-	    python3 scripts/genrest.py Kconfig $(SOURCEDIR)/reference/kconfig/
+	$(Q)mkdir -p $(SOURCEDIR)/misc/config_tools/schema
+	$(Q)rsync -rt ../misc/config_tools/schema/*.xsd $(SOURCEDIR)/misc/config_tools/schema
+	$(Q)xsltproc -xinclude ./scripts/configdoc.xsl $(SOURCEDIR)/misc/config_tools/schema/config.xsd > $(SOURCEDIR)/reference/configdoc.txt
 
 pullsource:
 	$(Q)scripts/pullsource.sh
 
-html: copy-to-sourcedir doxy content kconfig
+html: copy-to-sourcedir doxy content
 	-$(Q)$(SPHINXBUILD) -t $(DOC_TAG) -b html -d $(BUILDDIR)/doctrees $(SOURCEDIR) $(BUILDDIR)/html $(SPHINXOPTS) $(OPTS) >> $(BUILDDIR)/doc.log 2>&1
 	$(Q)./scripts/filter-doc-log.sh $(BUILDDIR)/doc.log
 
-singlehtml: doxy content kconfig
+singlehtml: doxy content
 	-$(Q)$(SPHINXBUILD) -t $(DOC_TAG) -b singlehtml -d $(BUILDDIR)/doctrees $(SOURCEDIR) $(BUILDDIR)/html $(SPHINXOPTS) $(OPTS) >> $(BUILDDIR)/doc.log 2>&1
 	$(Q)./scripts/filter-doc-log.sh $(BUILDDIR)/doc.log
 
@@ -68,10 +67,8 @@ singlehtml: doxy content kconfig
 
 clean:
 	rm -fr $(BUILDDIR)
-	# Keeping these temporarily, but no longer strictly needed.
-	rm -fr doxygen
-	rm -fr misc
-	rm -fr reference/kconfig/*.rst
+	@# Keeping these temporarily, but no longer strictly needed.
+	rm -fr doxygen misc reference/kconfig
 
 
 # Copy material over to the GitHub pages staging repo

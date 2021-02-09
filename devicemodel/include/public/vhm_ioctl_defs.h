@@ -109,8 +109,8 @@
 #define IC_DEASSIGN_PCIDEV             _IC_ID(IC_ID, IC_ID_PCI_BASE + 0x06)
 #define IC_ASSIGN_MMIODEV              _IC_ID(IC_ID, IC_ID_PCI_BASE + 0x07)
 #define IC_DEASSIGN_MMIODEV            _IC_ID(IC_ID, IC_ID_PCI_BASE + 0x08)
-#define IC_CREATE_HV_VDEV              _IC_ID(IC_ID, IC_ID_PCI_BASE + 0x09)
-#define IC_DESTROY_HV_VDEV             _IC_ID(IC_ID, IC_ID_PCI_BASE + 0x0A)
+#define IC_ADD_HV_VDEV                 _IC_ID(IC_ID, IC_ID_PCI_BASE + 0x09)
+#define IC_REMOVE_HV_VDEV              _IC_ID(IC_ID, IC_ID_PCI_BASE + 0x0A)
 
 /* Power management */
 #define IC_ID_PM_BASE                   0x60UL
@@ -292,6 +292,32 @@ struct api_version {
 	uint32_t minor_version;
 };
 
+enum acrn_vm_load_order {
+	PRE_LAUNCHED_VM = 0,
+	SOS_VM,
+	POST_LAUNCHED_VM,
+	MAX_LOAD_ORDER
+};
+
+/**
+ * @brief data structure to parse configuration data of VM.
+ */
+struct acrn_vm_config {
+#define MAX_VM_OS_NAME_LEN      32U
+	enum acrn_vm_load_order load_order;
+	char name[MAX_VM_OS_NAME_LEN];
+	const uint8_t uuid[16];
+	uint8_t reserved[2];
+	uint8_t severity;
+	uint64_t cpu_affinity;
+	uint64_t guest_flags;
+	/*
+	 * Ignore other members that are hypervisor specific, actual size
+	 * of current structure can be parsed by 'vm_config_entry_size' of
+	 * 'struct platform_info'.
+	 */
+} __aligned(8);
+
 /**
  * @brief data structure to track VHM platform information
  */
@@ -300,15 +326,43 @@ struct platform_info {
 	/** Physical CPU number */
 	uint16_t cpu_num;
 
+	/** version of this structure */
+	uint16_t version;
+
 	/** Align the size of version & hardware info to 128Bytes. */
-	uint8_t reserved0[126];
+	uint8_t reserved0[124];
 
 	/** Configuration Information */
 	/** Maximum vCPU number for one VM. */
 	uint16_t max_vcpus_per_vm;
 
+	/** Maximum Kata container number in SOS VM */
+	uint8_t max_kata_containers;
+
+	uint8_t reserved1[7];
+
+	/** Number of configured VMs */
+	uint16_t max_vms;
+
+	/**
+	 * The size of acrn_vm_config is various on different platforms.
+	 * This is the size of this struct which is used by the caller
+	 * to parse the vm_configs array.
+	 */
+	uint32_t vm_config_entry_size;
+
+	/**
+	 * Address to an array of struct acrn_vm_config, containing all
+	 * the configurations of all VMs. VHM treats it as an opague data
+	 * structure.
+	 *
+	 * The size of one array element is vm_config_entry_size while
+	 * the number of elements is max_vms.
+	 */
+	uint64_t vm_configs_addr;
+
 	/** Align the size of Configuration info to 128Bytes. */
-	uint8_t reserved1[126];
+	uint8_t reserved2[104];
 } __aligned(8);
 
 struct acrn_ioeventfd {

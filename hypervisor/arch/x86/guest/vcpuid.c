@@ -115,6 +115,8 @@ static void init_vcpuid_entry(uint32_t leaf, uint32_t subleaf,
 	switch (leaf) {
 	case 0x07U:
 		if (subleaf == 0U) {
+			uint64_t cr4_reserved_mask = get_cr4_reserved_bits();
+
 			cpuid_subleaf(leaf, subleaf, &entry->eax, &entry->ebx, &entry->ecx, &entry->edx);
 
 			entry->ebx &= ~(CPUID_EBX_PQM | CPUID_EBX_PQE);
@@ -132,6 +134,34 @@ static void init_vcpuid_entry(uint32_t leaf, uint32_t subleaf,
 			/* mask CET shadow stack and indirect branch tracking */
 			entry->ecx &= ~CPUID_ECX_CET_SS;
 			entry->edx &= ~CPUID_EDX_CET_IBT;
+
+			if ((cr4_reserved_mask & CR4_FSGSBASE) != 0UL) {
+				entry->ebx &= ~CPUID_EBX_FSGSBASE;
+			}
+
+			if ((cr4_reserved_mask & CR4_SMEP) != 0UL) {
+				entry->ebx &= ~CPUID_EBX_SMEP;
+			}
+
+			if ((cr4_reserved_mask & CR4_SMAP) != 0UL) {
+				entry->ebx &= ~CPUID_EBX_SMAP;
+			}
+
+			if ((cr4_reserved_mask & CR4_UMIP) != 0UL) {
+				entry->ecx &= ~CPUID_ECX_UMIP;
+			}
+
+			if ((cr4_reserved_mask & CR4_PKE) != 0UL) {
+				entry->ecx &= ~CPUID_ECX_PKE;
+			}
+
+			if ((cr4_reserved_mask & CR4_LA57) != 0UL) {
+				entry->ecx &= ~CPUID_ECX_LA57;
+			}
+
+			if ((cr4_reserved_mask & CR4_PKS) != 0UL) {
+				entry->ecx &= ~CPUID_ECX_PKS;
+			}
 		} else {
 			entry->eax = 0U;
 			entry->ebx = 0U;
@@ -332,7 +362,7 @@ int32_t set_vcpuid_entries(struct acrn_vm *vm)
 
 		for (i = 1U; i <= limit; i++) {
 			/* cpuid 1/0xb is percpu related */
-			if ((i == 1U) || (i == 0xbU) || (i == 0xdU)) {
+			if ((i == 1U) || (i == 0xbU) || (i == 0xdU) || (i == 0x19U)) {
 				continue;
 			}
 
@@ -396,13 +426,14 @@ int32_t set_vcpuid_entries(struct acrn_vm *vm)
 
 static inline bool is_percpu_related(uint32_t leaf)
 {
-	return ((leaf == 0x1U) || (leaf == 0xbU) || (leaf == 0xdU) || (leaf == 0x80000001U));
+	return ((leaf == 0x1U) || (leaf == 0xbU) || (leaf == 0xdU) || (leaf == 0x19U) || (leaf == 0x80000001U));
 }
 
 static void guest_cpuid_01h(struct acrn_vcpu *vcpu, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx)
 {
 	uint32_t apicid = vlapic_get_apicid(vcpu_vlapic(vcpu));
 	uint64_t guest_ia32_misc_enable = vcpu_get_guest_msr(vcpu, MSR_IA32_MISC_ENABLE);
+	uint64_t cr4_reserved_mask = get_cr4_reserved_bits();
 
 	cpuid_subleaf(0x1U, 0x0U, eax, ebx, ecx, edx);
 	/* Patching initial APIC ID */
@@ -432,6 +463,10 @@ static void guest_cpuid_01h(struct acrn_vcpu *vcpu, uint32_t *eax, uint32_t *ebx
 	/* set Hypervisor Present Bit */
 	*ecx |= CPUID_ECX_HV;
 
+	if ((cr4_reserved_mask & CR4_PCIDE) != 0UL) {
+		*ecx &= ~CPUID_ECX_PCID;
+	}
+
 	/* if guest disabed monitor/mwait, clear cpuid.01h[3] */
 	if ((guest_ia32_misc_enable & MSR_IA32_MISC_ENABLE_MONITOR_ENA) == 0UL) {
 		*ecx &= ~CPUID_ECX_MONITOR;
@@ -441,10 +476,34 @@ static void guest_cpuid_01h(struct acrn_vcpu *vcpu, uint32_t *eax, uint32_t *ebx
 	if ((*ecx & CPUID_ECX_XSAVE) != 0U) {
 		uint64_t cr4;
 		/*read guest CR4*/
-		cr4 = exec_vmread(VMX_GUEST_CR4);
+		cr4 = vcpu_get_cr4(vcpu);
 		if ((cr4 & CR4_OSXSAVE) != 0UL) {
 			*ecx |= CPUID_ECX_OSXSAVE;
 		}
+	}
+
+	if ((cr4_reserved_mask & CR4_VME) != 0UL) {
+		*edx &= ~CPUID_EDX_VME;
+	}
+
+	if ((cr4_reserved_mask & CR4_DE) != 0UL) {
+		*edx &= ~CPUID_EDX_DE;
+	}
+
+	if ((cr4_reserved_mask & CR4_PSE) != 0UL) {
+		*edx &= ~CPUID_EDX_PSE;
+	}
+
+	if ((cr4_reserved_mask & CR4_PAE) != 0UL) {
+		*edx &= ~CPUID_EDX_PAE;
+	}
+
+	if ((cr4_reserved_mask & CR4_PGE) != 0UL) {
+		*edx &= ~CPUID_EDX_PGE;
+	}
+
+	if ((cr4_reserved_mask & CR4_OSFXSR) != 0UL) {
+		*edx &= ~CPUID_EDX_FXSR;
 	}
 
 	/* mask Debug Store feature */
@@ -519,6 +578,23 @@ static void guest_cpuid_0dh(__unused struct acrn_vcpu *vcpu, uint32_t *eax, uint
 			/* No emulation for other leaves */
 			break;
 		}
+	}
+}
+
+static void guest_cpuid_19h(struct acrn_vcpu *vcpu, uint32_t *eax, uint32_t *ebx, uint32_t *ecx, uint32_t *edx)
+{
+	if (pcpu_has_cap(X86_FEATURE_KEYLOCKER)) {
+		/* Host CR4.KL should be enabled at boot time */
+		cpuid_subleaf(0x19U, 0U, eax, ebx, ecx, edx);
+		/* Guest CR4.KL determines KL_AES_ENABLED */
+		*ebx &= ~(vcpu->arch.cr4_kl_enabled ? 0U : CPUID_EBX_KL_AES_EN);
+		/* Don't support nobackup and randomization parameter of LOADIWKEY */
+		*ecx &= ~(CPUID_ECX_KL_NOBACKUP | CPUID_ECX_KL_RANDOM_KS);
+	} else {
+		*eax = 0U;
+		*ebx = 0U;
+		*ecx = 0U;
+		*edx = 0U;
 	}
 }
 
@@ -599,6 +675,10 @@ void guest_cpuid(struct acrn_vcpu *vcpu, uint32_t *eax, uint32_t *ebx, uint32_t 
 
 		case 0x0dU:
 			guest_cpuid_0dh(vcpu, eax, ebx, ecx, edx);
+			break;
+
+		case 0x19U:
+			guest_cpuid_19h(vcpu, eax, ebx, ecx, edx);
 			break;
 
 		case 0x80000001U:

@@ -75,16 +75,19 @@
 #define CR4_OSXMMEXCPT          (1UL<<10U)
 /* OS support for unmasked SIMD floating point exceptions */
 #define CR4_UMIP                (1UL<<11U)	/* User-Mode Inst prevention */
+#define CR4_LA57                (1UL<<12U)	/* 57-bit linear address */
 #define CR4_VMXE                (1UL<<13U)	/* VMX enable */
 #define CR4_SMXE                (1UL<<14U)	/* SMX enable */
 #define CR4_FSGSBASE            (1UL<<16U)	/* RD(FS|GS|FS)BASE inst */
 #define CR4_PCIDE               (1UL<<17U)	/* PCID enable */
-#define CR4_OSXSAVE             (1UL<<18U)
 /* XSAVE and Processor Extended States enable bit */
+#define CR4_OSXSAVE             (1UL<<18U)
+#define CR4_KL                  (1UL<<19U)      /* KeyLocker enable */
 #define CR4_SMEP                (1UL<<20U)
 #define CR4_SMAP                (1UL<<21U)
 #define CR4_PKE                 (1UL<<22U)	/* Protect-key-enable */
 #define CR4_CET                 (1UL<<23U)	/* Control-flow Enforcement Technology enable */
+#define CR4_PKS                 (1UL<<24U)	/* Enable protection keys for supervisor-mode pages */
 
 /* XCR0_SSE */
 #define XCR0_SSE		(1UL<<1U)
@@ -654,6 +657,11 @@ static inline void xrstors(const struct xsave_area *region_addr, uint64_t mask)
 			"d" ((uint32_t)(mask >> 32U)),
 			"a" ((uint32_t)mask):
 			"memory");
+}
+
+static inline void asm_loadiwkey(uint32_t eax)
+{
+	asm volatile(".byte 0xf3, 0x0f, 0x38, 0xdc, 0xd1;": : "a" (eax));
 }
 
 /*

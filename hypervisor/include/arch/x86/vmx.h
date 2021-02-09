@@ -64,6 +64,10 @@
 
 #define VMX_XSS_EXITING_BITMAP_FULL		0x0000202CU
 #define VMX_XSS_EXITING_BITMAP_HIGH		0x0000202DU
+
+#define VMX_PROC_VM_EXEC_CONTROLS3_FULL		0x00002034U
+#define VMX_PROC_VM_EXEC_CONTROLS3_HIGH		0x00002035U
+
 /* 64-bit read-only data fields */
 #define VMX_GUEST_PHYSICAL_ADDR_FULL 0x00002400U
 #define VMX_GUEST_PHYSICAL_ADDR_HIGH 0x00002401U
@@ -263,6 +267,7 @@
 #define VMX_EXIT_REASON_PAGE_MODIFICATION_LOG_FULL                   0x0000003EU
 #define VMX_EXIT_REASON_XSAVES                                       0x0000003FU
 #define VMX_EXIT_REASON_XRSTORS                                      0x00000040U
+#define VMX_EXIT_REASON_LOADIWKEY                                    0x00000045U
 
 /* VMX execution control bits (pin based) */
 #define VMX_PINBASED_CTLS_IRQ_EXIT     (1U<<0U)
@@ -281,6 +286,7 @@
 #define VMX_PROCBASED_CTLS_RDTSC       (1U<<12U)
 #define VMX_PROCBASED_CTLS_CR3_LOAD    (1U<<15U)
 #define VMX_PROCBASED_CTLS_CR3_STORE   (1U<<16U)
+#define VMX_PROCBASED_CTLS_TERTIARY    (1U<<17U)
 #define VMX_PROCBASED_CTLS_CR8_LOAD    (1U<<19U)
 #define VMX_PROCBASED_CTLS_CR8_STORE   (1U<<20U)
 #define VMX_PROCBASED_CTLS_TPR_SHADOW  (1U<<21U)
@@ -311,6 +317,7 @@
 #define VMX_PROCBASED_CTLS2_RDSEED     (1U<<16U)
 #define VMX_PROCBASED_CTLS2_EPT_VE     (1U<<18U)
 #define VMX_PROCBASED_CTLS2_XSVE_XRSTR (1U<<20U)
+#define VMX_PROCBASED_CTLS3_LOADIWKEY  (1U<<0U)
 
 /* MSR_IA32_VMX_EPT_VPID_CAP: EPT and VPID capability bits */
 #define VMX_EPT_EXECUTE_ONLY		(1U << 0U)
@@ -430,6 +437,9 @@ void exec_vmwrite64(uint32_t field_full, uint64_t value);
 
 void exec_vmclear(void *addr);
 void exec_vmptrld(void *addr);
+
+void init_cr0_cr4_flexible_bits(void);
+bool is_valid_cr0_cr4(uint64_t cr0, uint64_t cr4);
 
 #define POSTED_INTR_ON  0U
 #endif /* VMX_H_ */

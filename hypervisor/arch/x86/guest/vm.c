@@ -35,7 +35,7 @@
 #include <trampoline.h>
 #include <assign.h>
 #include <vgpio.h>
-#include <ptcm.h>
+#include <rtcm.h>
 
 /* Local variables */
 
@@ -231,12 +231,12 @@ static void prepare_prelaunched_vm_memmap(struct acrn_vm *vm, const struct acrn_
 		if (entry->length == 0UL) {
 			continue;
 		} else {
-			if (is_psram_initialized && (entry->baseaddr == PSRAM_BASE_GPA) &&
+			if (is_sw_sram_initialized && (entry->baseaddr == PRE_RTVM_SW_SRAM_BASE_GPA) &&
 				((vm_config->guest_flags & GUEST_FLAG_RT) != 0U)){
-				/* pass through pSRAM to pre-RTVM */
-				pr_fatal("%s, %d___", __func__, __LINE__);
+				/* pass through Software SRAM to pre-RTVM */
 				ept_add_mr(vm, (uint64_t *)vm->arch_vm.nworld_eptp,
-					PSRAM_BASE_HPA, PSRAM_BASE_GPA, PSRAM_MAX_SIZE, EPT_RWX | EPT_WB);
+					get_software_sram_base(), PRE_RTVM_SW_SRAM_BASE_GPA,
+					get_software_sram_size(), EPT_RWX | EPT_WB);
 				continue;
 			}
 		}
@@ -277,6 +277,69 @@ static void prepare_prelaunched_vm_memmap(struct acrn_vm *vm, const struct acrn_
 			register_vgpio_handler(vm, &vm_config->mmiodevs[i]);
 		}
 #endif
+	}
+}
+
+static void deny_pci_bar_access(struct acrn_vm *sos, const struct pci_pdev *pdev)
+{
+	uint32_t idx, mask;
+	struct pci_vbar vbar = {};
+	uint64_t base = 0UL, size = 0UL;
+	uint64_t *pml4_page;
+
+	pml4_page = (uint64_t *)sos->arch_vm.nworld_eptp;
+
+	for ( idx= 0; idx < pdev->nr_bars; idx++) {
+		vbar.bar_type.bits = pdev->bars[idx].phy_bar;
+		if (!is_pci_reserved_bar(&vbar)) {
+			base = pdev->bars[idx].phy_bar;
+			size = pdev->bars[idx].size_mask;
+			if (is_pci_mem64lo_bar(&vbar)) {
+				idx++;
+				base |= (((uint64_t)pdev->bars[idx].phy_bar) << 32UL);
+				size |= (((uint64_t)pdev->bars[idx].size_mask) << 32UL);
+			}
+
+			mask = (is_pci_io_bar(&vbar)) ? PCI_BASE_ADDRESS_IO_MASK : PCI_BASE_ADDRESS_MEM_MASK;
+			base &= mask;
+			size &= mask;
+			size = size & ~(size - 1UL);
+
+			if ((base != 0UL)) {
+				if (is_pci_io_bar(&vbar)) {
+					base &= 0xffffU;
+					deny_guest_pio_access(sos, base, size);
+				} else {
+					/*for passthru device MMIO BAR base must be 4K aligned. This is the requirement of passthru devices.*/
+					ASSERT((base & PAGE_MASK) != 0U, "%02x:%02x.%d bar[%d] 0x%lx, is not 4K aligned!",
+						pdev->bdf.bits.b, pdev->bdf.bits.d, pdev->bdf.bits.f, idx, base);
+					size =  round_page_up(size);
+					ept_del_mr(sos, pml4_page, base, size);
+				}
+			}
+		}
+	}
+}
+
+static void deny_pdevs(struct acrn_vm *sos, struct acrn_vm_pci_dev_config *pci_devs, uint16_t pci_dev_num)
+{
+	uint16_t i;
+
+	for (i = 0; i < pci_dev_num; i++) {
+		if ( pci_devs[i].pdev != NULL) {
+			deny_pci_bar_access(sos, pci_devs[i].pdev);
+		}
+	}
+}
+
+static void deny_hv_owned_devices(struct acrn_vm *sos)
+{
+	uint32_t i;
+
+	const struct pci_pdev **hv_owned = get_hv_owned_pdevs();
+
+	for (i = 0U; i < get_hv_owned_pdev_num(); i++) {
+		deny_pci_bar_access(sos, hv_owned[i]);
 	}
 }
 
@@ -349,12 +412,16 @@ static void prepare_sos_vm_memmap(struct acrn_vm *vm)
 		vm_config = get_vm_config(vm_id);
 		if (vm_config->load_order == PRE_LAUNCHED_VM) {
 			ept_del_mr(vm, pml4_page, vm_config->memory.start_hpa, vm_config->memory.size);
+			/* Remove MMIO/IO bars of pre-launched VM's ptdev */
+			deny_pdevs(vm, vm_config->pci_devs, vm_config->pci_dev_num);
 		}
 
 		for (i = 0U; i < MAX_MMIO_DEV_NUM; i++) {
 			(void)deassign_mmio_dev(vm, &vm_config->mmiodevs[i]);
 		}
 	}
+
+	deny_hv_owned_devices(vm);
 
 	/* unmap AP trampoline code for security
 	 * This buffer is guaranteed to be page aligned.
@@ -365,8 +432,8 @@ static void prepare_sos_vm_memmap(struct acrn_vm *vm)
 	pci_mmcfg = get_mmcfg_region();
 	ept_del_mr(vm, (uint64_t *)vm->arch_vm.nworld_eptp, pci_mmcfg->address, get_pci_mmcfg_size(pci_mmcfg));
 
-	/* TODO: remove pSRAM from SOS prevent SOS to use clflush to flush the pSRAM cache.
-	 * If we remove this EPT mapping from the SOS, the ACRN-DM can't do pSRAM EPT mapping
+	/* TODO: remove Software SRAM from SOS prevent SOS to use clflush to flush the Software SRAM cache.
+	 * If we remove this EPT mapping from the SOS, the ACRN-DM can't do Software SRAM EPT mapping
 	 * because the SOS can't get the HPA of this memory region.
 	 */
 }
@@ -468,6 +535,7 @@ int32_t create_vm(uint16_t vm_id, uint64_t pcpu_bitmap, struct acrn_vm_config *v
 		spinlock_init(&vm->vlapic_mode_lock);
 		spinlock_init(&vm->ept_lock);
 		spinlock_init(&vm->emul_mmio_lock);
+		spinlock_init(&vm->arch_vm.iwkey_backup_lock);
 
 		vm->arch_vm.vlapic_mode = VM_VLAPIC_XAPIC;
 		vm->intr_inject_delay_delta = 0UL;
@@ -717,6 +785,7 @@ int32_t reset_vm(struct acrn_vm *vm)
 	reset_vioapics(vm);
 	destroy_secure_world(vm, false);
 	vm->sworld_control.flag.active = 0UL;
+	vm->arch_vm.iwkey_backup_status = 0UL;
 	vm->state = VM_CREATED;
 
 	return ret;

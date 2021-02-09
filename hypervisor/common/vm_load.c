@@ -76,7 +76,7 @@ static uint64_t create_zero_page(struct acrn_vm *vm)
 
 #ifdef CONFIG_MULTIBOOT2
 	if (is_sos_vm(vm)) {
-		struct acrn_multiboot_info *mbi = get_multiboot_info();
+		struct acrn_multiboot_info *mbi = get_acrn_multiboot_info();
 
 		(void)memcpy_s(&(zeropage->boot_efi_info), sizeof(zeropage->boot_efi_info),
 				&(mbi->mi_efi_info), sizeof(mbi->mi_efi_info));
@@ -212,7 +212,7 @@ int32_t vm_sw_loader(struct acrn_vm *vm)
 			ramdisk_info->size);
 	}
 	/* Copy Guest OS bootargs to its load location */
-	if (bootargs_info->size != 0U) {
+	if ((bootargs_info->size != 0U) && (bootargs_info->load_addr != NULL)) {
 		(void)copy_to_gpa(vm, bootargs_info->src_addr,
 			(uint64_t)bootargs_info->load_addr,
 			(strnlen_s((char *)bootargs_info->src_addr, MAX_BOOTARGS_SIZE) + 1U));

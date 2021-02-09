@@ -14,15 +14,15 @@ Configuration and Tools
    :maxdepth: 1
 
    tutorials/acrn_configuration_tool
-   reference/kconfig/index
+   reference/config-options
    user-guides/hv-parameters
    user-guides/kernel-parameters
    user-guides/acrn-shell
    user-guides/acrn-dm-parameters
-   misc/tools/acrn-crashlog/README
+   misc/debug_tools/acrn_crashlog/README
    misc/packaging/README
-   misc/tools/**
-   misc/acrn-manager/**
+   misc/debug_tools/**
+   misc/services/acrn_manager/**
 
 Service VM Tutorials
 ********************
@@ -72,6 +72,7 @@ Enable ACRN Features
    tutorials/setup_openstack_libvirt
    tutorials/acrn_on_qemu
    tutorials/using_grub
+   tutorials/acrn-secure-boot-with-grub
    tutorials/pre-launched-rt
    tutorials/enable_ivshmem
 
