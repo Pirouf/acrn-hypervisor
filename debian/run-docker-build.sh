@@ -18,12 +18,16 @@ fi
 pushd ${TOPDIR} >/dev/null
 
 if [ ! -f debian/docker/Dockerfile ]; then
-    echo "No Dockefile available!"
+    echo "No Dockerfile available!"
     exit 1
 fi
 
+# use DOCKER_BUILD_PARAMS for additional flags, e.g. --no-cache
+# defaults to -q
+DOCKER_BUILD_PARAMS=${DOCKER_BUILD_PARAMS:--q}
+
 set -e
-${DOCKER} build -q -f debian/docker/Dockerfile -t acrn-hypervisor-build debian/docker
+${DOCKER} build -f debian/docker/Dockerfile -t acrn-hypervisor-build ${DOCKER_BUILD_PARAMS} debian/docker
 ${DOCKER} run --rm -u $(id -u):$(id -g) -v $(pwd):/acrn-hypervisor acrn-hypervisor-build $@
 
 popd >/dev/null
