@@ -169,7 +169,7 @@ override_dh_auto_install-arch:
 			SCENARIO=$(call sfile,$b,$s)			\
 			DESTDIR=$(DESTDIR)				\
 			hypervisor-install $(devnull);			\
-			cp $(O)/$b/$s/hypervisor/.config		\
+			cp $(O)/$b/$s/hypervisor/configs/scenarios/$s/$b.config	\
 				$(DESTDIR)$(libdir)/acrn/acrn.$b.$s.config;\
 			cp $(O)/$b/$s/hypervisor/acrn.map		\
 				$(DESTDIR)$(libdir)/acrn/acrn.$b.$s.map;\
