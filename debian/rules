@@ -134,9 +134,8 @@ override_dh_auto_build-arch:
 	$(Q)set -e; $(foreach b,$(boardlist),$(foreach s,$(scenariolist_$b),\
 		$(call echo-silent,BUILD hypervisor for $b:$s);		\
 		$(MAKE) O=$(O)/$b/$s					\
-			BOARD_FILE=$(call bfile,$b)			\
-			SCENARIO_FILE=$(call sfile,$b,$s)		\
-			TARGET_DIR=$(abspath $(O)/$b/$s/generated)	\
+			BOARD=$(call bfile,$b)				\
+			SCENARIO=$(call sfile,$b,$s)			\
 			hypervisor $(devnull);				\
 	))
 	@$(call echo-silent,BUILD devicemodel)
@@ -171,9 +170,8 @@ override_dh_auto_install-arch:
 	$(Q)set -e;$(foreach b,$(boardlist),$(foreach s,$(scenariolist_$b),\
 		$(call echo-silent,INSTALL hypervisor for $b:$s); 	\
 		$(MAKE) O=$(O)/$b/$s					\
-			BOARD_FILE=$(call bfile,$b)			\
-			SCENARIO_FILE=$(call sfile,$b,$s)		\
-			TARGET_DIR=$(abspath $(O)/$b/$s/generated)	\
+			BOARD=$(call bfile,$b)				\
+			SCENARIO=$(call sfile,$b,$s)			\
 			DESTDIR=$(DESTDIR)				\
 			hypervisor-install $(devnull);			\
 			cp $(O)/$b/$s/hypervisor/.config		\
