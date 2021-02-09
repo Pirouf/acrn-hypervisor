@@ -138,13 +138,8 @@ override_dh_auto_build-arch:
 			SCENARIO=$(call sfile,$b,$s)			\
 			hypervisor $(devnull);				\
 	))
-	@$(call echo-silent,BUILD devicemodel)
+	@$(call echo-silent,BUILD devicemodel & tools)
 	$(Q)$(MAKE) O=$(O)/common devicemodel $(devnull)
-	@$(call echo-silent,BUILD life_mngr)
-	$(Q)mkdir -p $(O)/common/misc/life_mngr
-	$(Q)$(MAKE) -C misc/life_mngr					\
-		OUT_DIR=$(abspath $(O)/common/misc/life_mngr)		\
-		all-linux $(devnull)
 
 ### build-indep ##############################################################
 ifeq ($(EXTRA_VERSION),)
@@ -188,14 +183,6 @@ override_dh_auto_install-arch:
 	@$(call echo-silent,INSTALL devicemodel & tools)
 	$(Q)$(MAKE) O=$(O)/common DESTDIR=$(DESTDIR) devicemodel-install $(devnull)
 	$(Q)$(MAKE) O=$(O)/common DESTDIR=$(DESTDIR) tools-install $(devnull)
-	@:
-	@# install life_mngr
-	@$(call echo-silent,INSTALL devicemodel & tools)
-	$(Q)install -d $(DESTDIR)$(bindir)
-	$(Q)install -m 0755 $(O)/common/misc/life_mngr/life_mngr $(DESTDIR)$(bindir)
-	$(Q)install -d $(DESTDIR)$(systemd_unitdir)/system
-	$(Q)install -m 0644 $(O)/common/misc/life_mngr/life_mngr.service	\
-		$(DESTDIR)$(systemd_unitdir)/system
 	@:
 	@# move/adapt network configs as examples only
 	$(Q)mkdir -p $(DESTDIR)$(docdir)/acrnd/examples
