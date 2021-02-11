@@ -1,0 +1,115 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Thu, 2 Jul 2020 16:28:34 +0200
+Subject: acrn-config: add new HV config HIDDEN_PDEV/BDF
+
+Make hidden PCI devices configurable via an additional configuration
+item in the scenario's HV section to allow specification ofsuch devices
+via XML, to avoid changing ACRN configuration tool sources for each
+otherwise externally configured device, e.g. to passthrough the
+unvisible devices adt 0:d.0 and 0:14.1 use:
+
+<HIDDEN_PDEV>
+  <BDF>0:d.0</BDF>
+  <BDF>0:14.1</BDF>
+<HIDDEN_PDEV>
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ misc/config_tools/board_config/board_c.py      | 22 ++++++++++++++++++----
+ misc/config_tools/board_config/board_info_h.py |  8 ++++----
+ misc/config_tools/hv_config/hv_item.py         |  2 ++
+ misc/config_tools/library/common.py            |  4 ++--
+ 4 files changed, 26 insertions(+), 10 deletions(-)
+
+diff --git a/misc/config_tools/board_config/board_c.py b/misc/config_tools/board_config/board_c.py
+index a79a98e..ce43672 100644
+--- a/misc/config_tools/board_config/board_c.py
++++ b/misc/config_tools/board_config/board_c.py
+@@ -242,10 +242,24 @@ def gen_px_cx(config):
+ 
+ 
+ def gen_pci_hide(config):
+-    """Generate hide pci information for this platform"""
+-    if board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB.keys()) and board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME] != 0:
+-        hidden_pdev_list = board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME]
+-        hidden_pdev_num = len(hidden_pdev_list)
++    """
++    Generate hide pci information for this platform
++    :param config: it is a file pointer of board information for writing to
++
++    Hidden devices defined via HV section have precedence. Only fallback to
++    in-code database if there is nothing defined. This makes it possible to
++    override internal settings.
++    """
++
++    hidden_pdev_list = common.get_hv_item_tag(common.SCENARIO_INFO_FILE, "FEATURES", "HIDDEN_PDEVS", "BDF")
++
++    # no hidden devs defined, look at predefined database
++    if len(hidden_pdev_list) == 0:
++        if board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB.keys()) and board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME] != 0:
++            hidden_pdev_list = board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME]
++
++    hidden_pdev_num = len(hidden_pdev_list)
++    if hidden_pdev_num > 0:
+         print("const union pci_bdf plat_hidden_pdevs[MAX_HIDDEN_PDEVS_NUM] = {", file=config)
+         for hidden_pdev_i in range(hidden_pdev_num):
+             bus = hex(int(hidden_pdev_list[hidden_pdev_i].split(':')[0], 16))
+diff --git a/misc/config_tools/board_config/board_info_h.py b/misc/config_tools/board_config/board_info_h.py
+index 49c612d..608a4c7 100644
+--- a/misc/config_tools/board_config/board_info_h.py
++++ b/misc/config_tools/board_config/board_info_h.py
+@@ -83,10 +83,10 @@ def generate_file(config):
+     gen_known_caps_pci_head(config)
+ 
+     # define MAX_HIDDEN_PDEVS_NUM
+-    if board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB):
+-        print("#define MAX_HIDDEN_PDEVS_NUM\t\t{}U".format(len(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME])), file=config)
+-    else:
+-        print("#define MAX_HIDDEN_PDEVS_NUM\t\t0U", file=config)
++    hidden_list = common.get_hv_item_tag(common.SCENARIO_INFO_FILE, "FEATURES", "HIDDEN_PDEVS", "BDF")
++    if len(hidden_list) == 0 and board_cfg_lib.BOARD_NAME in list(board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB):
++        hidden_list = board_cfg_lib.KNOWN_HIDDEN_PDEVS_BOARD_DB[board_cfg_lib.BOARD_NAME]
++    print("#define MAX_HIDDEN_PDEVS_NUM\t{}U".format(len(hidden_list)), file=config)
+ 
+     # generate HI_MMIO_START/HI_MMIO_END
+     find_hi_mmio_window(config)
+diff --git a/misc/config_tools/hv_config/hv_item.py b/misc/config_tools/hv_config/hv_item.py
+index 11e6c98..3cf7180 100644
+--- a/misc/config_tools/hv_config/hv_item.py
++++ b/misc/config_tools/hv_config/hv_item.py
+@@ -110,6 +110,7 @@ class Features:
+         self.l1d_flush_vmentry_enabled = ''
+         self.mce_on_psc_workaround_disabled = ''
+         self.psram_enabled = ''
++        self.hidden_pdevs = []
+ 
+     def get_info(self):
+         self.multiboot2 = common.get_hv_item_tag(self.hv_file, "FEATURES", "MULTIBOOT2")
+@@ -125,6 +126,7 @@ class Features:
+         self.mce_on_psc_workaround_disabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "MCE_ON_PSC_DISABLED")
+         self.iommu_enforce_snp = common.get_hv_item_tag(self.hv_file, "FEATURES", "IOMMU_ENFORCE_SNP")
+         self.psram_enabled = common.get_hv_item_tag(self.hv_file, "FEATURES", "PSRAM", "PSRAM_ENABLED")
++        self.hidden_pdevs = common.get_hv_item_tag(self.hv_file, "FEATURES", "HIDDEN_PDEVS", "BDF")
+ 
+     def check_item(self):
+         hv_cfg_lib.ny_support_check(self.multiboot2, "FEATURES", "MULTIBOOT2")
+diff --git a/misc/config_tools/library/common.py b/misc/config_tools/library/common.py
+index 0c129cc..b26bf73 100644
+--- a/misc/config_tools/library/common.py
++++ b/misc/config_tools/library/common.py
+@@ -515,13 +515,13 @@ def get_hv_item_tag(config_file, branch_tag, tag_str='', leaf_str=''):
+                             tmp_list = []
+                             for leaf_s in leaf:
+                                 if leaf_s.tag == leaf_str and leaf_s.text and leaf_s.text != None:
+-                                    if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION":
++                                    if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION" or leaf_str == "BDF":
+                                         tmp_list.append(leaf_s.text)
+                                     else:
+                                         tmp = leaf_s.text
+                                 continue
+ 
+-                            if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION":
++                            if leaf_str == "CLOS_MASK" or leaf_str == "MBA_DELAY" or leaf_str == "IVSHMEM_REGION" or leaf_str == "BDF":
+                                 tmp = tmp_list
+                                 break
+ 

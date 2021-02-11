@@ -1,0 +1,39 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Fri, 25 Sep 2020 08:56:11 +0200
+Subject: hv: hypercall: return 0 for empty PX or CX tables
+
+Avoid failing hypercalls by returning 0 for empty PX and CX tables on
+HC_PM_GET_CPU_STATE/PMCMD_GET_PX_CNT and
+HC_PM_GET_CPU_STATE/PMCMD_GET_CX_CNT.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/common/hypercall.c | 8 ++------
+ 1 file changed, 2 insertions(+), 6 deletions(-)
+
+diff --git a/hypervisor/common/hypercall.c b/hypervisor/common/hypercall.c
+index 5c4e7df..abf8cc7 100644
+--- a/hypervisor/common/hypercall.c
++++ b/hypervisor/common/hypercall.c
+@@ -1019,9 +1019,7 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, struct acrn_vm *target_vm, ui
+ 	if (is_created_vm(target_vm)) {
+ 		switch (cmd & PMCMD_TYPE_MASK) {
+ 		case PMCMD_GET_PX_CNT: {
+-			if (target_vm->pm.px_cnt != 0U) {
+-				ret = copy_to_gpa(vm, &(target_vm->pm.px_cnt), param2, sizeof(target_vm->pm.px_cnt));
+-			}
++			ret = copy_to_gpa(vm, &(target_vm->pm.px_cnt), param2, sizeof(target_vm->pm.px_cnt));
+ 			break;
+ 		}
+ 		case PMCMD_GET_PX_DATA: {
+@@ -1046,9 +1044,7 @@ int32_t hcall_get_cpu_pm_state(struct acrn_vm *vm, struct acrn_vm *target_vm, ui
+ 			break;
+ 		}
+ 		case PMCMD_GET_CX_CNT: {
+-			if (target_vm->pm.cx_cnt != 0U) {
+-				ret = copy_to_gpa(vm, &(target_vm->pm.cx_cnt), param2, sizeof(target_vm->pm.cx_cnt));
+-			}
++			ret = copy_to_gpa(vm, &(target_vm->pm.cx_cnt), param2, sizeof(target_vm->pm.cx_cnt));
+ 			break;
+ 		}
+ 		case PMCMD_GET_CX_DATA: {

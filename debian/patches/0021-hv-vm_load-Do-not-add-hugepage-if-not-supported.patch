@@ -1,0 +1,50 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Wed, 10 Feb 2021 20:09:50 +0100
+Subject: hv: vm_load: Do not add hugepage if not supported
+
+On our EHL-CRB B0 silicon cpuid reports the following using
+a native installation (i.e. without ACRN):
+   ...
+   extended feature flags (0x80000001/edx):
+      SYSCALL and SYSRET instructions        = true
+      execution disable                      = true
+      1-GB large page support                = false
+      RDTSCP                                 = true
+      64-bit extensions technology available = true
+   ...
+
+As prepare_loading_bzimage() adds 'hugepagesz=1G hugepages=4' to the
+kernel boot parameters when booting via ACRN, this leads to a kernel
+log message like:
+
+   hugepagesz: Unsupported page size 1024 M
+
+Thus, disable generation of hugepage related parameters if not supported.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/common/vm_load.c | 4 +++-
+ 1 file changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/hypervisor/common/vm_load.c b/hypervisor/common/vm_load.c
+index 59de6ba..09fbc46 100644
+--- a/hypervisor/common/vm_load.c
++++ b/hypervisor/common/vm_load.c
+@@ -13,6 +13,7 @@
+ #include <errno.h>
+ #include <sprintf.h>
+ #include <logmsg.h>
++#include <cpufeatures.h>
+ 
+ #define NUM_REMAIN_1G_PAGES	3UL
+ 
+@@ -148,7 +149,8 @@ static void prepare_loading_bzimage(struct acrn_vm *vm, struct acrn_vcpu *vcpu)
+ 	 * reserving. Current strategy is "total_mem_size in Giga -
+ 	 * remained 1G pages" for reserving.
+ 	 */
+-	if (is_sos_vm(vm) && (bootargs_info->load_addr != NULL)) {
++	if (is_sos_vm(vm) && (bootargs_info->load_addr != NULL) &&
++	    pcpu_has_cap(X86_FEATURE_PAGE1GB)) {
+ 		int64_t reserving_1g_pages;
+ 
+ 		reserving_1g_pages = (vm_config->memory.size >> 30U) - NUM_REMAIN_1G_PAGES;

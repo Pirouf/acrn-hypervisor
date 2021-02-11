@@ -1,0 +1,21 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Tue, 28 Jul 2020 17:37:58 +0200
+Subject: life_mngr-fix-life_mngr-service
+
+---
+ misc/services/life_mngr/life_mngr.service | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/misc/services/life_mngr/life_mngr.service b/misc/services/life_mngr/life_mngr.service
+index c8c2dd3..8a38f6d 100644
+--- a/misc/services/life_mngr/life_mngr.service
++++ b/misc/services/life_mngr/life_mngr.service
+@@ -7,7 +7,7 @@ Type=simple
+ ExecStart=/usr/bin/life_mngr uos /dev/ttyS1
+ StandardOutput=journal
+ StandardError=journal
+-Restart=yes
++Restart=always
+ 
+ [Install]
+ WantedBy=multi-user.target

@@ -1,0 +1,40 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Tue, 9 Jun 2020 19:18:51 +0200
+Subject: acrn-config: print warnings and errors to stderr
+
+To allow stdout to be redirected to /dev/null during automated make, but
+to avoid loosing errors and warnings print them to stderr.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ misc/config_tools/library/common.py | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/misc/config_tools/library/common.py b/misc/config_tools/library/common.py
+index c3e7a36..0c129cc 100644
+--- a/misc/config_tools/library/common.py
++++ b/misc/config_tools/library/common.py
+@@ -74,9 +74,9 @@ def print_yel(msg, warn=False):
+     :param warn: the condition if needs to be output the color of yellow with 'Warning'
+     """
+     if warn:
+-        print("\033[1;33mWarning\033[0m: "+msg)
++        print("\033[1;33mWarning\033[0m: "+msg, file=sys.stderr)
+     else:
+-        print("\033[1;33m{0}\033[0m".format(msg))
++        print("\033[1;33m{0}\033[0m".format(msg), file=sys.stderr)
+ 
+ 
+ def print_red(msg, err=False):
+@@ -86,9 +86,9 @@ def print_red(msg, err=False):
+     :param err: the condition if needs to be output the color of red with 'Error'
+     """
+     if err:
+-        print("\033[1;31mError\033[0m: "+msg)
++        print("\033[1;31mError\033[0m: "+msg, file=sys.stderr)
+     else:
+-        print("\033[1;31m{0}\033[0m".format(msg))
++        print("\033[1;31m{0}\033[0m".format(msg), file=sys.stderr)
+ 
+ 
+ def usage(file_name):

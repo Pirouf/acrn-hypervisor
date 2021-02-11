@@ -1,0 +1,28 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Tue, 9 Feb 2021 13:22:14 +0100
+Subject: doc: add documentation for HIDDEN_PDEVS/BDF
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ doc/tutorials/acrn-config-details.txt | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+diff --git a/doc/tutorials/acrn-config-details.txt b/doc/tutorials/acrn-config-details.txt
+index 6eb5b94..a1a1033 100644
+--- a/doc/tutorials/acrn-config-details.txt
++++ b/doc/tutorials/acrn-config-details.txt
+@@ -85,6 +85,14 @@
+     separated by a ``:``, for example, ``0:2`` (to share this area between
+     VMs 0 and 2), or ``0:1:2`` (to let VMs 0, 1, and 2 share this area).
+ 
++``HIDDEN_PDEVS`` (a child node of ``FEATURES``):
++  Optional: Specify a list of ``BDF`` nodes. This overrides any existing configuration
++  of tool internal data.
++
++``BDF`` (a child node of ``FEATURES/HIDDEN_PDEVS``):
++  Optional: Specify a hidden PCI device to be accessed by SOS only in BDF format
++  (Bus:Device.Function)
++
+ ``STACK_SIZE`` (a child node of ``MEMORY``):
+   Specify the size of stacks used by physical cores. Each core uses one stack
+   for normal operations and another three for specific exceptions.

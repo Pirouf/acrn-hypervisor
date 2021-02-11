@@ -1,0 +1,35 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Thu, 2 Jul 2020 16:26:40 +0200
+Subject: doc: fix typo in docu: FEATURE -> FEATURES
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ doc/tutorials/acrn-config-details.txt | 8 ++++----
+ 1 file changed, 4 insertions(+), 4 deletions(-)
+
+diff --git a/doc/tutorials/acrn-config-details.txt b/doc/tutorials/acrn-config-details.txt
+index a1a1033..2882d3e 100644
+--- a/doc/tutorials/acrn-config-details.txt
++++ b/doc/tutorials/acrn-config-details.txt
+@@ -63,17 +63,17 @@
+ ``L1D_VMENTRY_ENABLED`` (a child node of ``FEATURES``):
+   Specify whether the L1 cache flush before VM entry is enabled.
+ 
+-``MCE_ON_PSC_DISABLED`` (a child node of ``FEATURE``):
++``MCE_ON_PSC_DISABLED`` (a child node of ``FEATURES``):
+   Specify whether force to disable software workaround for Machine Check
+   Error on Page Size Change is enabled.
+ 
+-``IVSHMEM`` (a child node of ``FEATURE``):
++``IVSHMEM`` (a child node of ``FEATURES``):
+   Specify the inter-VM shared memory configuration
+ 
+-``IVSHMEM_ENABLED`` (a child node of ``FEATURE/IVSHMEM``):
++``IVSHMEM_ENABLED`` (a child node of ``FEATURES/IVSHMEM``):
+   Specify if the inter-VM shared memory feature is enabled.
+ 
+-``IVSHMEM_REGION`` (a child node of ``FEATURE/IVSHMEM``):
++``IVSHMEM_REGION`` (a child node of ``FEATURES/IVSHMEM``):
+   Specify a comma-separated list of the inter-VM shared memory region name,
+   size, and VM IDs that may communicate using this shared region.
+ 
