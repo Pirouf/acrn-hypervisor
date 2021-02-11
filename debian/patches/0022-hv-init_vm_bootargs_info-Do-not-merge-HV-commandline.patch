@@ -1,0 +1,53 @@
+From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+Date: Thu, 11 Feb 2021 19:00:02 +0100
+Subject: hv: init_vm_bootargs_info(): Do not merge HV commandline
+
+The hypervisor's command line is completely independent from the SOS boot
+command line iand vice versa. There is no reason to mix them, so remove
+appending the HV commandline to the SOS boot parameters.
+
+Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
+---
+ hypervisor/boot/guest/vboot_info.c | 14 +++-----------
+ 1 file changed, 3 insertions(+), 11 deletions(-)
+
+diff --git a/hypervisor/boot/guest/vboot_info.c b/hypervisor/boot/guest/vboot_info.c
+index 6966341..03fdec1 100644
+--- a/hypervisor/boot/guest/vboot_info.c
++++ b/hypervisor/boot/guest/vboot_info.c
+@@ -191,9 +191,9 @@ static int32_t init_vm_kernel_info(struct acrn_vm *vm, const struct multiboot_mo
+ static char mod_cmdline[PRE_VM_NUM + SOS_VM_NUM][MAX_BOOTARGS_SIZE] = { '\0' };
+ 
+ /**
+- * @pre vm != NULL && mbi != NULL
++ * @pre vm != NULL
+  */
+-static void init_vm_bootargs_info(struct acrn_vm *vm, const struct acrn_multiboot_info *mbi)
++static void init_vm_bootargs_info(struct acrn_vm *vm)
+ {
+ 	struct acrn_vm_config *vm_config = get_vm_config(vm->vm_id);
+ 	char *bootargs = vm_config->os_config.bootargs;
+@@ -221,14 +221,6 @@ static void init_vm_bootargs_info(struct acrn_vm *vm, const struct acrn_multiboo
+ 					seed_args, (MAX_BOOTARGS_SIZE - 1U)) != 0) {
+ 				pr_err("failed to fill seed arg to SOS bootargs!");
+ 			}
+-
+-			/* If there is cmdline from mbi->mi_cmdline, merge it with configured SOS bootargs. */
+-			if (((mbi->mi_flags & MULTIBOOT_INFO_HAS_CMDLINE) != 0U) && (*(mbi->mi_cmdline) != '\0')) {
+-				if (strncat_s((char *)vm->sw.bootargs_info.src_addr, MAX_BOOTARGS_SIZE,
+-						mbi->mi_cmdline, (MAX_BOOTARGS_SIZE - 1U)) != 0) {
+-					pr_err("failed to merge mbi cmdline to SOS bootargs!");
+-				}
+-			}
+ 		} else {
+ 			pr_err("no space to append SOS bootargs!");
+ 		}
+@@ -309,7 +301,7 @@ static int32_t init_vm_sw_load(struct acrn_vm *vm, const struct acrn_multiboot_i
+ 	if (ret == 0) {
+ 		/* Currently VM bootargs only support Linux kernel bzImage format */
+ 		if (vm->sw.kernel_type == KERNEL_BZIMAGE) {
+-			init_vm_bootargs_info(vm, mbi);
++			init_vm_bootargs_info(vm);
+ 		}
+ 		/* check whether there is a ramdisk module */
+ 		mod = get_mod_by_tag(mbi, vm_config->os_config.ramdisk_mod_tag);
