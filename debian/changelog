@@ -1,0 +1,703 @@
+acrn-hypervisor (2.4+unstable2+g85f4d798-1) unstable; urgency=medium
+
+  [ David B. Kinder ]
+  * doc: test for simple xsd edit
+
+  [ Peter Fang ]
+  * doc: add documentation for graceful system shutdown
+
+  [ fuzhongl ]
+  * Doc: Update GSG and Build ACRN from Source for v2.3
+
+  [ Yonghua Huang ]
+  * doc: Setup secureboot with GRUB
+
+  [ Shuang Zheng ]
+  * doc: update the doc to setup openstack with ACRN
+
+  [ David B. Kinder ]
+  * doc: update v2.3 release notes
+
+  [ fuzhongl ]
+  * Doc: release_notes_2.3 update
+
+  [ David B. Kinder ]
+  * doc: release notes tweaks for v2.3
+  * doc: update doc version selector for v2.3
+  * doc: tweak to 2.3 release notes
+
+  [ Shuang Zheng ]
+  * acrn-config: enable tpm for hybird_rt on ehl
+  * acrn-config: update tpm config source code for hybrid_rt on ehl
+
+  [ Shixiong Zhang ]
+  * acrn-config: modify the cmd args in pre-launched rt xml
+
+  [ Yonghua Huang ]
+  * doc: update HLD of HV-Land Ivshmem
+  * doc: update acrn secureboot enablement
+  * hv: rename hypercall for hv-emulated device management
+  * dm: rename ioctl command for hv-emulated management
+
+  [ Shuang Zheng ]
+  * acrn-config: update function for xml.etree.ElementTree to compatible with python3.9
+
+  [ David B. Kinder ]
+  * doc: add ROScube GSG
+
+  [ Geoffroy Van Cutsem ]
+  * doc: small updates to the GSG
+
+  [ ChenYing Kuo ]
+  * Small updates to ROScube-I Installation Guide
+
+  [ Geoffroy Van Cutsem ]
+  * Revert "hv: fix formatting for cfg.log output"
+  * hv: set SHELL in top-level Makefile
+
+  [ Yang,Yu-chu ]
+  * acrn-config: fix the logic of get_vuart1_vmid
+
+  [ Steve Winslow ]
+  * doc: add ACRN lockup logo to README
+
+  [ David B. Kinder ]
+  * doc: automate copyright year footer
+
+  [ Minggui Cao ]
+  * misc: add more boot arguments for EHL preempt-rt
+
+  [ Yonghua Huang ]
+  * hv: refine virtualization flow for cr0 and cr4
+  * hv: check the availability of guest CR4 features
+  * ovmf: update OVMF.fd
+
+  [ Shuang Zheng ]
+  * acrn-config: add cfl-k700-i7 into tpm supported boards
+
+  [ David B. Kinder ]
+  * doc: update LICENSE copyright years
+  * doc: tweak to copyright footer
+
+  [ Geoffroy Van Cutsem ]
+  * doc: specify the version of 'sphinx-tabs' to install
+
+  [ fuzhongl ]
+  * Doc: update WaaG image creation with GVT-d GOP
+
+  [ Geoffroy Van Cutsem ]
+  * doc: fix 'cp' command in instructions
+
+  [ Yonghua Huang ]
+  * doc: remove exec attribute for 'acrn-secure-boot-with-grub.rst'
+
+  [ David B. Kinder ]
+  * doc: remove stray x attrib on png and rst files
+
+  [ Shuang Zheng ]
+  * acrn-config: config the entry number of vcpu_clos same as that of pcpu_id
+
+  [ fuzhongl ]
+  * Doc: update Debian and Ubuntu as the User VM
+
+  [ David B. Kinder ]
+  * doc: fix formatting in windows as UOS doc
+  * doc: spelling fixes
+
+  [ Jie Deng ]
+  * hv: Add split-lock emulation for LOCK prefix instruction
+  * hv: Add split-lock emulation for xchg
+  * hv: Retain RIP only for fault exception.
+
+  [ David B. Kinder ]
+  * doc: prep for upgrading doc build tools
+  * doc: upgrade doc-build tools
+
+  [ Geoffroy Van Cutsem ]
+  * doc: fix typo in docbuild.rst
+
+  [ Tao Yuhong ]
+  * Fix: HV: VM OS failed to assign new address to pci-vuart BARs
+
+  [ Victor Sun ]
+  * DM: samples: Enable VxWorks as normal VM by default
+
+  [ Jie Deng ]
+  * dm: virtio-gpio: avoid flood messages in virtio_irq_evt_notify
+
+  [ Li Fei1 ]
+  * hv: vcpuid: expose mce feature to guest
+
+  [ Jie Deng ]
+  * hv: Support concurrent split-lock emulation on SMP.
+  * hv: split-lock: using MTF instead of TF(#DB)
+  * hv: add a cache register for VMX_PROC_VM_EXEC_CONTROLS
+  * hv: move split-lock logic into dedicated file
+
+  [ Yin Fengwei ]
+  * hv: ptirq: Shouldn't change sid if intx irq mapping was added
+
+  [ Jie Deng ]
+  * hv: remove bitmap_clear_lock of split-lock after completing emulation
+
+  [ Tao Yuhong ]
+  * Fix: HV: keep reshuffling on VBARs
+
+  [ Junjie Mao ]
+  * acrn-config: add a script to generate config sources from XMLs
+  * acrn-config: add static allocators to rewrite scenario XMLs
+  * acrn-config: add XSLT scripts to transform XMLs to config.[h|mk]
+  * Makefile: generate C configuration files at build time
+  * Makefile: create and apply patches to generated sources
+  * Makefile: remove rules related to Kconfig and TARGET_DIR
+
+  [ David B. Kinder ]
+  * doc: update doc build instructions
+
+  [ Yang,Yu-chu ]
+  * acrn-config: reserve hostbirdge bdf of pre-launched vm
+
+  [ Xie, nanlin ]
+  * tools: rename and category content into debug tools and services
+  * acrn-config: Reorg config tool folder
+
+  [ Liang Yi ]
+  * hv: modularization: move multiboot files to dedicate sub-directory
+  * hv: modularization: multiboot private header
+  * hv: modularization: cleanup boot.h
+  * hv: modularization: hide "struct multiboot_info"
+  * hv: modularization: remove get_rsdp_ptr() from multboot API.
+  * hv: modularization: make parse_hv_cmdline() an internal function.
+  * hv: modularization: multiboot
+  * hv: modularization: change of multiboot API.
+  * hv: modularization: remove multiboot dependency on e820.h.
+  * hv: modularization: avoid dependency of multiboot on zeropage.h.
+  * hv: modularization: remove include/boot.h.
+  * hv: modularization: remove global variable efiloader_sig.
+
+  [ Junjie Mao ]
+  * config_tools/acpiparser: port the ACPI module from BITS
+  * config_tools/target: generate Software SRAM related info
+
+  [ Geoffroy Van Cutsem ]
+  * doc: use 'apt' to install GCC for Windows
+
+  [ Junjie Mao ]
+  * Makefile: fix build issues due to reorg of misc/
+
+  [ Geoffroy Van Cutsem ]
+  * tools: remove libtelemetry code from crashlog
+
+  [ Yonghua Huang ]
+  * dm: cleanup legacy terminologies in RTCM module
+  * dm: add function to get VM-config information
+  * dm: build vRTCT of Software SRAM for Post-launch RTVM
+  * dm: relocate memory slot for SW SRAM region
+  * hv: rename RTCM source files
+  * hv: cleanup legacy terminologies in RTCM module
+  * hv: remove hardcoding of SW SRAM HPA base
+  * hv: refine RTCM initialization code
+
+  [ Geoffroy Van Cutsem ]
+  * Makefile: make internal comment in doc Makefile silent
+
+  [ Shuang Zheng ]
+  * acrn-config: update config folders used in config app
+  * acrn-config: add fusa_partition scenario on ehl-crb-b board
+
+  [ Xie, nanlin ]
+  * Update the CODEOWNERS information.
+
+  [ Yonghua Huang ]
+  * dm: refine comment on 'struct acrn_vm_config'
+
+  [ Xie, nanlin ]
+  * acrn-config: Rename acpi generated asl folder name from VMx to ACPI_VMx
+
+  [ Yonghua Huang ]
+  * hv: remove the hardcoding of Software SRAM GPA base
+
+  [ David B. Kinder ]
+  * doc: fix misspelling in hv-dev-passthrough
+
+  [ Yang, Yu-chu ]
+  * config_tools: add XML schema for the scenario XML
+  * doc: integrate config xsl transform into doc build
+
+  [ Yang,Yu-chu ]
+  * config-tool: add elements descriptions to schema
+
+  [ Geoffroy Van Cutsem ]
+  * dm: fix compilation issue with gcc10
+
+  [ David B. Kinder ]
+  * doc: update CODEOWNERS for tech docs
+
+  [ Junjie Mao ]
+  * config_tools/data: remove descriptions from scenario XML files
+  * config_tools/data: fix typos in scenario XML files
+
+  [ Yang,Yu-chu ]
+  * config-tools: validate the scenario against schema
+
+  [ Xie, nanlin ]
+  * acrn-config: Update generated configuration source code
+
+  [ Li Fei1 ]
+  * hv: hypercall: prevent sos can touch hv/pre-launched VM resource
+
+  [ Shuang Zheng ]
+  * config_tools: scenario setting UI with xsd schema config
+  * config_tools: update config app when creating new scenarios according to folder reorg
+
+  [ Yang,Yu-chu ]
+  * config-tools: check vmsix enablement for ehl-crb-b
+
+  [ Shuo A Liu ]
+  * hv: keylocker: Add CR4 bit CR4_KL as CR4_TRAP_AND_PASSTHRU_BITS
+  * hv: keylocker: Simulate CPUID of keylocker caps for guest VM
+  * hv: keylocker: Enable the tertiary VM-execution controls
+  * hv: keylocker: Support Key Locker feature for guest VM
+  * hv: keylocker: host keylocker iwkey context switch
+  * hv: keylocker: Support keylocker backup MSRs for Guest VM
+
+  [ Tao Yuhong ]
+  * vm_config: pre-launched VM must have higher severity than SOS
+  * HV: deny pre-launched VM ptdev bar access from SOS
+  * HV: deny HV owned PCI bar access from SOS
+
+  [ Shuang Zheng ]
+  * config_tools: add SW SRAM config
+
+  [ David B. Kinder ]
+  * doc: remove Kconfig reference documentation
+  * doc: cleanup xsd-derived config doc text
+
+  [ Geoffroy Van Cutsem ]
+  * doc: remove obsolete GVT-g kernel parameters
+
+  [ Yonghua Huang ]
+  * dm: resize the vm_config buffer in 'vm_get_config()'
+
+  [ Liu Long ]
+  * DM: xHCI: Fix the USB3.2 device recognition problem.
+
+  [ Yang,Yu-chu ]
+  * config-tools: add validate_scenario_schema
+
+  [ Shuang Zheng ]
+  * config_tools: is_tpm_passthru is checked by scenario config
+
+  [ Jian Jun Chen ]
+  * doc: add script to build acrn ovmf with GOP driver
+
+  [ David B. Kinder ]
+  * doc: update debian ISO image version number
+  * doc: fix layout of dm-params
+  * doc: update title and headings for doc build
+
+  [ Jian Jun Chen ]
+  * dm: align bar base addr to PAGE_SIZE at least
+  * hv: ivshmem: BAR0 size should be 256 Bytes
+
+  [ Victor Sun ]
+  * dm: declare Processors using the Device operator
+  * dm: remove _ADR object for PCI Device
+  * HV: init VM bootargs only for LaaG
+
+  [ Shuang Zheng ]
+  * config_tools: update condition for bootargs error check
+  * config_tools: update zephyr entry point address on ehl-crb-b
+  * config_tools: change generic folder to generic_board folder in config app
+
+  [ Peter Fang ]
+  * OVMF release v2.4
+
+  [ Helmut Buchsbaum ]
+  * debian: Update patches
+  * debian: Update gbp.conf
+  * debian: add DOCKER_BUILD_PARAMS
+  * debian: Follow build change to libxml2
+  * debian: BOARD_FILE/SCENARIO_FILE/TARGET_DIR are obsolete
+  * debian/rules: life-mngr is built with tools
+  * debian/rules: Adapt to new config location
+  * debian: Update acrn-tools.install
+  * debian/configs: Update scenarios
+  * debian: Add EHL-CRB configs
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 09 Feb 2021 16:03:15 +0100
+
+acrn-hypervisor (2.4+unstable1+ge6dc6dfe-1) unstable; urgency=medium
+
+  [ Liu Long ]
+  * dm: fix fault Injection into VirtIO console backend
+
+  [ Zide Chen ]
+  * efi-stub: remove efi-stub
+  * Makefile: remove FIRMWARE variable from Makefile
+  * hv: remove de-privilege boot mode support and remove vboot wrappers
+  * hv: remove unused de-privilege and vboot wrapper code
+  * hv: remove UEFI_OS_LOADER_NAME from Kconfig
+  * acrn-config: remove CONFIG_UEFI_OS_LOADER_NAME from python scripts
+  * acrn-config: remove UEFI_OS_LOADER_NAME from all configurations
+
+  [ Li Fei1 ]
+  * dm: fix typo error to pass through TPM device
+
+  [ Yonghua Huang ]
+  * hv: bugfix in function 'write_vmsix_cap_reg()'
+  * hv: move vmsix functions to pci_pt.c
+  * hv: refine pass-thru device specific vmsix function
+  * hv: add functions to initialize vmsix capability
+  * hv: add vmsix capability for hv-land ivshmem device
+  * hv: move function 'inject_msi_lapic_pt()' to vlapic.c
+  * hv: refine msi interrupt injection functions
+  * doc: update 'hv-virt-interrupt.rst'
+  * hv: enable doorbell for hv-land ivshmem device
+  * dm: confiure msix bar for hv-land ivshmem devices
+
+  [ Shiqing Gao ]
+  * doc: update coding guidelines
+
+  [ David B. Kinder ]
+  * doc: update doxygen configuration
+
+  [ Yang, Yu-chu ]
+  * acrn-config: Get vbar base and index for vmsix supported devices
+
+  [ Shuang Zheng ]
+  * acrn-config: update tgl board xml with tsn IFWI
+  * acrn-config: passthrough embeded tsn device for pre-launched RTVM
+
+  [ Zide Chen ]
+  * hv: don't need to save boot context
+
+  [ Peter Fang ]
+  * dm: correctly handle EAGAIN in pm_vuart when listening
+  * misc: life_mngr: use the entire read buffer for the SOS socket
+
+  [ Victor Sun ]
+  * acrn-config: minor change scenario xml for ehl
+
+  [ Jian Jun Chen ]
+  * hv: use pci_vdev_write_vbar instead of vdev_pt_write_vbar
+  * hv: add BAR GPA for vmsix over msi in pre-launched vm
+
+  [ David B. Kinder ]
+  * doc: fix doxygen 1.8.17 issues
+
+  [ Li Fei1 ]
+  * dm: e820: refine e820 layout
+
+  [ Peter Fang ]
+  * OVMF release v2.3
+
+  [ Shuang Zheng ]
+  * acrn-config: add PCI VUART config in scenario config UI
+  * acrn-config: add PCI VUART config in launch config UI
+  * acrn-config: add mutually exclusive logic for legacy vuart and PCI vuart on config UI
+  * acrn-config: add PSRAM config in xmls
+  * acrn-config: add PSRAM config in scenario setting
+  * acrn-config: integrate PTCT table for pre-launched RTVM
+  * acrn-config: get PTCT table from native environment
+
+  [ Yang,Yu-chu ]
+  * acrn-config: Add functionality to find unused vbar base
+
+  [ Yang, Yu-chu ]
+  * acrn-config: add functions to get pci count per vm
+  * acrn-config: refactor pci_dev_c.py and insert vuart device information
+  * acrn-config: fix logical of vm total pci devices count
+  * acrn-config: add sos pci_dev_num and pci_devs to vm_configurations.c
+
+  [ Yang,Yu-chu ]
+  * acrn-config: generate SOS ivshmem device information
+  * acrn-config: add vbar[1] to SOS and pre-launched VM
+  * acrn-config: fix the shmem vbar2 with prefechtable bit
+  * acrn-config: find unused vbar base from start to end
+
+  [ Liang Yi ]
+  * acrn-config: minor change scenario xml for cfl-k700-i7
+
+  [ Yang,Yu-chu ]
+  * acrn-config: fix the bug of resolved nested mmio address
+
+  [ Tao Yuhong ]
+  * HV: vuart: refine vuart read/write
+  * HV: decouple legacy vuart interface from acrn_vuart layer
+  * HV: pci-vuart: pci based vuart emulation
+  * HV: vuart: send msi for pci vuart type
+  * dm: pci uart support create vuart-pci at HV land
+  * HV: pci-vuart support create vdev hcall
+
+  [ Mingqiang Chi ]
+  * cleanup vpci structure when shutdown_vm
+
+  [ Shixiong Zhang ]
+  * acrn-config: fix the wrong vuart name in launch script
+
+  [ David B. Kinder ]
+  * doc: doc spelling and grammer fixing
+
+  [ Shiqing Gao ]
+  * doc: update coding guidelines
+
+  [ David B. Kinder ]
+  * doc: more prep for upgrading doc build tools
+
+  [ Yang, Yu-chu ]
+  * acrn-config: find unused vbar base for pci vuarts
+  * acrn-config: add functions to get pci vuarts information from xml
+  * acrn-config: insert vuart device information to pci_dev.c
+  * acrn-config: rename vuart to legacy vuart in xmls
+  * acrn-config: add legacy vuart parser in common library
+  * acrn-config: add pci vuart number to total pci devices number
+  * acrn-config: add pci vuart to launch script
+  * acrn-config: pci vuart sanity check for scenario xmls
+  * acrn-config: Add console and communication vuarts to launch xmls
+  * acrn-config: add console and communication vuarts to scenario xmls
+  * acrn-config: Add console and communication vuarts to template and generic
+  * acrn-config: remove readonly="0" from legacy_vuart in all scenario xmls
+
+  [ Yang,Yu-chu ]
+  * acrn-config: remove legacy vuart declaration
+
+  [ Qian Wang ]
+  * hv: vcr: remove wbinvd for CR0.CD emulation
+
+  [ Li Fei1 ]
+  * hv: pSRAM: add pSRAM initialization codes
+  * hv: pSRAM: add PTCT parsing code
+  * hv: pSRAM: temporarily remove NX bit of PTCM binary
+  * hv: mmu: rename hv_access_memory_region_update to ppt_clear_user_bit
+
+  [ Qian Wang ]
+  * hv: skip pSRAM for guest WBINVD emulation
+  * DM: add vPTCT for post-launched RTVM
+  * DM: modify vE820 to adapt to pSRAM
+  * hv: ept: set EPT cache attribute to WB for pSRAM
+  * DM: add command line parameter for pSRAM
+  * hv: pSRAM: add pSRAM support for pre-launched RTVM
+
+  [ Li Fei1 ]
+  * hv: psram: add kconfig to enable psram
+
+  [ David B. Kinder ]
+  * doc: bring back prev/next buttons
+
+  [ fuzhongl ]
+  * Doc: Update Debian as Service Vm
+
+  [ David B. Kinder ]
+  * doc: improve GSG navigation
+
+  [ Peter Fang ]
+  * hv: pm: support shutting down multiple VMs when pCPUs are shared
+  * hv: console: switch back to HV shell on VM pause
+
+  [ dongshen ]
+  * acrn-config: specify valid ACPI reset register address and value in FADT table
+  * acrn-config: build a hardware-reduced only ACPI
+  * acrn-config: specify kernel boot argument 'reboot=acpi' for pre-launched VMs
+  * hv: fix out-of-date comments related to pre-launched VMs rebooting
+  * hv: add support for shutdown for pre-launched VMs
+
+  [ Shuang Zheng ]
+  * acrn-config: remove PSRAM_PASSTHROUGH_PRE_RTVM and disable PSRAM config
+
+  [ Liu Long ]
+  * ACRN:DM:xHCI Fix the unsigned integer conversion bug
+
+  [ Yang,Yu-chu ]
+  * acrn-config: removed_nested returns None instead return Error
+
+  [ Sun Peng ]
+  * DM: gvt: Identical mapping for GPU DSM
+
+  [ David B. Kinder ]
+  * doc: add sphinx-generated index to leftnav
+  * doc: add extension to create files and raw links
+
+  [ Tomas Winkler ]
+  * dm: virtio: check for paddr_guest2host return value
+
+  [ Peter Fang ]
+  * hv: remove vm_lock in hcall_destroy_vm()
+
+  [ Yang,Yu-chu ]
+  * acrn-config: insert legacy vuart0 base by its enablement status
+  * acrn-config: insert vbdf in hex format and vuart vbdf logic
+
+  [ Yonghua Huang ]
+  * doc: update ivshmem feature HLD
+
+  [ Peter Fang ]
+  * dm: support OVMF split images
+  * doc: add an example for OVMF split images
+
+  [ Tao Yuhong ]
+  * TGL: Fix sos can't boot with 6 pci-vuarts
+
+  [ Peter Fang ]
+  * hv: pm: avoid duplicate shutdowns on RTVM
+
+  [ Yonghua Huang ]
+  * hv: bugfix for hv-emulated device de-init
+
+  [ Geoffroy Van Cutsem ]
+  * dm: update acrn-dm built-in list and description of args
+
+  [ Tomas Winkler ]
+  * dm: mei: vmei_proc_tx check buffer length before accessing the memory
+
+  [ Liu Long ]
+  * DM: Add the return value check in case cause Null pointer exception
+
+  [ fuzhongl ]
+  * Doc: update document to remove CL Service VM dependency
+
+  [ David B. Kinder ]
+  * doc: fix breathe config for C vs CPP
+
+  [ Yang,Yu-chu ]
+  * doc: update the steps of enable ivshmem
+
+  [ Geoffroy Van Cutsem ]
+  * doc: correct 'gvtg' parameters for acrn-dm
+  * doc: correct typo (missing space)
+
+  [ Yonghua Huang ]
+  * hv: fix nr_bars for hv-land ivshmem devices
+
+  [ Yang Yu-chu ]
+  * acrn-config: update default pci_dev.c
+
+  [ Yang,Yu-chu ]
+  * acrn-config:refine the ivshmem for pre-launched vm
+
+  [ Junming Liu ]
+  * hv: vmexit: refine xsetbv_vmexit_handler API
+  * hv: refine code style
+
+  [ Peter Fang ]
+  * misc: life_mngr: prevent log flooding after SOS socket is closed
+  * misc: add the s5_trigger.sh script
+
+  [ Jie Deng ]
+  * dm: virtio_console: read only when the virtqueue is ready.
+
+  [ Shiqing Gao ]
+  * hv: coding style clean-up related to Boolean
+
+  [ Geoffroy Van Cutsem ]
+  * misc: adjust code for gcc-10
+
+  [ David B. Kinder ]
+  * doc: add v2.3 release notes draft
+
+  [ wenlingz ]
+  * version:2.4-unstable
+
+  [ Yang,Yu-chu ]
+  * doc: update configuration tool description of vuarts
+
+  [ Tao Yuhong ]
+  * Doc: pci-vuart-guide
+
+  [ Yonghua Huang ]
+  * doc: update 'asa.rst' for 2.3 release
+  * doc: update 'enable_ivshmem'
+
+  [ David B. Kinder ]
+  * doc: doc cleanup for v2.3 release
+
+  [ Geoffroy Van Cutsem ]
+  * hv: fix formatting for cfg.log output
+
+  [ Yang,Yu-chu ]
+  * acrn-config: remove hardcoded device in launch script
+
+  [ Helmut Buchsbaum ]
+  * debian: update patches
+  * debian: update debian/gbp.conf
+  * debian/configs: Adapt uart settings globally
+  * debian/configs: kontron-COMe-mAL10/industry2: enable RT vm communication
+  * debian: adapt to: Makefile: remove FIRMWARE variable from Makefile
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Wed, 02 Dec 2020 11:39:05 +0100
+
+acrn-hypervisor (2.3+unstable3+gabcfc1c0-1) unstable; urgency=medium
+
+  [ Shixiong Zhang ]
+  * acrn-config: modify the get_scenario_uuid function to use the right vmid
+  * acrn-config: Provide post launch xml for hybrid scenario
+  * acrn-config: Add Px / Cx state info for tgl-rvp
+
+  [ Victor Sun ]
+  * acrn-config: add cfl-k700-i7 hybrid_rt xmls
+  * HV: add config code for cfl-k700-i7 board
+
+  [ Shuang Zheng ]
+  * acrn-config: increase hv ram size for 7 VMs
+
+  [ dongshen ]
+  * acrn-config: fix hang issue for board EHL (hybrid_rt)
+
+  [ Shuang Zheng ]
+  * acrn-config: assign 2 CPUs for WaaG and add 1 YaaG on hybrid_rt
+  * hv: update hybrid_rt with 2 post-launched VMs in Kconfig
+  * acrn-config: update vm configurations for hybrid_rt
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Fri, 16 Oct 2020 09:26:23 +0200
+
+acrn-hypervisor (2.3+unstable2+g5289a3eb-2) unstable; urgency=medium
+
+  * debian: fix spelling errors in patch descriptions
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 05 Oct 2020 18:24:42 +0200
+
+acrn-hypervisor (2.3+unstable2+g5289a3eb-1) unstable; urgency=medium
+
+  [ David B. Kinder ]
+  * doc: tweak 2.2 release notes
+  * doc: update breadcrumb to include release version
+  * doc: spelling and grammar improvements
+  * doc: more spelling and grammar fixes
+
+  [ Helmut Buchsbaum ]
+  * debian: remove old binaries on upgrade
+  * change version pattern to
+    <future ACRN version>+unstable<count>+g<upstream commit>-<Debian version>
+    to be able to increase the SW verion by <count> and the respective
+    package version separately
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 05 Oct 2020 14:24:35 +0200
+
+acrn-hypervisor (2.3-unstable-1-gead32163) unstable; urgency=medium
+
+  * update to master branch just at start of version 2.3
+  * change version pattern to
+    <future ACRN version>-unstable-<count>-g<upstream commit>
+  * debian: apdapt to latest debian changes on debian/2.0 branch
+  * debian: update patches
+  * debian/config: adapt scenario configs
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Thu, 01 Oct 2020 20:28:41 +0200
+
+acrn-hypervisor (1.6.1-2) unstable; urgency=medium
+
+  * debian: add lifemngr-split-linux-and-windows-build patch
+  * debian/rules: only build linux part for life-mngr
+  * debian: acrn-doc: refer to ACRN web page only
+  * debian/control: remove acrn-doc related build dependencies
+  * debian: Dockerfile: remove acrn-doc related build dependencies
+  * debian: fix acrn-hypervisor.postinst
+  * debian: add missing postinst/postrm for grub-acrn
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Tue, 26 May 2020 18:52:09 +0200
+
+acrn-hypervisor (1.6.1-1) unstable; urgency=medium
+
+  * Initial release.
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Mon, 18 May 2020 16:52:59 +0200
