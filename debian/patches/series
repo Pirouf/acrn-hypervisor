@@ -19,3 +19,4 @@
 0019-devicemodel-fix-invalid-name-for-disk-log.patch
 0020-acrn-config-remove-dependencies-on-HV-console.patch
 0021-hv-vm_load-Do-not-add-hugepage-if-not-supported.patch
+0022-hv-init_vm_bootargs_info-Do-not-merge-HV-commandline.patch
