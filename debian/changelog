@@ -1,3 +1,9 @@
+acrn-hypervisor (2.4+unstable2+g85f4d798-2) unstable; urgency=medium
+
+  * debian/patches: Add 0022-hv-init_vm_bootargs_info-Do-not-merge-HV-commandline.patch
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Fri, 12 Feb 2021 10:35:34 +0100
+
 acrn-hypervisor (2.4+unstable2+g85f4d798-1) unstable; urgency=medium
 
   [ David B. Kinder ]
