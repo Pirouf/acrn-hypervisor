@@ -1,3 +1,9 @@
+acrn-hypervisor (2.0+35+g54b8d4b4-4) buster; urgency=medium
+
+  * debian/patches: fix 0010-hv-add-vm_console-command-line-parameter for RELEASE build
+
+ -- Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>  Wed, 19 May 2021 17:39:39 +0200
+
 acrn-hypervisor (2.0+35+g54b8d4b4-3) buster; urgency=medium
 
   * debian: fix spelling errors in patch descriptions
