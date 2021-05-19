@@ -1,6 +1,6 @@
 From: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 Date: Wed, 16 Sep 2020 12:12:50 +0200
-Subject: hv: add vm_console command line parameter
+Subject: hv: add vm_console command line parameter for debug build
 
 To be able to debug the startup of a VM (e.g. the SOS), provide the
 commandline parameter 'vm_console' to automatically switch the console
@@ -12,14 +12,14 @@ the VM is started.
 
 Signed-off-by: Helmut Buchsbaum <helmut.buchsbaum@opensource.tttech-industrial.com>
 ---
- hypervisor/arch/x86/guest/vm.c   |  2 ++
- hypervisor/boot/cmdline.c        | 16 +++++++++++++---
+ hypervisor/arch/x86/guest/vm.c   |  4 ++++
+ hypervisor/boot/cmdline.c        | 18 +++++++++++++++---
  hypervisor/debug/shell.c         | 36 ++++++++++++++++++++++++++++++------
  hypervisor/include/debug/shell.h |  4 ++++
- 4 files changed, 49 insertions(+), 9 deletions(-)
+ 4 files changed, 53 insertions(+), 9 deletions(-)
 
 diff --git a/hypervisor/arch/x86/guest/vm.c b/hypervisor/arch/x86/guest/vm.c
-index 1a3f6f5..f111308 100644
+index 1a3f6f5..aa2f712 100644
 --- a/hypervisor/arch/x86/guest/vm.c
 +++ b/hypervisor/arch/x86/guest/vm.c
 @@ -32,6 +32,7 @@
@@ -30,19 +30,21 @@ index 1a3f6f5..f111308 100644
  
  vm_sw_loader_t vm_sw_loader;
  
-@@ -757,6 +758,7 @@ void prepare_vm(uint16_t vm_id, struct acrn_vm_config *vm_config)
+@@ -757,6 +758,9 @@ void prepare_vm(uint16_t vm_id, struct acrn_vm_config *vm_config)
  		start_vm(vm);
  
  		pr_acrnlog("Start VM id: %x name: %s", vm_id, vm_config->name);
++#ifndef CONFIG_RELEASE
 +		(void)switch_vm_console(vm_id);
++#endif
  	}
  }
  
 diff --git a/hypervisor/boot/cmdline.c b/hypervisor/boot/cmdline.c
-index 72bed57..edb4886 100644
+index 72bed57..a573a9b 100644
 --- a/hypervisor/boot/cmdline.c
 +++ b/hypervisor/boot/cmdline.c
-@@ -9,6 +9,13 @@
+@@ -9,6 +9,15 @@
  #include <boot.h>
  #include <pgtable.h>
  #include <dbg_cmd.h>
@@ -51,12 +53,14 @@ index 72bed57..edb4886 100644
 +/* hypervisor command parameters are handler here */
 +static bool (*cmd_handler[])(const char *cmd, int32_t len) = {
 +	handle_dbg_cmd,
++#ifndef CONFIG_RELEASE
 +	handle_console_cmd,
++#endif
 +};
  
  void parse_hv_cmdline(void)
  {
-@@ -23,15 +30,18 @@ void parse_hv_cmdline(void)
+@@ -23,15 +32,18 @@ void parse_hv_cmdline(void)
  		while ((*start) == ' ')
  			start++;
  		if ((*start) != '\0') {
